@@ -12,6 +12,17 @@ const getApiKey = (): string => {
 };
 
 /**
+ * Helper to log and diagnose API request issues
+ */
+const logApiDiagnostics = (label: string, apiKey: string, error?: Error) => {
+  const keyPreview = apiKey ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 5)}` : 'MISSING';
+  console.log(`[DeepSeek ${label}] API Key: ${keyPreview}, URL: ${DEEPSEEK_API_URL}`);
+  if (error) {
+    console.error(`[DeepSeek ${label}] Error:`, error.message, error);
+  }
+};
+
+/**
  * Helper to clean up DeepSeek's output which often includes Markdown code blocks
  * or conversational text around the JSON.
  */
@@ -35,7 +46,10 @@ const cleanJsonOutput = (text: string): string => {
 
 export const generatePrimaryKeywordsDeepSeek = async (topic: string): Promise<string[]> => {
   const apiKey = getApiKey();
-  if (!apiKey) throw new Error("DeepSeek API Key is missing.");
+  if (!apiKey) {
+    console.warn('[DeepSeek] No API key found for generatePrimaryKeywords');
+    throw new Error("DeepSeek API Key is missing. Please add your API key in Settings.");
+  }
 
   const payload = {
     model: "deepseek-chat",
@@ -54,6 +68,8 @@ export const generatePrimaryKeywordsDeepSeek = async (topic: string): Promise<st
   };
 
   try {
+    logApiDiagnostics('generatePrimaryKeywords', apiKey);
+    
     const response = await fetch(DEEPSEEK_API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
@@ -62,6 +78,8 @@ export const generatePrimaryKeywordsDeepSeek = async (topic: string): Promise<st
 
     if (!response.ok) {
        const errorData = await response.json().catch(() => ({}));
+       logApiDiagnostics('generatePrimaryKeywords (HTTP Error)', apiKey);
+       console.error(`[DeepSeek] HTTP ${response.status}:`, errorData);
        throw new Error(`DeepSeek API Error (${response.status}): ${errorData.error?.message || response.statusText}`);
     }
 
@@ -78,8 +96,9 @@ export const generatePrimaryKeywordsDeepSeek = async (topic: string): Promise<st
     }
   } catch (error: any) {
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.error('DeepSeek fetch error (keywords):', error);
-      throw new Error('DeepSeek API connection failed. Check your internet and API key.');
+      logApiDiagnostics('generatePrimaryKeywords (Network Error)', apiKey, error);
+      console.error('[DeepSeek] Network error:', error);
+      throw new Error(`DeepSeek connection failed: Check internet & API key`);
     }
     console.error("DeepSeek keyword generation error:", error);
     throw error;
@@ -88,7 +107,10 @@ export const generatePrimaryKeywordsDeepSeek = async (topic: string): Promise<st
 
 export const generateNLPKeywordsDeepSeek = async (topic: string): Promise<string[]> => {
   const apiKey = getApiKey();
-  if (!apiKey) throw new Error("DeepSeek API Key is missing.");
+  if (!apiKey) {
+    console.warn('[DeepSeek] No API key found for generateNLPKeywords');
+    throw new Error("DeepSeek API Key is missing. Please add your API key in Settings.");
+  }
 
   const payload = {
     model: "deepseek-chat",
@@ -107,6 +129,8 @@ export const generateNLPKeywordsDeepSeek = async (topic: string): Promise<string
   };
 
   try {
+    logApiDiagnostics('generateNLPKeywords', apiKey);
+    
     const response = await fetch(DEEPSEEK_API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
@@ -115,6 +139,8 @@ export const generateNLPKeywordsDeepSeek = async (topic: string): Promise<string
     
     if (!response.ok) {
        const errorData = await response.json().catch(() => ({}));
+       logApiDiagnostics('generateNLPKeywords (HTTP Error)', apiKey);
+       console.error(`[DeepSeek] HTTP ${response.status}:`, errorData);
        throw new Error(`DeepSeek API Error (${response.status}): ${errorData.error?.message || response.statusText}`);
     }
 
@@ -131,8 +157,9 @@ export const generateNLPKeywordsDeepSeek = async (topic: string): Promise<string
     }
   } catch (error: any) {
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      console.error('DeepSeek fetch error (NLP keywords):', error);
-      throw new Error('DeepSeek API connection failed. Check your internet and API key.');
+      logApiDiagnostics('generateNLPKeywords (Network Error)', apiKey, error);
+      console.error('[DeepSeek] Network error:', error);
+      throw new Error(`DeepSeek connection failed: Check internet & API key`);
     }
     console.error("DeepSeek NLP keyword generation error:", error);
     throw error;
@@ -323,6 +350,8 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
     };
 
     try {
+      logApiDiagnostics('generateArticle', apiKey);
+      
       const response = await fetch(DEEPSEEK_API_URL, {
         method: "POST",
         headers: {
@@ -337,8 +366,16 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
         const err = await response.json().catch(() => ({}));
         const errorMessage = err.error?.message || response.statusText;
         
+        logApiDiagnostics('generateArticle (HTTP Error)', apiKey);
+        console.error(`[DeepSeek] HTTP ${response.status}: ${errorMessage}`);
+        console.error(`[DeepSeek] Full error response:`, err);
+        
         if (errorMessage.includes("balance") || errorMessage.includes("payment")) {
            throw new Error(`DeepSeek API Payment Error: ${errorMessage}. Please check your balance at deepseek.com.`);
+        }
+        
+        if (response.status === 401 || errorMessage.includes("unauthorized") || errorMessage.includes("invalid")) {
+          throw new Error(`DeepSeek API Authentication Failed: Your API key may be invalid. Visit https://platform.deepseek.com/api/keys to verify.`);
         }
         
         throw new Error(`DeepSeek API Error (${response.status}): ${errorMessage}`);
@@ -350,9 +387,11 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       return { content, sources };
     } catch (error: any) {
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.error('DeepSeek fetch error - likely network or CORS issue:', error);
-        throw new Error(`DeepSeek API connection failed: ${error.message}. Please check your internet connection and API key.`);
+        logApiDiagnostics('generateArticle (Network Error)', apiKey, error);
+        console.error('[DeepSeek] Full network error:', error);
+        throw new Error(`DeepSeek API connection failed: ${error.message}\n\nTroubleshooting:\n1. Check your internet connection\n2. Verify API key at https://platform.deepseek.com/api/keys\n3. Ensure your account has sufficient balance\n4. Try again in a few seconds`);
       }
+      logApiDiagnostics('generateArticle (Unexpected Error)', apiKey, error);
       throw error;
     }
 };
