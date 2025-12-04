@@ -396,13 +396,12 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               >
                 <Zap className={`w-5 h-5 mr-2 ${provider === AIProvider.GEMINI ? 'fill-blue-600 text-blue-600' : ''}`} />
                 Google Gemini
-                      <button
-                        type="button"
-                        onClick={() => handleScanLinks(false)}
-                        disabled={isScanningLinks || (mode === 'single' && !topic) || provider === AIProvider.DEEPSEEK}
-                        title={provider === AIProvider.DEEPSEEK ? 'Disabled: Web scanning is skipped when DeepSeek is selected' : undefined}
-                        className="w-full py-2 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                      >
+              </button>
+              <button
+                type="button"
+                onClick={() => setProvider(AIProvider.DEEPSEEK)}
+                className={`flex items-center justify-center py-3 px-4 rounded-lg border-2 transition-all ${
+                  provider === AIProvider.DEEPSEEK 
                     ? 'border-indigo-600 bg-indigo-50 text-indigo-700 font-bold' 
                     : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
                 }`}
@@ -722,14 +721,6 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                             className="py-1.5 px-3 bg-slate-100 text-slate-600 text-xs font-medium rounded hover:bg-slate-200 transition-colors"
                           >
                             <RefreshCw className={`w-3.5 h-3.5 ${isScanningLinks ? 'animate-spin' : ''}`} />
-                          <button
-                            type="button"
-                            onClick={handleScanExternalLinks}
-                            disabled={isScanningExternal || (mode === 'single' && !topic) || provider === AIProvider.DEEPSEEK}
-                            title={provider === AIProvider.DEEPSEEK ? 'Disabled: External link search is skipped when DeepSeek is selected' : undefined}
-                            className="w-full py-2 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                          >
-                            Clear
                           </button>
                         </div>
 
