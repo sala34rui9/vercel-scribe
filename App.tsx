@@ -165,54 +165,44 @@ const App: React.FC = () => {
 
               // --- AUTO-OPTIMIZATION PIPELINE (Per Article) ---
               if (config.autoOptimize) {
-                // 1. KEYWORD ANALYSIS
+                // 1. KEYWORD ANALYSIS - Always use Gemini (hybrid strategy)
+                // Gemini has real-time search capabilities that DeepSeek lacks
                 try {
-                  if (config.provider === AIProvider.DEEPSEEK) {
-                    // DeepSeek ONLY - Strict Isolation
-                    topicPrimaryKeywords = await generatePrimaryKeywordsDeepSeek(topic);
-                    topicNLPKeywords = await generateNLPKeywordsDeepSeek(topic);
-                  } else {
-                    // Gemini Only
-                    topicPrimaryKeywords = await generatePrimaryKeywords(topic);
-                    topicNLPKeywords = await generateNLPKeywords(topic);
-                  }
+                  topicPrimaryKeywords = await generatePrimaryKeywords(topic);
+                  topicNLPKeywords = await generateNLPKeywords(topic);
                 } catch (e) {
                   console.warn(`Keyword generation failed for ${topic}`, e);
                 }
 
-                // 2. LINK SCANNING
-                // CRITICAL FIX: Only run scanning if Provider is GEMINI.
-                // DeepSeek cannot scan, and trying to use Gemini (if scanning) triggers quota errors.
-                if (config.provider === AIProvider.GEMINI) {
+                // 2. LINK SCANNING - Always use Gemini (hybrid strategy)
+                // Gemini has web search grounding for finding real links
 
-                  // Internal Links
-                  if (config.websiteUrl) {
-                    try {
-                      const scanResult = await scanForInternalLinks(config.websiteUrl, topic, topicPrimaryKeywords, config.deepResearch);
-                      topicInternalLinks = scanResult.links.slice(0, 3);
-                    } catch (e) {
-                      console.warn(`Internal link scanning failed for ${topic}`, e);
-                    }
-                  }
-
-                  // External Links
-                  if (config.enableExternalLinks) {
-                    try {
-                      let domainToExclude = '';
-                      try {
-                        if (config.websiteUrl) {
-                          domainToExclude = new URL(config.websiteUrl).hostname;
-                        }
-                      } catch (e) { }
-
-                      const extLinks = await scanForExternalLinks(topic, domainToExclude);
-                      topicExternalLinks = extLinks.slice(0, 5);
-                    } catch (e) {
-                      console.warn(`External link scanning failed for ${topic}`, e);
-                    }
+                // Internal Links
+                if (config.websiteUrl) {
+                  try {
+                    const scanResult = await scanForInternalLinks(config.websiteUrl, topic, topicPrimaryKeywords, config.deepResearch);
+                    topicInternalLinks = scanResult.links.slice(0, 3);
+                  } catch (e) {
+                    console.warn(`Internal link scanning failed for ${topic}`, e);
                   }
                 }
-                // If DeepSeek, we skip scanning to guarantee 0 Gemini calls.
+
+                // External Links
+                if (config.enableExternalLinks) {
+                  try {
+                    let domainToExclude = '';
+                    try {
+                      if (config.websiteUrl) {
+                        domainToExclude = new URL(config.websiteUrl).hostname;
+                      }
+                    } catch (e) { }
+
+                    const extLinks = await scanForExternalLinks(topic, domainToExclude);
+                    topicExternalLinks = extLinks.slice(0, 5);
+                  } catch (e) {
+                    console.warn(`External link scanning failed for ${topic}`, e);
+                  }
+                }
               }
 
               // --- GENERATION PHASE ---

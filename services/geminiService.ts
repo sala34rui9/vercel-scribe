@@ -77,10 +77,7 @@ const generateContentWithRetry = async (model: string, params: any, retries = 3)
  * Identifies both single and multiple word keywords (short-tail and long-tail).
  */
 export const generatePrimaryKeywords = async (topic: string): Promise<string[]> => {
-  if (!isGeminiSelected()) {
-    console.warn("generatePrimaryKeywords: Gemini not selected — skipping Gemini API call.");
-    return [];
-  }
+  // Always use Gemini for keyword research (hybrid strategy)
   try {
     const response = await generateContentWithRetry("gemini-2.5-flash", {
       contents: `Act as a senior SEO Specialist. Analyze the article topic/heading: "${topic}". 
@@ -123,10 +120,7 @@ export const generatePrimaryKeywords = async (topic: string): Promise<string[]> 
  * Uses a faster model (Flash) for quick suggestions.
  */
 export const generateNLPKeywords = async (topic: string): Promise<string[]> => {
-  if (!isGeminiSelected()) {
-    console.warn("generateNLPKeywords: Gemini not selected — skipping Gemini API call.");
-    return [];
-  }
+  // Always use Gemini for NLP keyword research (hybrid strategy)
   try {
     const response = await generateContentWithRetry("gemini-2.5-flash", {
       contents: `Generate a list of 10-15 high-value NLP (Natural Language Processing) and LSI (Latent Semantic Indexing) keywords related to the topic: "${topic}". These should be semantically related terms that help search engines understand the context.`,
@@ -163,10 +157,7 @@ export const generateNLPKeywords = async (topic: string): Promise<string[]> => {
  * Used for deep research to prevent hallucinations.
  */
 export const fetchSiteArchitecture = async (domain: string): Promise<string[]> => {
-  if (!isGeminiSelected()) {
-    console.warn("fetchSiteArchitecture: Gemini not selected — skipping Gemini API call.");
-    return [];
-  }
+  // Always use Gemini for site architecture scan (hybrid strategy)
   const apiKey = getApiKey();
   if (!apiKey) return [];
 
@@ -218,10 +209,7 @@ export const fetchSiteArchitecture = async (domain: string): Promise<string[]> =
  * Supports deep research mode for broader scanning.
  */
 export const scanForInternalLinks = async (websiteUrl: string, topic: string, keywords: string[] = [], deepResearch = false): Promise<{ links: InternalLink[], opportunities: ContentOpportunity[] }> => {
-  if (!isGeminiSelected()) {
-    console.warn("scanForInternalLinks: Gemini not selected — skipping Gemini API call.");
-    return { links: [], opportunities: [] };
-  }
+  // Always use Gemini for internal link scanning (hybrid strategy)
   const apiKey = getApiKey();
   if (!apiKey) return { links: [], opportunities: [] };
 
@@ -347,10 +335,7 @@ export const scanForInternalLinks = async (websiteUrl: string, topic: string, ke
  * Uses gemini-2.5-flash for speed.
  */
 export const scanForExternalLinks = async (topic: string, excludeDomain?: string): Promise<ExternalLink[]> => {
-  if (!isGeminiSelected()) {
-    console.warn("scanForExternalLinks: Gemini not selected — skipping Gemini API call.");
-    return [];
-  }
+  // Always use Gemini for external link scanning (hybrid strategy)
   const apiKey = getApiKey();
   if (!apiKey) return [];
 
@@ -415,10 +400,7 @@ export const scanForExternalLinks = async (topic: string, excludeDomain?: string
  * Fetches real-time data and news using gemini-2.5-flash with Google Search grounding.
  */
 export const fetchRealTimeData = async (topic: string): Promise<{ content: string; sources: string[] }> => {
-  if (!isGeminiSelected()) {
-    console.warn("fetchRealTimeData: Gemini not selected — skipping Gemini API call.");
-    return { content: "", sources: [] };
-  }
+  // Always use Gemini for real-time data fetching (hybrid strategy)
   const apiKey = getApiKey();
   if (!apiKey) return { content: "", sources: [] };
 

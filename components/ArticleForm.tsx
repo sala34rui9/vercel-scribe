@@ -135,24 +135,16 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
     let keywords: string[] = [];
     try {
-      if (provider === AIProvider.DEEPSEEK) {
-        try {
-          keywords = await generatePrimaryKeywordsDeepSeek(topicToAnalyze);
-        } catch (e: any) {
-          alert(`DeepSeek Error: ${e.message || "Failed to generate keywords"}`);
-          setIsGeneratingPrimary(false);
-          return;
+      // Always use Gemini for keyword research (hybrid strategy)
+      // Gemini has real-time search capabilities that DeepSeek lacks
+      try {
+        keywords = await generatePrimaryKeywords(topicToAnalyze);
+        if (keywords.length === 0) {
+          alert("No keywords generated. Please check your Gemini API key in settings (key icon in header).");
         }
-      } else {
-        try {
-          keywords = await generatePrimaryKeywords(topicToAnalyze);
-          if (keywords.length === 0) {
-            alert("No keywords generated. Please check your Gemini API key in settings (key icon in header).");
-          }
-        } catch (e: any) {
-          console.warn("Gemini Primary Keyword generation failed", e);
-          alert(`Failed to analyze topic: ${e.message || "Please check your API key."}`);
-        }
+      } catch (e: any) {
+        console.warn("Gemini Primary Keyword generation failed", e);
+        alert(`Failed to analyze topic: ${e.message || "Please check your Gemini API key."}`);
       }
 
       if (keywords.length > 0) {
@@ -173,24 +165,16 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
     let keywords: string[] = [];
     try {
-      if (provider === AIProvider.DEEPSEEK) {
-        try {
-          keywords = await generateNLPKeywordsDeepSeek(topicToAnalyze);
-        } catch (e: any) {
-          alert(`DeepSeek Error: ${e.message || "Failed to generate keywords"}`);
-          setIsGeneratingKeywords(false);
-          return;
+      // Always use Gemini for NLP keyword research (hybrid strategy)
+      // Gemini has real-time search capabilities that DeepSeek lacks
+      try {
+        keywords = await generateNLPKeywords(topicToAnalyze);
+        if (keywords.length === 0) {
+          alert("No NLP keywords generated. Please check your Gemini API key in settings (key icon in header).");
         }
-      } else {
-        try {
-          keywords = await generateNLPKeywords(topicToAnalyze);
-          if (keywords.length === 0) {
-            alert("No NLP keywords generated. Please check your Gemini API key in settings (key icon in header).");
-          }
-        } catch (e: any) {
-          console.warn("Gemini NLP Keyword generation failed", e);
-          alert(`Failed to generate NLP keywords: ${e.message || "Please check your API key."}`);
-        }
+      } catch (e: any) {
+        console.warn("Gemini NLP Keyword generation failed", e);
+        alert(`Failed to generate NLP keywords: ${e.message || "Please check your Gemini API key."}`);
       }
 
       if (keywords.length > 0) {
