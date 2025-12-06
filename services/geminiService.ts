@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { ArticleConfig, InternalLink, ExternalLink, OpeningStyle, ReadabilityLevel, ContentOpportunity, TargetCountry, AIProvider } from "../types";
+import { ArticleConfig, InternalLink, ExternalLink, OpeningStyle, ReadabilityLevel, ContentOpportunity, TargetCountry, AIProvider, SearchProvider } from "../types";
 
 const LOCAL_STORAGE_KEY_KEY = 'user_gemini_api_key';
 
@@ -489,12 +489,23 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
     } = config;
 
     // --- REAL-TIME DATA FETCHING STEP ---
-    // If enabled, we first fetch latest data using gemini-2.5-flash as per requirements
+    // If enabled, we first fetch latest data using selected search provider
     let realTimeContext = "";
     let realTimeSources: string[] = [];
     
     if (realTimeData) {
-      const data = await fetchRealTimeData(topic);
+      let data: { content: string; sources: string[] };
+      
+      // Use selected search provider
+      if (config.searchProvider === SearchProvider.SERPSTACK) {
+        // Use SERPStack for real-time search
+        const { fetchRealTimeDataSERPStack } = await import('./serpstackService');
+        data = await fetchRealTimeDataSERPStack(topic);
+      } else {
+        // Default to Gemini (with grounding)
+        data = await fetchRealTimeData(topic);
+      }
+      
       realTimeContext = data.content;
       realTimeSources = data.sources;
     }

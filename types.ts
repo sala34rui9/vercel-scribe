@@ -57,6 +57,11 @@ export enum DeepSeekModel {
   V3_SPECIALE = "DeepSeek-V3.2-Speciale (Thinking Mode Only)"
 }
 
+export enum SearchProvider {
+  GEMINI = "Google Gemini",
+  SERPSTACK = "SERPStack"
+}
+
 export interface InternalLink {
   title: string;
   url: string;
@@ -105,6 +110,7 @@ export interface ArticleConfig {
   // AI Provider Settings
   provider: AIProvider;
   deepSeekModel?: DeepSeekModel;
+  searchProvider?: SearchProvider; // For real-time data search (Gemini or SERPStack)
 }
 
 export interface GeneratedArticle {

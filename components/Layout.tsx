@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap } from 'lucide-react';
+import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap, Search } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,9 +11,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   
   const [geminiKey, setGeminiKey] = useState('');
   const [deepSeekKey, setDeepSeekKey] = useState('');
+  const [serpstackKey, setSerpstackKey] = useState('');
   
   const [hasGeminiKey, setHasGeminiKey] = useState(false);
   const [hasDeepSeekKey, setHasDeepSeekKey] = useState(false);
+  const [hasSerpstackKey, setHasSerpstackKey] = useState(false);
   
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
 
@@ -30,6 +32,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       setHasDeepSeekKey(true);
       setDeepSeekKey(dKey);
     }
+
+    const sKey = localStorage.getItem('user_serpstack_api_key');
+    if (sKey) {
+      setHasSerpstackKey(true);
+      setSerpstackKey(sKey);
+    }
   }, []);
 
   const handleSaveKeys = () => {
@@ -44,6 +52,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     if (deepSeekKey.trim()) {
       localStorage.setItem('user_deepseek_api_key', deepSeekKey.trim());
       setHasDeepSeekKey(true);
+      saved = true;
+    }
+
+    if (serpstackKey.trim()) {
+      localStorage.setItem('user_serpstack_api_key', serpstackKey.trim());
+      setHasSerpstackKey(true);
       saved = true;
     }
 
@@ -66,6 +80,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     localStorage.removeItem('user_deepseek_api_key');
     setDeepSeekKey('');
     setHasDeepSeekKey(false);
+  };
+
+  const clearSerpstack = () => {
+    localStorage.removeItem('user_serpstack_api_key');
+    setSerpstackKey('');
+    setHasSerpstackKey(false);
   };
 
   return (
@@ -91,6 +111,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <Cpu className="w-3 h-3 mr-1"/> DeepSeek Ready
                   </span>
                 )}
+                {hasSerpstackKey && (
+                  <span className="text-xs font-medium px-2 py-1 rounded border flex items-center bg-green-50 text-green-700 border-green-200">
+                    <Search className="w-3 h-3 mr-1"/> SERPStack Ready
+                  </span>
+                )}
              </div>
             
             <button 
@@ -99,7 +124,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               title="Manage API Keys"
             >
               <Key className="w-5 h-5" />
-              {(hasGeminiKey || hasDeepSeekKey) && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border border-white"></span>}
+              {(hasGeminiKey || hasDeepSeekKey || hasSerpstackKey) && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border border-white"></span>}
             </button>
             <button className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
               <Layers className="w-5 h-5" />
@@ -184,6 +209,27 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                       )}
                     </div>
                     <p className="text-xs text-slate-400">Required for DeepSeek-V3.2 & Speciale models</p>
+                 </div>
+
+                 {/* SERPStack Section */}
+                 <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <label className="flex items-center text-sm font-semibold text-slate-700">
+                      <Search className="w-4 h-4 mr-1.5 text-green-500" />
+                      SERPStack API Key
+                    </label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="password" 
+                        value={serpstackKey}
+                        onChange={(e) => setSerpstackKey(e.target.value)}
+                        placeholder="abc123..."
+                        className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-sm font-mono"
+                      />
+                       {hasSerpstackKey && (
+                        <button onClick={clearSerpstack} className="px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200">Clear</button>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400">Optional: For real-time search data via SERPStack</p>
                  </div>
 
                  <div className="flex justify-end pt-4">

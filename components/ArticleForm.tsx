@@ -1,16 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArticleConfig, ArticleType, ToneVoice, InternalLink, ExternalLink, OpeningStyle, ReadabilityLevel, ContentOpportunity, TargetCountry, AIProvider, DeepSeekModel } from '../types';
+import { ArticleConfig, ArticleType, ToneVoice, InternalLink, ExternalLink, OpeningStyle, ReadabilityLevel, ContentOpportunity, TargetCountry, AIProvider, DeepSeekModel, SearchProvider } from '../types';
 import { generateNLPKeywords, generatePrimaryKeywords, scanForInternalLinks, scanForExternalLinks } from '../services/geminiService';
 import { generateNLPKeywordsDeepSeek, generatePrimaryKeywordsDeepSeek } from '../services/deepseekService';
-import { 
-  Wand2, 
-  Settings2, 
-  Target, 
-  Type, 
-  AlignLeft, 
-  Sparkles, 
-  Plus, 
+import {
+  Wand2,
+  Settings2,
+  Target,
+  Type,
+  AlignLeft,
+  Sparkles,
+  Plus,
   X,
   Globe,
   Microscope,
@@ -45,12 +45,12 @@ interface ArticleFormProps {
 
 export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerating }) => {
   const [mode, setMode] = useState<'single' | 'bulk'>('single');
-  
+
   // AI Provider State - Persisted to LocalStorage
   const [provider, setProvider] = useState<AIProvider>(() => {
     return (localStorage.getItem('seo_scribe_provider') as AIProvider) || AIProvider.GEMINI;
   });
-  
+
   const [deepSeekModel, setDeepSeekModel] = useState<DeepSeekModel>(() => {
     return (localStorage.getItem('seo_scribe_deepseek_model') as DeepSeekModel) || DeepSeekModel.V3_NON_THINKING;
   });
@@ -58,20 +58,24 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   const [topic, setTopic] = useState('');
   const [bulkInput, setBulkInput] = useState('');
   const [autoOptimize, setAutoOptimize] = useState(true);
-  
+
   // Initialize from local storage if available
   const [websiteUrl, setWebsiteUrl] = useState(() => {
     return localStorage.getItem('brandWebsiteUrl') || '';
   });
   const [urlSavedSuccess, setUrlSavedSuccess] = useState(false);
-  
+
   const [deepResearch, setDeepResearch] = useState(false);
   const [realTimeData, setRealTimeData] = useState(false);
+  const [realTimeSearchProvider, setRealTimeSearchProvider] = useState<SearchProvider>(() => {
+    const stored = localStorage.getItem('seo_scribe_realtime_search_provider');
+    return (stored as SearchProvider) || SearchProvider.GEMINI;
+  });
 
   const [wordCount, setWordCount] = useState(1000);
   const [type, setType] = useState<ArticleType>(ArticleType.BLOG_POST);
   const [tone, setTone] = useState<ToneVoice>(ToneVoice.PROFESSIONAL);
-  
+
   // Opening Style State
   const [useCustomOpening, setUseCustomOpening] = useState(false);
   const [openingStyle, setOpeningStyle] = useState<OpeningStyle>(OpeningStyle.FACT_STATISTIC);
@@ -80,14 +84,14 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   const [readability, setReadability] = useState<ReadabilityLevel>(ReadabilityLevel.NONE);
   const [humanizeContent, setHumanizeContent] = useState(false);
   const [targetCountry, setTargetCountry] = useState<TargetCountry>(TargetCountry.US);
-  
+
   const [primaryKeywordInput, setPrimaryKeywordInput] = useState('');
   const [primaryKeywords, setPrimaryKeywords] = useState<string[]>([]);
   const [isGeneratingPrimary, setIsGeneratingPrimary] = useState(false);
-  
+
   const [nlpKeywords, setNlpKeywords] = useState<string[]>([]);
   const [isGeneratingKeywords, setIsGeneratingKeywords] = useState(false);
-  
+
   const [includeFaq, setIncludeFaq] = useState(true);
   const [includeConclusion, setIncludeConclusion] = useState(true);
 
@@ -128,7 +132,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     const topicToAnalyze = mode === 'single' ? topic : bulkInput.split('\n')[0];
     if (!topicToAnalyze) return;
     setIsGeneratingPrimary(true);
-    
+
     let keywords: string[] = [];
     try {
       if (provider === AIProvider.DEEPSEEK) {
@@ -166,18 +170,18 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     let keywords: string[] = [];
     try {
       if (provider === AIProvider.DEEPSEEK) {
-         try {
-           keywords = await generateNLPKeywordsDeepSeek(topicToAnalyze);
-         } catch (e: any) {
-           alert(`DeepSeek Error: ${e.message || "Failed to generate keywords"}`);
-           setIsGeneratingKeywords(false);
-           return;
-         }
+        try {
+          keywords = await generateNLPKeywordsDeepSeek(topicToAnalyze);
+        } catch (e: any) {
+          alert(`DeepSeek Error: ${e.message || "Failed to generate keywords"}`);
+          setIsGeneratingKeywords(false);
+          return;
+        }
       } else {
         try {
           keywords = await generateNLPKeywords(topicToAnalyze);
         } catch (e) {
-           console.warn("Gemini NLP Keyword generation failed", e);
+          console.warn("Gemini NLP Keyword generation failed", e);
         }
       }
 
@@ -215,15 +219,15 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   const handleScanLinks = async (forceRefresh = false) => {
     const currentTopic = mode === 'single' ? topic : bulkInput.split('\n')[0];
     if (!websiteUrl || !currentTopic) return;
-    
+
     // STRICT DeepSeek Isolation check
     if (provider === AIProvider.DEEPSEEK) {
-       alert("⚠️ Web Scan Disabled for DeepSeek\n\nTo prevent Google Gemini quota errors, web scanning is disabled when DeepSeek is selected.\n\nDeepSeek will use its internal knowledge to write the article. If you need live internal linking, switch back to Google Gemini.");
-       return;
+      alert("⚠️ Web Scan Disabled for DeepSeek\n\nTo prevent Google Gemini quota errors, web scanning is disabled when DeepSeek is selected.\n\nDeepSeek will use its internal knowledge to write the article. If you need live internal linking, switch back to Google Gemini.");
+      return;
     }
 
     const cacheKey = `seo_scribe_link_cache_v3_${websiteUrl.trim().toLowerCase()}_${currentTopic.trim().toLowerCase()}_${deepResearch}`;
-    
+
     if (!forceRefresh) {
       const cached = localStorage.getItem(cacheKey);
       if (cached) {
@@ -245,7 +249,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     setFoundLinks([]);
     setContentOpportunities([]);
     setSelectedLinkUrls(new Set());
-    
+
     try {
       // Always uses Gemini Service for scanning because DeepSeek can't do it
       const result = await scanForInternalLinks(websiteUrl, currentTopic, primaryKeywords, deepResearch);
@@ -288,24 +292,24 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   const handleScanExternalLinks = async () => {
     const currentTopic = mode === 'single' ? topic : bulkInput.split('\n')[0];
     if (!currentTopic) return;
-    
+
     // STRICT DeepSeek Isolation check
     if (provider === AIProvider.DEEPSEEK) {
-       alert("⚠️ Web Scan Disabled for DeepSeek\n\nTo prevent Google Gemini quota errors, external source finding is disabled when DeepSeek is selected.");
-       return;
+      alert("⚠️ Web Scan Disabled for DeepSeek\n\nTo prevent Google Gemini quota errors, external source finding is disabled when DeepSeek is selected.");
+      return;
     }
 
     setIsScanningExternal(true);
     setFoundExternalLinks([]);
     setSelectedExternalLinkUrls(new Set());
-    
+
     try {
       let domainToExclude = '';
       try {
         if (websiteUrl) {
           domainToExclude = new URL(websiteUrl).hostname;
         }
-      } catch (e) {}
+      } catch (e) { }
 
       // Always uses Gemini Service for scanning
       const links = await scanForExternalLinks(currentTopic, domainToExclude);
@@ -330,12 +334,12 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const internalLinks = foundLinks.filter(link => selectedLinkUrls.has(link.url));
-    const externalLinks = includeExternalLinks 
+    const externalLinks = includeExternalLinks
       ? foundExternalLinks.filter(link => selectedExternalLinkUrls.has(link.url))
       : [];
-    
+
     let queueTopics: string[] = [];
     if (mode === 'bulk') {
       queueTopics = bulkInput.split('\n').map(t => t.trim()).filter(t => t.length > 0);
@@ -360,6 +364,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       websiteUrl,
       deepResearch,
       realTimeData,
+      searchProvider: realTimeData ? realTimeSearchProvider : undefined,
       internalLinks,
       externalLinks,
       enableExternalLinks: includeExternalLinks, // Pass preference for auto-scan
@@ -372,7 +377,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      
+
       {/* AI Model Provider Selection */}
       <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-blue-500 to-indigo-600"></div>
@@ -380,7 +385,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
           <BrainCircuit className="w-5 h-5 mr-2 text-indigo-600" />
           AI Engine Selection
         </h2>
-        
+
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Select Provider</label>
@@ -388,11 +393,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               <button
                 type="button"
                 onClick={() => setProvider(AIProvider.GEMINI)}
-                className={`flex items-center justify-center py-3 px-4 rounded-lg border-2 transition-all ${
-                  provider === AIProvider.GEMINI 
-                    ? 'border-blue-600 bg-blue-50 text-blue-700 font-bold' 
+                className={`flex items-center justify-center py-3 px-4 rounded-lg border-2 transition-all ${provider === AIProvider.GEMINI
+                    ? 'border-blue-600 bg-blue-50 text-blue-700 font-bold'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'
-                }`}
+                  }`}
               >
                 <Zap className={`w-5 h-5 mr-2 ${provider === AIProvider.GEMINI ? 'fill-blue-600 text-blue-600' : ''}`} />
                 Google Gemini
@@ -400,11 +404,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               <button
                 type="button"
                 onClick={() => setProvider(AIProvider.DEEPSEEK)}
-                className={`flex items-center justify-center py-3 px-4 rounded-lg border-2 transition-all ${
-                  provider === AIProvider.DEEPSEEK 
-                    ? 'border-indigo-600 bg-indigo-50 text-indigo-700 font-bold' 
+                className={`flex items-center justify-center py-3 px-4 rounded-lg border-2 transition-all ${provider === AIProvider.DEEPSEEK
+                    ? 'border-indigo-600 bg-indigo-50 text-indigo-700 font-bold'
                     : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
-                }`}
+                  }`}
               >
                 <Cpu className={`w-5 h-5 mr-2 ${provider === AIProvider.DEEPSEEK ? 'fill-indigo-600 text-indigo-600' : ''}`} />
                 DeepSeek
@@ -414,30 +417,30 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
           {/* DeepSeek Specific Model Selection */}
           {provider === AIProvider.DEEPSEEK && (
-             <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-               <label className="block text-sm font-medium text-slate-700 mb-1">DeepSeek Model Variant</label>
-               <div className="relative">
-                 <div className="absolute left-3 top-3 w-4 h-4 text-indigo-500">
-                   <Cpu className="w-4 h-4" />
-                 </div>
-                 <select
-                   value={deepSeekModel}
-                   onChange={(e) => setDeepSeekModel(e.target.value as DeepSeekModel)}
-                   className="w-full pl-10 pr-3 py-2.5 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm bg-indigo-50/20 font-medium text-slate-700"
-                 >
-                   {Object.values(DeepSeekModel).map(m => (
-                     <option key={m} value={m}>{m}</option>
-                   ))}
-                 </select>
-               </div>
-               <p className="text-xs text-indigo-600 mt-1 flex items-center">
-                 <Target className="w-3 h-3 mr-1" />
-                 {deepSeekModel.includes('Thinking') ? 'Reasoning Engine Active (Slower, Higher Quality)' : 'Standard Chat Mode (Faster)'}
-               </p>
-               <p className="text-xs text-slate-500 mt-2 border-l-2 border-indigo-200 pl-2">
-                 Note: Web scanning/research is <strong>disabled</strong> in DeepSeek mode to prevent Gemini API limits.
-               </p>
-             </div>
+            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+              <label className="block text-sm font-medium text-slate-700 mb-1">DeepSeek Model Variant</label>
+              <div className="relative">
+                <div className="absolute left-3 top-3 w-4 h-4 text-indigo-500">
+                  <Cpu className="w-4 h-4" />
+                </div>
+                <select
+                  value={deepSeekModel}
+                  onChange={(e) => setDeepSeekModel(e.target.value as DeepSeekModel)}
+                  className="w-full pl-10 pr-3 py-2.5 border border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm bg-indigo-50/20 font-medium text-slate-700"
+                >
+                  {Object.values(DeepSeekModel).map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-xs text-indigo-600 mt-1 flex items-center">
+                <Target className="w-3 h-3 mr-1" />
+                {deepSeekModel.includes('Thinking') ? 'Reasoning Engine Active (Slower, Higher Quality)' : 'Standard Chat Mode (Faster)'}
+              </p>
+              <p className="text-xs text-slate-500 mt-2 border-l-2 border-indigo-200 pl-2">
+                Note: Web scanning/research is <strong>disabled</strong> in DeepSeek mode to prevent Gemini API limits.
+              </p>
+            </div>
           )}
         </div>
       </div>
@@ -453,11 +456,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
           <button
             type="button"
             onClick={() => setMode('single')}
-            className={`flex-1 flex items-center justify-center py-2 text-sm font-medium rounded-md transition-all ${
-              mode === 'single' 
-                ? 'bg-white text-blue-600 shadow-sm' 
+            className={`flex-1 flex items-center justify-center py-2 text-sm font-medium rounded-md transition-all ${mode === 'single'
+                ? 'bg-white text-blue-600 shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'
-            }`}
+              }`}
           >
             <FileText className="w-4 h-4 mr-2" />
             Single Article
@@ -465,17 +467,16 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
           <button
             type="button"
             onClick={() => setMode('bulk')}
-            className={`flex-1 flex items-center justify-center py-2 text-sm font-medium rounded-md transition-all ${
-              mode === 'bulk' 
-                ? 'bg-white text-blue-600 shadow-sm' 
+            className={`flex-1 flex items-center justify-center py-2 text-sm font-medium rounded-md transition-all ${mode === 'bulk'
+                ? 'bg-white text-blue-600 shadow-sm'
                 : 'text-slate-500 hover:text-slate-700'
-            }`}
+              }`}
           >
             <ListOrdered className="w-4 h-4 mr-2" />
             Bulk Generation
           </button>
         </div>
-        
+
         <div className="space-y-4">
           {mode === 'single' ? (
             <div>
@@ -490,7 +491,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               />
             </div>
           ) : (
-             <div className="space-y-3">
+            <div className="space-y-3">
               <label className="block text-sm font-medium text-slate-700 mb-1">
                 Content Queue (Topics)
               </label>
@@ -499,7 +500,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   required={mode === 'bulk'}
                   value={bulkInput}
                   onChange={(e) => setBulkInput(e.target.value)}
-                  placeholder={"Topic 1: Best SEO Strategies\nTopic 2: Digital Marketing Trends\nTopic 3: ..." }
+                  placeholder={"Topic 1: Best SEO Strategies\nTopic 2: Digital Marketing Trends\nTopic 3: ..."}
                   rows={6}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm resize-y"
                 />
@@ -507,7 +508,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   {bulkInput.split('\n').filter(l => l.trim()).length} topics queued
                 </div>
               </div>
-              
+
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
                 <label className="flex items-start cursor-pointer">
                   <div className="flex items-center h-5">
@@ -524,22 +525,22 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                     </span>
                     <p className="text-xs mt-1 text-blue-600">
                       System will process up to 3 articles in parallel.
-                      <br/>• Auto-generates unique Primary & NLP Keywords
+                      <br />• Auto-generates unique Primary & NLP Keywords
                       {provider === AIProvider.GEMINI ? (
                         <>
-                        <br/>• Scans your Brand Website for relevant internal links
-                        <br/>• Finds authoritative external sources
+                          <br />• Scans your Brand Website for relevant internal links
+                          <br />• Finds authoritative external sources
                         </>
                       ) : (
                         <>
-                        <br/><span className="text-amber-600 font-bold">• Note: Web Scanning skipped for DeepSeek</span>
+                          <br /><span className="text-amber-600 font-bold">• Note: Web Scanning skipped for DeepSeek</span>
                         </>
                       )}
                     </p>
                     {deepResearch && provider === AIProvider.GEMINI && (
-                       <p className="text-xs mt-1 text-amber-600 font-semibold">
-                         Note: Deep Research + Parallel mode may hit rate limits faster.
-                       </p>
+                      <p className="text-xs mt-1 text-amber-600 font-semibold">
+                        Note: Deep Research + Parallel mode may hit rate limits faster.
+                      </p>
                     )}
                   </div>
                 </label>
@@ -633,6 +634,45 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   </p>
                 </div>
               </label>
+
+              {/* Search Provider Selection - Only show when realTimeData is enabled */}
+              {realTimeData && (
+                <div className="mt-3 pl-7 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Search Provider:</label>
+                  <div className="flex gap-3">
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="searchProvider"
+                        value={SearchProvider.GEMINI}
+                        checked={realTimeSearchProvider === SearchProvider.GEMINI}
+                        onChange={(e) => {
+                          const provider = e.target.value as SearchProvider;
+                          setRealTimeSearchProvider(provider);
+                          localStorage.setItem('seo_scribe_realtime_search_provider', provider);
+                        }}
+                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-slate-700 font-medium">Google Gemini (with grounding)</span>
+                    </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="searchProvider"
+                        value={SearchProvider.SERPSTACK}
+                        checked={realTimeSearchProvider === SearchProvider.SERPSTACK}
+                        onChange={(e) => {
+                          const provider = e.target.value as SearchProvider;
+                          setRealTimeSearchProvider(provider);
+                          localStorage.setItem('seo_scribe_realtime_search_provider', provider);
+                        }}
+                        className="w-4 h-4 text-green-600 border-slate-300 rounded focus:ring-green-500"
+                      />
+                      <span className="text-sm text-slate-700 font-medium">SERPStack API</span>
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -644,26 +684,26 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 Internal Linking Strategy
               </h3>
             </div>
-            
+
             {/* Logic Branch: If Bulk + AutoOptimize, we hide controls and show info message */}
             {mode === 'bulk' && autoOptimize ? (
-               <div className="p-4 bg-white text-sm text-slate-500 italic">
-                 {websiteUrl ? (
-                   provider === AIProvider.GEMINI ? (
-                      <div className="flex items-center text-blue-600">
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        System will automatically scan <strong>{websiteUrl}</strong> for relevant links for each topic in the queue.
-                      </div>
-                   ) : (
-                      <div className="flex items-center text-slate-500">
-                        <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
-                        Link scanning skipped for DeepSeek queue to prevent quota errors.
-                      </div>
-                   )
-                 ) : (
-                   "Add a Brand Website above to enable auto-linking in queue mode."
-                 )}
-               </div>
+              <div className="p-4 bg-white text-sm text-slate-500 italic">
+                {websiteUrl ? (
+                  provider === AIProvider.GEMINI ? (
+                    <div className="flex items-center text-blue-600">
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      System will automatically scan <strong>{websiteUrl}</strong> for relevant links for each topic in the queue.
+                    </div>
+                  ) : (
+                    <div className="flex items-center text-slate-500">
+                      <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
+                      Link scanning skipped for DeepSeek queue to prevent quota errors.
+                    </div>
+                  )
+                ) : (
+                  "Add a Brand Website above to enable auto-linking in queue mode."
+                )}
+              </div>
             ) : (
               <div className="p-4 bg-white">
                 {!websiteUrl ? (
@@ -672,27 +712,27 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    
+
                     {foundLinks.length === 0 && contentOpportunities.length === 0 ? (
-                       <button
-                       type="button"
-                       onClick={() => handleScanLinks(false)}
-                       disabled={isScanningLinks || (mode === 'single' && !topic)}
-                       className="w-full py-2 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center disabled:opacity-50"
-                     >
-                       {isScanningLinks ? (
-                         <>
-                           <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-2"></div>
-                           Scanning Website...
-                         </>
-                       ) : (
-                         <>
-                           <Search className="w-4 h-4 mr-2" />
-                           Scan for Internal Links
-                           {deepResearch && <span className="ml-1 text-xs text-indigo-600 font-bold">(Deep)</span>}
-                         </>
-                       )}
-                     </button>
+                      <button
+                        type="button"
+                        onClick={() => handleScanLinks(false)}
+                        disabled={isScanningLinks || (mode === 'single' && !topic)}
+                        className="w-full py-2 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center disabled:opacity-50"
+                      >
+                        {isScanningLinks ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-2"></div>
+                            Scanning Website...
+                          </>
+                        ) : (
+                          <>
+                            <Search className="w-4 h-4 mr-2" />
+                            Scan for Internal Links
+                            {deepResearch && <span className="ml-1 text-xs text-indigo-600 font-bold">(Deep)</span>}
+                          </>
+                        )}
+                      </button>
                     ) : (
                       <div className="space-y-4">
                         {/* Action Buttons */}
@@ -727,17 +767,16 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                         {/* Verified Links List */}
                         {foundLinks.length > 0 ? (
                           <div className="space-y-2">
-                             <div className="flex items-center text-xs font-semibold text-green-700">
-                               <Check className="w-3.5 h-3.5 mr-1" /> Verified Existing Pages ({foundLinks.length})
-                             </div>
-                             <div className="max-h-48 overflow-y-auto border border-green-100 bg-green-50/20 rounded-lg divide-y divide-green-50">
+                            <div className="flex items-center text-xs font-semibold text-green-700">
+                              <Check className="w-3.5 h-3.5 mr-1" /> Verified Existing Pages ({foundLinks.length})
+                            </div>
+                            <div className="max-h-48 overflow-y-auto border border-green-100 bg-green-50/20 rounded-lg divide-y divide-green-50">
                               {foundLinks.map((link, idx) => (
-                                <div 
-                                  key={idx} 
+                                <div
+                                  key={idx}
                                   onClick={() => toggleLinkSelection(link.url)}
-                                  className={`p-3 flex items-start space-x-3 cursor-pointer transition-colors ${
-                                    selectedLinkUrls.has(link.url) ? 'bg-blue-50/50' : 'hover:bg-slate-50'
-                                  }`}
+                                  className={`p-3 flex items-start space-x-3 cursor-pointer transition-colors ${selectedLinkUrls.has(link.url) ? 'bg-blue-50/50' : 'hover:bg-slate-50'
+                                    }`}
                                 >
                                   <div className="mt-0.5">
                                     {selectedLinkUrls.has(link.url) ? (
@@ -750,10 +789,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                                     <p className={`text-sm font-medium truncate ${selectedLinkUrls.has(link.url) ? 'text-blue-700' : 'text-slate-700'}`}>
                                       {link.title}
                                     </p>
-                                    <a 
-                                      href={link.url} 
-                                      target="_blank" 
-                                      rel="noreferrer" 
+                                    <a
+                                      href={link.url}
+                                      target="_blank"
+                                      rel="noreferrer"
                                       onClick={(e) => e.stopPropagation()}
                                       className="text-xs text-slate-400 hover:text-blue-500 flex items-center mt-0.5 truncate"
                                     >
@@ -776,25 +815,25 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                         {/* Content Opportunities Section */}
                         {contentOpportunities.length > 0 && (
                           <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
-                             <div className="flex items-center text-xs font-semibold text-amber-700">
-                               <AlertTriangle className="w-3.5 h-3.5 mr-1" /> Content Gap Analysis ({contentOpportunities.length})
-                             </div>
-                             <p className="text-xs text-slate-500 mb-2">
-                               These topics are highly relevant but were NOT found on your site. Consider creating them to boost authority.
-                             </p>
-                             <div className="max-h-40 overflow-y-auto border border-amber-100 bg-amber-50/30 rounded-lg">
-                               {contentOpportunities.map((op, idx) => (
-                                 <div key={idx} className="p-3 border-b border-amber-50 last:border-0 hover:bg-amber-50/50 transition-colors">
-                                   <div className="flex items-start">
-                                      <FilePlus className="w-4 h-4 text-amber-400 mt-0.5 mr-2 shrink-0" />
-                                      <div>
-                                        <p className="text-sm font-medium text-slate-800">{op.topic}</p>
-                                        <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{op.reason}</p>
-                                      </div>
-                                   </div>
-                                 </div>
-                               ))}
-                             </div>
+                            <div className="flex items-center text-xs font-semibold text-amber-700">
+                              <AlertTriangle className="w-3.5 h-3.5 mr-1" /> Content Gap Analysis ({contentOpportunities.length})
+                            </div>
+                            <p className="text-xs text-slate-500 mb-2">
+                              These topics are highly relevant but were NOT found on your site. Consider creating them to boost authority.
+                            </p>
+                            <div className="max-h-40 overflow-y-auto border border-amber-100 bg-amber-50/30 rounded-lg">
+                              {contentOpportunities.map((op, idx) => (
+                                <div key={idx} className="p-3 border-b border-amber-50 last:border-0 hover:bg-amber-50/50 transition-colors">
+                                  <div className="flex items-start">
+                                    <FilePlus className="w-4 h-4 text-amber-400 mt-0.5 mr-2 shrink-0" />
+                                    <div>
+                                      <p className="text-sm font-medium text-slate-800">{op.topic}</p>
+                                      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{op.reason}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -807,7 +846,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
           {/* External Linking Section */}
           <div className="border border-slate-200 rounded-lg overflow-hidden">
-             <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
               <div className="flex items-center">
                 <ExternalLinkIcon className="w-4 h-4 mr-2 text-indigo-600" />
                 <h3 className="text-sm font-semibold text-slate-800">External Linking Strategy</h3>
@@ -822,22 +861,22 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 <span className="ml-2 text-xs font-medium text-slate-600">Enable</span>
               </label>
             </div>
-            
+
             {/* Logic Branch: If Bulk + AutoOptimize + Enabled, hide manual search */}
             {includeExternalLinks && mode === 'bulk' && autoOptimize ? (
-               <div className="p-4 bg-white text-sm text-slate-500 italic">
-                  {provider === AIProvider.GEMINI ? (
-                    <div className="flex items-center text-indigo-600">
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      System will automatically find authoritative external sources for each topic.
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-slate-500">
-                      <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
-                      Link search skipped for DeepSeek queue to prevent quota errors.
-                    </div>
-                  )}
-               </div>
+              <div className="p-4 bg-white text-sm text-slate-500 italic">
+                {provider === AIProvider.GEMINI ? (
+                  <div className="flex items-center text-indigo-600">
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    System will automatically find authoritative external sources for each topic.
+                  </div>
+                ) : (
+                  <div className="flex items-center text-slate-500">
+                    <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
+                    Link search skipped for DeepSeek queue to prevent quota errors.
+                  </div>
+                )}
+              </div>
             ) : includeExternalLinks && (
               <div className="p-4 bg-white animate-in slide-in-from-top-2 duration-200">
                 <div className="space-y-3">
@@ -881,12 +920,11 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
                       <div className="max-h-48 overflow-y-auto border border-slate-100 rounded-lg divide-y divide-slate-100">
                         {foundExternalLinks.map((link, idx) => (
-                          <div 
-                            key={idx} 
+                          <div
+                            key={idx}
                             onClick={() => toggleExternalLinkSelection(link.url)}
-                            className={`p-3 flex items-start space-x-3 cursor-pointer transition-colors ${
-                              selectedExternalLinkUrls.has(link.url) ? 'bg-indigo-50/50' : 'hover:bg-slate-50'
-                            }`}
+                            className={`p-3 flex items-start space-x-3 cursor-pointer transition-colors ${selectedExternalLinkUrls.has(link.url) ? 'bg-indigo-50/50' : 'hover:bg-slate-50'
+                              }`}
                           >
                             <div className="mt-0.5">
                               {selectedExternalLinkUrls.has(link.url) ? (
@@ -899,10 +937,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                               <p className={`text-sm font-medium truncate ${selectedExternalLinkUrls.has(link.url) ? 'text-indigo-700' : 'text-slate-700'}`}>
                                 {link.title}
                               </p>
-                              <a 
-                                href={link.url} 
-                                target="_blank" 
-                                rel="noreferrer" 
+                              <a
+                                href={link.url}
+                                target="_blank"
+                                rel="noreferrer"
                                 onClick={(e) => e.stopPropagation()}
                                 className="text-xs text-slate-400 hover:text-indigo-500 flex items-center mt-0.5 truncate"
                               >
@@ -953,23 +991,23 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               </div>
             </div>
           </div>
-          
-           {/* Target Country Selection */}
-           <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Target Country & Localization</label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <select
-                  value={targetCountry}
-                  onChange={(e) => setTargetCountry(e.target.value as TargetCountry)}
-                  className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm appearance-none bg-white"
-                >
-                  {Object.values(TargetCountry).map(c => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
-              </div>
+
+          {/* Target Country Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Target Country & Localization</label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+              <select
+                value={targetCountry}
+                onChange={(e) => setTargetCountry(e.target.value as TargetCountry)}
+                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm appearance-none bg-white"
+              >
+                {Object.values(TargetCountry).map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
+          </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -1014,71 +1052,71 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
           </div>
 
           {/* Humanize Content Toggle */}
-           <div className={`p-3 rounded-lg border transition-all ${humanizeContent ? 'bg-pink-50 border-pink-200' : 'bg-slate-50 border-slate-200'}`}>
-              <label className="flex items-start cursor-pointer">
-                <div className="flex items-center h-5">
-                  <input
-                    type="checkbox"
-                    checked={humanizeContent}
-                    onChange={(e) => setHumanizeContent(e.target.checked)}
-                    className="w-4 h-4 text-pink-600 border-slate-300 rounded focus:ring-pink-500 mt-1"
-                  />
+          <div className={`p-3 rounded-lg border transition-all ${humanizeContent ? 'bg-pink-50 border-pink-200' : 'bg-slate-50 border-slate-200'}`}>
+            <label className="flex items-start cursor-pointer">
+              <div className="flex items-center h-5">
+                <input
+                  type="checkbox"
+                  checked={humanizeContent}
+                  onChange={(e) => setHumanizeContent(e.target.checked)}
+                  className="w-4 h-4 text-pink-600 border-slate-300 rounded focus:ring-pink-500 mt-1"
+                />
+              </div>
+              <div className="ml-3">
+                <div className="flex items-center">
+                  <UserCheck className={`w-4 h-4 mr-1.5 ${humanizeContent ? 'text-pink-600' : 'text-slate-500'}`} />
+                  <span className={`block text-sm font-semibold ${humanizeContent ? 'text-pink-800' : 'text-slate-700'}`}>
+                    Humanize Content (Anti-Bot Mode)
+                  </span>
                 </div>
-                <div className="ml-3">
-                  <div className="flex items-center">
-                    <UserCheck className={`w-4 h-4 mr-1.5 ${humanizeContent ? 'text-pink-600' : 'text-slate-500'}`} />
-                    <span className={`block text-sm font-semibold ${humanizeContent ? 'text-pink-800' : 'text-slate-700'}`}>
-                      Humanize Content (Anti-Bot Mode)
-                    </span>
-                  </div>
-                  <p className={`text-xs mt-1 ${humanizeContent ? 'text-pink-600' : 'text-slate-500'}`}>
-                    Removes AI-sounding terms (e.g., "delve", "tapestry"). Prioritizes natural, conversational flow.
-                  </p>
-                </div>
-              </label>
-            </div>
+                <p className={`text-xs mt-1 ${humanizeContent ? 'text-pink-600' : 'text-slate-500'}`}>
+                  Removes AI-sounding terms (e.g., "delve", "tapestry"). Prioritizes natural, conversational flow.
+                </p>
+              </div>
+            </label>
+          </div>
 
           {/* Custom Opening Section */}
           <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-             <div className="flex items-start justify-between">
-                <div className="flex items-start">
-                  <BookOpen className="w-5 h-5 text-blue-600 mt-0.5 mr-3" />
-                  <div>
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={useCustomOpening}
-                        onChange={(e) => setUseCustomOpening(e.target.checked)}
-                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-sm font-semibold text-slate-800">Customize Opening Style</span>
-                    </label>
-                    <p className="text-xs text-slate-500 mt-1 ml-6">
-                      Choose specifically how you want the article to begin.
-                    </p>
-                  </div>
+            <div className="flex items-start justify-between">
+              <div className="flex items-start">
+                <BookOpen className="w-5 h-5 text-blue-600 mt-0.5 mr-3" />
+                <div>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useCustomOpening}
+                      onChange={(e) => setUseCustomOpening(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm font-semibold text-slate-800">Customize Opening Style</span>
+                  </label>
+                  <p className="text-xs text-slate-500 mt-1 ml-6">
+                    Choose specifically how you want the article to begin.
+                  </p>
                 </div>
-             </div>
+              </div>
+            </div>
 
-             {useCustomOpening && (
-               <div className="mt-3 ml-8 animate-in fade-in slide-in-from-top-2 duration-200">
-                 <label className="block text-xs font-medium text-slate-700 mb-1.5">Select Opening Type</label>
-                 <div className="relative">
-                   <Lightbulb className="absolute left-3 top-2.5 w-4 h-4 text-amber-500" />
-                   <select
+            {useCustomOpening && (
+              <div className="mt-3 ml-8 animate-in fade-in slide-in-from-top-2 duration-200">
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">Select Opening Type</label>
+                <div className="relative">
+                  <Lightbulb className="absolute left-3 top-2.5 w-4 h-4 text-amber-500" />
+                  <select
                     value={openingStyle}
                     onChange={(e) => setOpeningStyle(e.target.value as OpeningStyle)}
                     className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm appearance-none bg-white"
-                   >
-                     {Object.values(OpeningStyle)
-                       .filter(style => style !== OpeningStyle.NONE)
-                       .map(style => (
+                  >
+                    {Object.values(OpeningStyle)
+                      .filter(style => style !== OpeningStyle.NONE)
+                      .map(style => (
                         <option key={style} value={style}>{style}</option>
-                     ))}
-                   </select>
-                 </div>
-               </div>
-             )}
+                      ))}
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col space-y-2">
@@ -1112,13 +1150,13 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
         {/* Logic: If Bulk + AutoOptimize, show message instead of manual inputs */}
         {mode === 'bulk' && autoOptimize ? (
-           <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg text-center">
-              <Sparkles className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-slate-700">Auto-Optimization Enabled</p>
-              <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-                Keywords will be generated automatically for each topic in the queue to ensure maximum relevance.
-              </p>
-           </div>
+          <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg text-center">
+            <Sparkles className="w-8 h-8 text-blue-500 mx-auto mb-2" />
+            <p className="text-sm font-semibold text-slate-700">Auto-Optimization Enabled</p>
+            <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+              Keywords will be generated automatically for each topic in the queue to ensure maximum relevance.
+            </p>
+          </div>
         ) : (
           <div className="space-y-4">
             {/* Primary Keywords */}
@@ -1141,7 +1179,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   )}
                 </button>
               </div>
-              
+
               <div className="flex space-x-2 mb-2">
                 <input
                   type="text"
@@ -1196,7 +1234,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   )}
                 </button>
               </div>
-              
+
               <div className="min-h-[80px] p-3 bg-slate-50 border border-slate-200 rounded-lg">
                 {nlpKeywords.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-2">
@@ -1223,13 +1261,12 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       <button
         type="submit"
         disabled={isGenerating || !isFormValid}
-        className={`w-full py-4 px-6 rounded-xl text-white font-medium text-lg flex items-center justify-center transition-all ${
-          isGenerating || !isFormValid
+        className={`w-full py-4 px-6 rounded-xl text-white font-medium text-lg flex items-center justify-center transition-all ${isGenerating || !isFormValid
             ? 'bg-slate-400 cursor-not-allowed'
-            : provider === AIProvider.DEEPSEEK 
-               ? 'bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/25'
-               : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-blue-500/25'
-        }`}
+            : provider === AIProvider.DEEPSEEK
+              ? 'bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/25'
+              : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-blue-500/25'
+          }`}
       >
         {isGenerating ? (
           <>

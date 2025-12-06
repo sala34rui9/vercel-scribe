@@ -1,4 +1,4 @@
-import { ArticleConfig, DeepSeekModel, OpeningStyle, ReadabilityLevel, TargetCountry } from "../types";
+import { ArticleConfig, DeepSeekModel, OpeningStyle, ReadabilityLevel, TargetCountry, SearchProvider } from "../types";
 
 const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 const LOCAL_STORAGE_KEY_KEY = 'user_deepseek_api_key';
@@ -273,12 +273,32 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
     }
     
     let realTimeDataInstruction = "";
+    let realTimeContext = "";
+    let realTimeSources: string[] = [];
+    
     if (realTimeData) {
-      realTimeDataInstruction = `
+      // Fetch real-time data using selected search provider
+      if (config.searchProvider === SearchProvider.SERPSTACK) {
+        // Use SERPStack for real-time search
+        const { fetchRealTimeDataSERPStack } = await import('./serpstackService');
+        const data = await fetchRealTimeDataSERPStack(config.topic);
+        realTimeContext = data.content;
+        realTimeSources = data.sources;
+        realTimeDataInstruction = `
+      DATA FRESHNESS INSTRUCTION:
+      The following real-time search data was retrieved:
+      ${realTimeContext}
+      
+      Please incorporate this information into your article to ensure it's current and relevant.
+      `;
+      } else {
+        // Default: use DeepSeek's internal knowledge (no external search)
+        realTimeDataInstruction = `
       DATA FRESHNESS INSTRUCTION:
       The user requested Real-Time Data. 
       Please use your most recent internal knowledge to provide up-to-date statistics, news, or trends relevant to the topic.
       `;
+      }
     }
     
     let countryInstruction = "";
@@ -384,6 +404,9 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content || "";
 
+      // Merge with real-time sources if available
+      const sources = [...realTimeSources];
+      
       return { content, sources };
     } catch (error: any) {
       if (error instanceof TypeError && error.message.includes('fetch')) {

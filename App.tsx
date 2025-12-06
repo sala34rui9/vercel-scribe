@@ -1,8 +1,8 @@
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, Suspense } from 'react';
 import { Layout } from './components/Layout';
 import { ArticleForm } from './components/ArticleForm';
-import { ArticlePreview } from './components/ArticlePreview';
+const ArticlePreview = React.lazy(() => import('./components/ArticlePreview').then(m => ({ default: m.ArticlePreview })));
 import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel } from './types';
 import { generateArticle, generatePrimaryKeywords, generateNLPKeywords, scanForInternalLinks, scanForExternalLinks } from './services/geminiService';
 import { generateArticleDeepSeek, generatePrimaryKeywordsDeepSeek, generateNLPKeywordsDeepSeek } from './services/deepseekService';
@@ -13,20 +13,20 @@ const App: React.FC = () => {
   const [generatedArticles, setGeneratedArticles] = useState<GeneratedArticle[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [formKey, setFormKey] = useState(0);
-  
+
   // Progress & Status for queue generation
   const [bulkProgress, setBulkProgress] = useState({ completed: 0, total: 0 });
   const [activeTasks, setActiveTasks] = useState<number>(0);
   const [processingStatus, setProcessingStatus] = useState<string>('');
-  
+
   // Track active provider for loading screen
   const [activeProviderName, setActiveProviderName] = useState('AI');
-  
+
   // Ref to hold the current AbortController
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Helper to handle generation with fallback
-  const generateWithFallback = async (config: ArticleConfig, signal: AbortSignal): Promise<{content: string, sources: string[]}> => {
+  const generateWithFallback = async (config: ArticleConfig, signal: AbortSignal): Promise<{ content: string, sources: string[] }> => {
     // 1. If user explicitly chose DeepSeek, strictly use DeepSeek
     if (config.provider === AIProvider.DEEPSEEK) {
       return await generateArticleDeepSeek(config, signal);
@@ -37,7 +37,7 @@ const App: React.FC = () => {
       return await generateArticle(config, signal);
     } catch (err: any) {
       if (signal.aborted) throw err;
-      
+
       console.warn("Gemini Service failed:", err);
       // Fallback removed to enforce strict provider selection as per user request
       throw err;
@@ -57,7 +57,7 @@ const App: React.FC = () => {
     setIsGenerating(true);
     setError(null);
     setGeneratedArticles([]); // Clear previous results
-    
+
     // Set Provider Name for UI
     let providerName = "Google Gemini";
     if (config.provider === AIProvider.DEEPSEEK) {
@@ -74,10 +74,10 @@ const App: React.FC = () => {
         setBulkProgress({ completed: 0, total: 1 });
         setProcessingStatus('Generating Article...');
         setActiveTasks(1);
-        
+
         try {
           const result = await generateWithFallback(config, controller.signal);
-          
+
           setGeneratedArticles([{
             id: crypto.randomUUID(),
             content: result.content,
@@ -95,7 +95,7 @@ const App: React.FC = () => {
         if (topics.length === 0) throw new Error("No topics provided for bulk generation");
 
         setBulkProgress({ completed: 0, total: topics.length });
-        
+
         // CONCURRENCY CONTROL
         const CONCURRENCY_LIMIT = 3;
         const queue = [...topics];
@@ -118,58 +118,58 @@ const App: React.FC = () => {
 
               // --- AUTO-OPTIMIZATION PIPELINE (Per Article) ---
               if (config.autoOptimize) {
-                 // 1. KEYWORD ANALYSIS
-                 try {
-                   if (config.provider === AIProvider.DEEPSEEK) {
-                      // DeepSeek ONLY - Strict Isolation
-                      topicPrimaryKeywords = await generatePrimaryKeywordsDeepSeek(topic);
-                      topicNLPKeywords = await generateNLPKeywordsDeepSeek(topic);
-                   } else {
-                      // Gemini Only
-                      topicPrimaryKeywords = await generatePrimaryKeywords(topic);
-                      topicNLPKeywords = await generateNLPKeywords(topic);
-                   }
-                 } catch (e) {
-                   console.warn(`Keyword generation failed for ${topic}`, e);
-                 }
+                // 1. KEYWORD ANALYSIS
+                try {
+                  if (config.provider === AIProvider.DEEPSEEK) {
+                    // DeepSeek ONLY - Strict Isolation
+                    topicPrimaryKeywords = await generatePrimaryKeywordsDeepSeek(topic);
+                    topicNLPKeywords = await generateNLPKeywordsDeepSeek(topic);
+                  } else {
+                    // Gemini Only
+                    topicPrimaryKeywords = await generatePrimaryKeywords(topic);
+                    topicNLPKeywords = await generateNLPKeywords(topic);
+                  }
+                } catch (e) {
+                  console.warn(`Keyword generation failed for ${topic}`, e);
+                }
 
-                 // 2. LINK SCANNING
-                 // CRITICAL FIX: Only run scanning if Provider is GEMINI.
-                 // DeepSeek cannot scan, and trying to use Gemini (if scanning) triggers quota errors.
-                 if (config.provider === AIProvider.GEMINI) {
-                   
-                   // Internal Links
-                   if (config.websiteUrl) {
-                      try {
-                         const scanResult = await scanForInternalLinks(config.websiteUrl, topic, topicPrimaryKeywords, config.deepResearch);
-                         topicInternalLinks = scanResult.links.slice(0, 3);
-                      } catch (e) {
-                         console.warn(`Internal link scanning failed for ${topic}`, e);
-                      }
-                   }
+                // 2. LINK SCANNING
+                // CRITICAL FIX: Only run scanning if Provider is GEMINI.
+                // DeepSeek cannot scan, and trying to use Gemini (if scanning) triggers quota errors.
+                if (config.provider === AIProvider.GEMINI) {
 
-                   // External Links
-                   if (config.enableExternalLinks) {
+                  // Internal Links
+                  if (config.websiteUrl) {
+                    try {
+                      const scanResult = await scanForInternalLinks(config.websiteUrl, topic, topicPrimaryKeywords, config.deepResearch);
+                      topicInternalLinks = scanResult.links.slice(0, 3);
+                    } catch (e) {
+                      console.warn(`Internal link scanning failed for ${topic}`, e);
+                    }
+                  }
+
+                  // External Links
+                  if (config.enableExternalLinks) {
+                    try {
+                      let domainToExclude = '';
                       try {
-                         let domainToExclude = '';
-                          try {
-                            if (config.websiteUrl) {
-                              domainToExclude = new URL(config.websiteUrl).hostname;
-                            }
-                          } catch (e) {}
-                          
-                          const extLinks = await scanForExternalLinks(topic, domainToExclude);
-                          topicExternalLinks = extLinks.slice(0, 5);
-                      } catch (e) {
-                         console.warn(`External link scanning failed for ${topic}`, e);
-                      }
-                   }
-                 }
-                 // If DeepSeek, we skip scanning to guarantee 0 Gemini calls.
+                        if (config.websiteUrl) {
+                          domainToExclude = new URL(config.websiteUrl).hostname;
+                        }
+                      } catch (e) { }
+
+                      const extLinks = await scanForExternalLinks(topic, domainToExclude);
+                      topicExternalLinks = extLinks.slice(0, 5);
+                    } catch (e) {
+                      console.warn(`External link scanning failed for ${topic}`, e);
+                    }
+                  }
+                }
+                // If DeepSeek, we skip scanning to guarantee 0 Gemini calls.
               }
-              
+
               // --- GENERATION PHASE ---
-              
+
               const singleConfig: ArticleConfig = {
                 ...config,
                 mode: 'single',
@@ -198,10 +198,10 @@ const App: React.FC = () => {
               }]);
 
             } catch (err: any) {
-               if (err.name === 'AbortError') return;
-               
-               console.error(`Failed to generate topic: ${topic}`, err);
-               setGeneratedArticles(prev => [...prev, {
+              if (err.name === 'AbortError') return;
+
+              console.error(`Failed to generate topic: ${topic}`, err);
+              setGeneratedArticles(prev => [...prev, {
                 id: crypto.randomUUID(),
                 content: `Error generating content: ${err.message}`,
                 title: topic,
@@ -220,7 +220,7 @@ const App: React.FC = () => {
         const workers = Array(Math.min(topics.length, CONCURRENCY_LIMIT))
           .fill(null)
           .map((_, i) => worker(i));
-          
+
         await Promise.all(workers);
       }
     } catch (err: any) {
@@ -274,7 +274,7 @@ const App: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-semibold text-slate-900 mb-2">Generation Failed</h3>
                 <p className="text-slate-600 mb-6">{error}</p>
-                <button 
+                <button
                   onClick={() => setError(null)}
                   className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition-colors"
                 >
@@ -300,50 +300,50 @@ const App: React.FC = () => {
                   Powered by {activeProviderName}
                 </p>
                 {bulkProgress.total > 0 ? (
-                   <div className="mt-4 space-y-3 bg-slate-50 p-4 rounded-lg max-w-md border border-slate-100 w-full">
-                      <div className="flex justify-between text-sm text-slate-600 font-medium">
-                         <span className="flex items-center">
-                            <Activity className="w-4 h-4 mr-2 text-blue-500 animate-pulse" />
-                            Active Workers: {activeTasks}
-                         </span>
-                         <span>{bulkProgress.completed} / {bulkProgress.total} Completed</span>
-                      </div>
-                      
-                      <div className="w-full bg-slate-200 rounded-full h-2">
-                         <div 
-                           className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                           style={{ width: `${(bulkProgress.completed / bulkProgress.total) * 100}%` }}
-                         ></div>
-                      </div>
+                  <div className="mt-4 space-y-3 bg-slate-50 p-4 rounded-lg max-w-md border border-slate-100 w-full">
+                    <div className="flex justify-between text-sm text-slate-600 font-medium">
+                      <span className="flex items-center">
+                        <Activity className="w-4 h-4 mr-2 text-blue-500 animate-pulse" />
+                        Active Workers: {activeTasks}
+                      </span>
+                      <span>{bulkProgress.completed} / {bulkProgress.total} Completed</span>
+                    </div>
 
-                      <div className="pt-2 text-left">
-                         <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500">
-                            <div className="flex items-center text-blue-600">
-                               <Search className="w-3 h-3 mr-1" /> Analyzing Topics (Unique)
-                            </div>
-                            {activeProviderName.includes('Gemini') && (
-                              <div className="flex items-center text-blue-600">
-                                <LinkIcon className="w-3 h-3 mr-1" /> Scanning Links
-                              </div>
-                            )}
-                         </div>
-                      </div>
+                    <div className="w-full bg-slate-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${(bulkProgress.completed / bulkProgress.total) * 100}%` }}
+                      ></div>
+                    </div>
 
-                      {generatedArticles.length > 0 && (
-                        <p className="text-xs text-green-600 pt-2 border-t border-slate-200 mt-2">
-                          {generatedArticles.length} articles ready to view
-                        </p>
-                      )}
-                   </div>
+                    <div className="pt-2 text-left">
+                      <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500">
+                        <div className="flex items-center text-blue-600">
+                          <Search className="w-3 h-3 mr-1" /> Analyzing Topics (Unique)
+                        </div>
+                        {activeProviderName.includes('Gemini') && (
+                          <div className="flex items-center text-blue-600">
+                            <LinkIcon className="w-3 h-3 mr-1" /> Scanning Links
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {generatedArticles.length > 0 && (
+                      <p className="text-xs text-green-600 pt-2 border-t border-slate-200 mt-2">
+                        {generatedArticles.length} articles ready to view
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <p className="text-slate-500 max-w-sm mt-2">
-                    {activeProviderName.includes("Reasoning") 
-                      ? "DeepSeek is performing advanced reasoning to structure your article..." 
+                    {activeProviderName.includes("Reasoning")
+                      ? "DeepSeek is performing advanced reasoning to structure your article..."
                       : "The AI engine is researching and writing your optimized article..."}
                   </p>
                 )}
               </div>
-              
+
               <button
                 onClick={handleStopGeneration}
                 className="flex items-center px-4 py-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100 border border-red-200 transition-colors text-sm font-medium"
@@ -353,7 +353,13 @@ const App: React.FC = () => {
               </button>
             </div>
           ) : generatedArticles.length > 0 ? (
-            <ArticlePreview articles={generatedArticles} onReset={handleReset} />
+            <Suspense fallback={
+              <div className="flex-1 flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            }>
+              <ArticlePreview articles={generatedArticles} onReset={handleReset} />
+            </Suspense>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
               <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4 border border-slate-100">
