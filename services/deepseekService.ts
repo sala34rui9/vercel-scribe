@@ -1,6 +1,6 @@
 import { ArticleConfig, DeepSeekModel, OpeningStyle, ReadabilityLevel, TargetCountry, SearchProvider } from "../types";
 
-const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
+const DEEPSEEK_API_URL = "https://deepseek-proxy.ubantuplx.workers.dev/chat/completions";
 const LOCAL_STORAGE_KEY_KEY = 'user_deepseek_api_key';
 
 const getApiKey = (): string => {
@@ -31,16 +31,16 @@ const cleanJsonOutput = (text: string): string => {
 
   // 1. Strip Markdown code block syntax specifically
   clean = clean.replace(/```json/gi, '').replace(/```/g, '');
-  
+
   // 2. Find the first valid JSON object brace structure
   // This helps if there is text before or after the JSON
   const firstBrace = clean.indexOf('{');
   const lastBrace = clean.lastIndexOf('}');
-  
+
   if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
     clean = clean.substring(firstBrace, lastBrace + 1);
   }
-  
+
   return clean.trim();
 };
 
@@ -54,14 +54,14 @@ export const generatePrimaryKeywordsDeepSeek = async (topic: string): Promise<st
   const payload = {
     model: "deepseek-chat",
     messages: [
-      { 
-        role: "system", 
-        content: "You are an expert SEO Specialist." 
+      {
+        role: "system",
+        content: "You are an expert SEO Specialist."
       },
-      { 
-        role: "user", 
+      {
+        role: "user",
         content: `Analyze the topic: "${topic}". Identify 5-7 high-potential Primary SEO Keywords.
-        Return ONLY a raw JSON object with a 'keywords' array of strings. No markdown formatting.` 
+        Return ONLY a raw JSON object with a 'keywords' array of strings. No markdown formatting.`
       }
     ],
     response_format: { type: "json_object" }
@@ -69,7 +69,7 @@ export const generatePrimaryKeywordsDeepSeek = async (topic: string): Promise<st
 
   try {
     logApiDiagnostics('generatePrimaryKeywords', apiKey);
-    
+
     const response = await fetch(DEEPSEEK_API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
@@ -77,15 +77,15 @@ export const generatePrimaryKeywordsDeepSeek = async (topic: string): Promise<st
     });
 
     if (!response.ok) {
-       const errorData = await response.json().catch(() => ({}));
-       logApiDiagnostics('generatePrimaryKeywords (HTTP Error)', apiKey);
-       console.error(`[DeepSeek] HTTP ${response.status}:`, errorData);
-       throw new Error(`DeepSeek API Error (${response.status}): ${errorData.error?.message || response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      logApiDiagnostics('generatePrimaryKeywords (HTTP Error)', apiKey);
+      console.error(`[DeepSeek] HTTP ${response.status}:`, errorData);
+      throw new Error(`DeepSeek API Error (${response.status}): ${errorData.error?.message || response.statusText}`);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
-    
+
     try {
       const cleanedContent = cleanJsonOutput(content);
       const json = JSON.parse(cleanedContent);
@@ -115,14 +115,14 @@ export const generateNLPKeywordsDeepSeek = async (topic: string): Promise<string
   const payload = {
     model: "deepseek-chat",
     messages: [
-      { 
-        role: "system", 
-        content: "You are an expert SEO Specialist." 
+      {
+        role: "system",
+        content: "You are an expert SEO Specialist."
       },
-      { 
-        role: "user", 
+      {
+        role: "user",
         content: `Generate 10-15 high-value NLP and LSI keywords related to: "${topic}".
-        Return ONLY a raw JSON object with a 'keywords' array of strings. No markdown formatting.` 
+        Return ONLY a raw JSON object with a 'keywords' array of strings. No markdown formatting.`
       }
     ],
     response_format: { type: "json_object" }
@@ -130,23 +130,23 @@ export const generateNLPKeywordsDeepSeek = async (topic: string): Promise<string
 
   try {
     logApiDiagnostics('generateNLPKeywords', apiKey);
-    
+
     const response = await fetch(DEEPSEEK_API_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify(payload)
     });
-    
+
     if (!response.ok) {
-       const errorData = await response.json().catch(() => ({}));
-       logApiDiagnostics('generateNLPKeywords (HTTP Error)', apiKey);
-       console.error(`[DeepSeek] HTTP ${response.status}:`, errorData);
-       throw new Error(`DeepSeek API Error (${response.status}): ${errorData.error?.message || response.statusText}`);
+      const errorData = await response.json().catch(() => ({}));
+      logApiDiagnostics('generateNLPKeywords (HTTP Error)', apiKey);
+      console.error(`[DeepSeek] HTTP ${response.status}:`, errorData);
+      throw new Error(`DeepSeek API Error (${response.status}): ${errorData.error?.message || response.statusText}`);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || "";
-    
+
     try {
       const cleanedContent = cleanJsonOutput(content);
       const json = JSON.parse(cleanedContent);
@@ -172,26 +172,26 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
     throw new Error("DeepSeek API Key is missing. Please add your API Key in the settings.");
   }
 
-  const { 
-      topic, 
-      wordCount, 
-      type, 
-      tone, 
-      primaryKeywords, 
-      nlpKeywords, 
-      includeFaq, 
-      includeConclusion, 
-      websiteUrl,
-      deepResearch,
-      realTimeData,
-      internalLinks,
-      externalLinks,
-      openingStyle,
-      readability,
-      humanizeContent,
-      targetCountry,
-      deepSeekModel
-    } = config;
+  const {
+    topic,
+    wordCount,
+    type,
+    tone,
+    primaryKeywords,
+    nlpKeywords,
+    includeFaq,
+    includeConclusion,
+    websiteUrl,
+    deepResearch,
+    realTimeData,
+    internalLinks,
+    externalLinks,
+    openingStyle,
+    readability,
+    humanizeContent,
+    targetCountry,
+    deepSeekModel
+  } = config;
 
   // --- PURE DEEPSEEK EXECUTION ---
   // We do NOT call Gemini for research here to avoid mixed-provider errors.
@@ -202,8 +202,8 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
   // --- PROMPT CONSTRUCTION ---
 
   let internalLinkingInstructions = "";
-    if (internalLinks && internalLinks.length > 0) {
-      internalLinkingInstructions = `
+  if (internalLinks && internalLinks.length > 0) {
+    internalLinkingInstructions = `
       MANDATORY INTERNAL LINKS (CRITICAL):
       You MUST include the following internal links in the article body.
       This is a strict requirement. Do not ignore it.
@@ -217,11 +217,11 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       LINKS TO INSERT:
       ${internalLinks.map(link => `- Context/Topic: "${link.title}" -> Link: ${link.url}`).join("\n")}
       `;
-    }
+  }
 
-    let externalLinkingInstructions = "";
-    if (externalLinks && externalLinks.length > 0) {
-      externalLinkingInstructions = `
+  let externalLinkingInstructions = "";
+  if (externalLinks && externalLinks.length > 0) {
+    externalLinkingInstructions = `
       MANDATORY EXTERNAL LINKS (CITATIONS):
       You MUST include the following external links in the article.
       
@@ -233,84 +233,84 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       EXTERNAL SOURCES TO CITE:
       ${externalLinks.map(link => `- Source: "${link.title}" (${link.url})`).join("\n")}
       `;
-    }
+  }
 
-    let openingInstruction = "";
-    if (openingStyle && openingStyle !== OpeningStyle.NONE) {
-      openingInstruction = `
+  let openingInstruction = "";
+  if (openingStyle && openingStyle !== OpeningStyle.NONE) {
+    openingInstruction = `
       OPENING/INTRODUCTION STYLE REQUIREMENT:
       You MUST start the article with a "${openingStyle}" style introduction.
       `;
-    }
+  }
 
-    let readabilityInstruction = "";
-    if (readability && readability !== ReadabilityLevel.NONE) {
-      readabilityInstruction = `
+  let readabilityInstruction = "";
+  if (readability && readability !== ReadabilityLevel.NONE) {
+    readabilityInstruction = `
       READABILITY LEVEL REQUIREMENT:
       Target Reading Level: ${readability}
       `;
-    }
+  }
 
-    let humanizeInstruction = "";
-    if (humanizeContent) {
-      humanizeInstruction = `
+  let humanizeInstruction = "";
+  if (humanizeContent) {
+    humanizeInstruction = `
       "HUMANIZE CONTENT" MODE ENABLED:
       You MUST write in a natural, human-like manner. 
       STRICTLY AVOID AI clichés like "delve", "ever-evolving", "tapestry", "realm", "symphony".
       Use conversational flow, active voice, and sentence variety.
       `;
-    }
-    
-    // Adapted instructions for DeepSeek-only execution
-    let deepResearchInstruction = "";
-    if (deepResearch && websiteUrl) {
-      deepResearchInstruction = `
+  }
+
+  // Adapted instructions for DeepSeek-only execution
+  let deepResearchInstruction = "";
+  if (deepResearch && websiteUrl) {
+    deepResearchInstruction = `
       BRAND ANALYSIS INSTRUCTION:
       The user has provided a Brand Website: ${websiteUrl}.
       Please analyze this URL (based on your internal training data/knowledge) to infer the brand's likely voice, industry, and structure.
       Adapt your writing tone to align with this brand presence.
       `;
-    }
-    
-    let realTimeDataInstruction = "";
-    let realTimeContext = "";
-    let realTimeSources: string[] = [];
-    
-    if (realTimeData) {
-      // Fetch real-time data using selected search provider
-      if (config.searchProvider === SearchProvider.SERPSTACK) {
-        // Use SERPStack for real-time search
-        const { fetchRealTimeDataSERPStack } = await import('./serpstackService');
-        const data = await fetchRealTimeDataSERPStack(config.topic);
-        realTimeContext = data.content;
-        realTimeSources = data.sources;
-        realTimeDataInstruction = `
+  }
+
+  let realTimeDataInstruction = "";
+  let realTimeContext = "";
+  let realTimeSources: string[] = [];
+
+  if (realTimeData) {
+    // Fetch real-time data using selected search provider
+    if (config.searchProvider === SearchProvider.SERPSTACK) {
+      // Use SERPStack for real-time search
+      const { fetchRealTimeDataSERPStack } = await import('./serpstackService');
+      const data = await fetchRealTimeDataSERPStack(config.topic);
+      realTimeContext = data.content;
+      realTimeSources = data.sources;
+      realTimeDataInstruction = `
       DATA FRESHNESS INSTRUCTION:
       The following real-time search data was retrieved:
       ${realTimeContext}
       
       Please incorporate this information into your article to ensure it's current and relevant.
       `;
-      } else {
-        // Default: use DeepSeek's internal knowledge (no external search)
-        realTimeDataInstruction = `
+    } else {
+      // Default: use DeepSeek's internal knowledge (no external search)
+      realTimeDataInstruction = `
       DATA FRESHNESS INSTRUCTION:
       The user requested Real-Time Data. 
       Please use your most recent internal knowledge to provide up-to-date statistics, news, or trends relevant to the topic.
       `;
-      }
     }
-    
-    let countryInstruction = "";
-    if (targetCountry && targetCountry !== TargetCountry.GLOBAL) {
-        countryInstruction = `
+  }
+
+  let countryInstruction = "";
+  if (targetCountry && targetCountry !== TargetCountry.GLOBAL) {
+    countryInstruction = `
         TARGET AUDIENCE LOCALIZATION:
         Target Country: ${targetCountry}
         Use appropriate spelling (e.g., Color vs Colour), currency, and cultural references for this location.
         `;
-    }
+  }
 
-    let sectionOrderInstruction = `
+  let sectionOrderInstruction = `
       STRICT SECTION ORDERING:
       1. Introduction
       2. Body Paragraphs
@@ -320,7 +320,7 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       CRITICAL: FAQ section MUST appear AFTER the Conclusion.
     `;
 
-    const userPrompt = `
+  const userPrompt = `
       TASK: Write a comprehensive ${type} about "${topic}".
       
       CONFIGURATION:
@@ -345,76 +345,76 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       Output in pure Markdown.
     `;
 
-    // --- MODEL MAPPING ---
-    let apiModel = "deepseek-chat";
-    let systemPrompt = "You are an expert SEO Content Writer.";
+  // --- MODEL MAPPING ---
+  let apiModel = "deepseek-chat";
+  let systemPrompt = "You are an expert SEO Content Writer.";
 
-    if (deepSeekModel === DeepSeekModel.V3_THINKING) {
-      apiModel = "deepseek-reasoner";
-    } else if (deepSeekModel === DeepSeekModel.V3_SPECIALE) {
-      apiModel = "deepseek-reasoner";
-      systemPrompt = "You are DeepSeek-V3.2-Speciale, an advanced reasoning engine specialized for high-end creative and technical writing. You prioritize depth, nuance, and structural perfection.";
-    } else {
-      // V3_NON_THINKING
-      apiModel = "deepseek-chat";
-      systemPrompt = "You are DeepSeek-V3.2, a high-speed, efficient AI writing assistant.";
-    }
+  if (deepSeekModel === DeepSeekModel.V3_THINKING) {
+    apiModel = "deepseek-reasoner";
+  } else if (deepSeekModel === DeepSeekModel.V3_SPECIALE) {
+    apiModel = "deepseek-reasoner";
+    systemPrompt = "You are DeepSeek-V3.2-Speciale, an advanced reasoning engine specialized for high-end creative and technical writing. You prioritize depth, nuance, and structural perfection.";
+  } else {
+    // V3_NON_THINKING
+    apiModel = "deepseek-chat";
+    systemPrompt = "You are DeepSeek-V3.2, a high-speed, efficient AI writing assistant.";
+  }
 
-    const payload = {
-      model: apiModel,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      stream: false
-    };
+  const payload = {
+    model: apiModel,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt }
+    ],
+    stream: false
+  };
 
-    try {
-      logApiDiagnostics('generateArticle', apiKey);
-      
-      const response = await fetch(DEEPSEEK_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${apiKey}`
-        },
-        body: JSON.stringify(payload),
-        signal: signal
-      });
+  try {
+    logApiDiagnostics('generateArticle', apiKey);
 
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        const errorMessage = err.error?.message || response.statusText;
-        
-        logApiDiagnostics('generateArticle (HTTP Error)', apiKey);
-        console.error(`[DeepSeek] HTTP ${response.status}: ${errorMessage}`);
-        console.error(`[DeepSeek] Full error response:`, err);
-        
-        if (errorMessage.includes("balance") || errorMessage.includes("payment")) {
-           throw new Error(`DeepSeek API Payment Error: ${errorMessage}. Please check your balance at deepseek.com.`);
-        }
-        
-        if (response.status === 401 || errorMessage.includes("unauthorized") || errorMessage.includes("invalid")) {
-          throw new Error(`DeepSeek API Authentication Failed: Your API key may be invalid. Visit https://platform.deepseek.com/api/keys to verify.`);
-        }
-        
-        throw new Error(`DeepSeek API Error (${response.status}): ${errorMessage}`);
+    const response = await fetch(DEEPSEEK_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(payload),
+      signal: signal
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      const errorMessage = err.error?.message || response.statusText;
+
+      logApiDiagnostics('generateArticle (HTTP Error)', apiKey);
+      console.error(`[DeepSeek] HTTP ${response.status}: ${errorMessage}`);
+      console.error(`[DeepSeek] Full error response:`, err);
+
+      if (errorMessage.includes("balance") || errorMessage.includes("payment")) {
+        throw new Error(`DeepSeek API Payment Error: ${errorMessage}. Please check your balance at deepseek.com.`);
       }
 
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content || "";
-
-      // Merge with real-time sources if available
-      const sources = [...realTimeSources];
-      
-      return { content, sources };
-    } catch (error: any) {
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        logApiDiagnostics('generateArticle (Network Error)', apiKey, error);
-        console.error('[DeepSeek] Full network error:', error);
-        throw new Error(`DeepSeek API connection failed: ${error.message}\n\nTroubleshooting:\n1. Check your internet connection\n2. Verify API key at https://platform.deepseek.com/api/keys\n3. Ensure your account has sufficient balance\n4. Try again in a few seconds`);
+      if (response.status === 401 || errorMessage.includes("unauthorized") || errorMessage.includes("invalid")) {
+        throw new Error(`DeepSeek API Authentication Failed: Your API key may be invalid. Visit https://platform.deepseek.com/api/keys to verify.`);
       }
-      logApiDiagnostics('generateArticle (Unexpected Error)', apiKey, error);
-      throw error;
+
+      throw new Error(`DeepSeek API Error (${response.status}): ${errorMessage}`);
     }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+
+    // Merge with real-time sources if available
+    const sources = [...realTimeSources];
+
+    return { content, sources };
+  } catch (error: any) {
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      logApiDiagnostics('generateArticle (Network Error)', apiKey, error);
+      console.error('[DeepSeek] Full network error:', error);
+      throw new Error(`DeepSeek API connection failed: ${error.message}\n\nTroubleshooting:\n1. Check your internet connection\n2. Verify API key at https://platform.deepseek.com/api/keys\n3. Ensure your account has sufficient balance\n4. Try again in a few seconds`);
+    }
+    logApiDiagnostics('generateArticle (Unexpected Error)', apiKey, error);
+    throw error;
+  }
 };
