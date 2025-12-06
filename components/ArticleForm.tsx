@@ -1166,7 +1166,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   ) : (
                     <>
                       <Search className="w-3 h-3 mr-1" />
-                      {provider === AIProvider.DEEPSEEK ? "Analyze via DeepSeek" : "Analyze Topic"}
+                      Analyze Topic
                     </>
                   )}
                 </button>
@@ -1221,7 +1221,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   ) : (
                     <>
                       <Wand2 className="w-3 h-3 mr-1" />
-                      {provider === AIProvider.DEEPSEEK ? "Generate via DeepSeek" : "Auto-Generate"}
+                      Auto-Generate
                     </>
                   )}
                 </button>
