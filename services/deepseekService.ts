@@ -1,6 +1,6 @@
 import { ArticleConfig, DeepSeekModel, OpeningStyle, ReadabilityLevel, TargetCountry, SearchProvider } from "../types";
 
-const DEEPSEEK_API_URL = "https://deepseek-proxy.ubantuplx.workers.dev/chat/completions";
+const DEEPSEEK_API_URL = "https://deepseek-proxy.ubantuplx.workers.dev";
 const LOCAL_STORAGE_KEY_KEY = 'user_deepseek_api_key';
 
 const getApiKey = (): string => {
