@@ -146,8 +146,12 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       } else {
         try {
           keywords = await generatePrimaryKeywords(topicToAnalyze);
-        } catch (e) {
+          if (keywords.length === 0) {
+            alert("No keywords generated. Please check your Gemini API key in settings (key icon in header).");
+          }
+        } catch (e: any) {
           console.warn("Gemini Primary Keyword generation failed", e);
+          alert(`Failed to analyze topic: ${e.message || "Please check your API key."}`);
         }
       }
 
@@ -180,8 +184,12 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       } else {
         try {
           keywords = await generateNLPKeywords(topicToAnalyze);
-        } catch (e) {
+          if (keywords.length === 0) {
+            alert("No NLP keywords generated. Please check your Gemini API key in settings (key icon in header).");
+          }
+        } catch (e: any) {
           console.warn("Gemini NLP Keyword generation failed", e);
+          alert(`Failed to generate NLP keywords: ${e.message || "Please check your API key."}`);
         }
       }
 
@@ -394,8 +402,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 type="button"
                 onClick={() => setProvider(AIProvider.GEMINI)}
                 className={`flex items-center justify-center py-3 px-4 rounded-lg border-2 transition-all ${provider === AIProvider.GEMINI
-                    ? 'border-blue-600 bg-blue-50 text-blue-700 font-bold'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'
+                  ? 'border-blue-600 bg-blue-50 text-blue-700 font-bold'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300'
                   }`}
               >
                 <Zap className={`w-5 h-5 mr-2 ${provider === AIProvider.GEMINI ? 'fill-blue-600 text-blue-600' : ''}`} />
@@ -405,8 +413,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 type="button"
                 onClick={() => setProvider(AIProvider.DEEPSEEK)}
                 className={`flex items-center justify-center py-3 px-4 rounded-lg border-2 transition-all ${provider === AIProvider.DEEPSEEK
-                    ? 'border-indigo-600 bg-indigo-50 text-indigo-700 font-bold'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
+                  ? 'border-indigo-600 bg-indigo-50 text-indigo-700 font-bold'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300'
                   }`}
               >
                 <Cpu className={`w-5 h-5 mr-2 ${provider === AIProvider.DEEPSEEK ? 'fill-indigo-600 text-indigo-600' : ''}`} />
@@ -457,8 +465,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
             type="button"
             onClick={() => setMode('single')}
             className={`flex-1 flex items-center justify-center py-2 text-sm font-medium rounded-md transition-all ${mode === 'single'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
               }`}
           >
             <FileText className="w-4 h-4 mr-2" />
@@ -468,8 +476,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
             type="button"
             onClick={() => setMode('bulk')}
             className={`flex-1 flex items-center justify-center py-2 text-sm font-medium rounded-md transition-all ${mode === 'bulk'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
               }`}
           >
             <ListOrdered className="w-4 h-4 mr-2" />
@@ -1262,10 +1270,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
         type="submit"
         disabled={isGenerating || !isFormValid}
         className={`w-full py-4 px-6 rounded-xl text-white font-medium text-lg flex items-center justify-center transition-all ${isGenerating || !isFormValid
-            ? 'bg-slate-400 cursor-not-allowed'
-            : provider === AIProvider.DEEPSEEK
-              ? 'bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/25'
-              : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-blue-500/25'
+          ? 'bg-slate-400 cursor-not-allowed'
+          : provider === AIProvider.DEEPSEEK
+            ? 'bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/25'
+            : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-blue-500/25'
           }`}
       >
         {isGenerating ? (

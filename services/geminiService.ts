@@ -40,7 +40,7 @@ const isGeminiSelected = (): boolean => {
 const getGenAI = (): GoogleGenAI => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    throw new Error("No API Key available. Please add your own API Key in the settings.");
+    throw new Error("No Gemini API Key found. Please add your key in the API Settings (key icon in header).");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -57,12 +57,12 @@ const generateContentWithRetry = async (model: string, params: any, retries = 3)
       return await ai.models.generateContent({ model, ...params });
     } catch (error: any) {
       lastError = error;
-      const isQuotaOrServer = error.status === 429 || error.status === 503 || 
-                              (error.toString && (error.toString().includes('429') || error.toString().includes('503') || error.toString().includes('RESOURCE_EXHAUSTED')));
-      
+      const isQuotaOrServer = error.status === 429 || error.status === 503 ||
+        (error.toString && (error.toString().includes('429') || error.toString().includes('503') || error.toString().includes('RESOURCE_EXHAUSTED')));
+
       if (isQuotaOrServer && i < retries) {
         const delay = 1000 * Math.pow(2, i); // 1s, 2s, 4s
-        console.warn(`Gemini API busy/quota (Attempt ${i+1}/${retries+1}). Retrying in ${delay}ms...`);
+        console.warn(`Gemini API busy/quota (Attempt ${i + 1}/${retries + 1}). Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
@@ -108,7 +108,7 @@ export const generatePrimaryKeywords = async (topic: string): Promise<string[]> 
 
     const text = response.text;
     if (!text) return [];
-    
+
     const data = JSON.parse(text);
     return data.keywords || [];
   } catch (error) {
@@ -148,7 +148,7 @@ export const generateNLPKeywords = async (topic: string): Promise<string[]> => {
 
     const text = response.text;
     if (!text) return [];
-    
+
     const data = JSON.parse(text);
     return data.keywords || [];
   } catch (error) {
@@ -195,15 +195,15 @@ export const fetchSiteArchitecture = async (domain: string): Promise<string[]> =
     // We do NOT rely on generated text for URLs as it may hallucinate.
     let urls: string[] = [];
     if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
-         urls = response.candidates[0].groundingMetadata.groundingChunks
-          .map((chunk: any) => chunk.web?.uri)
-          .filter((uri: string) => !!uri);
+      urls = response.candidates[0].groundingMetadata.groundingChunks
+        .map((chunk: any) => chunk.web?.uri)
+        .filter((uri: string) => !!uri);
     }
 
     // Strict Domain Filter
     const cleanDomain = domain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
     const filteredUrls = urls.filter(url => url.includes(cleanDomain));
-    
+
     // Deduplicate
     return [...new Set(filteredUrls)];
   } catch (error) {
@@ -238,30 +238,30 @@ export const scanForInternalLinks = async (websiteUrl: string, topic: string, ke
     }
 
     // Construct queries based on Deep Research mode
-    const searchQueries = deepResearch 
+    const searchQueries = deepResearch
       ? [
-          `"site:${domain} ${topic}"`, 
-          `"site:${domain} ${keywords.slice(0, 3).join(' ')}"`,
-          `"site:${domain} blog"`, 
-          `"site:${domain} resources"` 
-        ]
+        `"site:${domain} ${topic}"`,
+        `"site:${domain} ${keywords.slice(0, 3).join(' ')}"`,
+        `"site:${domain} blog"`,
+        `"site:${domain} resources"`
+      ]
       : [
-          `"site:${domain} ${topic}"`,
-          `"site:${domain} ${keywords.slice(0, 2).join(' ')}"`
-        ];
+        `"site:${domain} ${topic}"`,
+        `"site:${domain} ${keywords.slice(0, 2).join(' ')}"`
+      ];
 
-    const promptInstructions = deepResearch 
+    const promptInstructions = deepResearch
       ? `You are a SITE ARCHITECT. Perform a COMPREHENSIVE scan.`
       : `You are an expert SEO Auditor. Find specific relevant pages for linking.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash", 
+      model: "gemini-2.5-flash",
       contents: `${promptInstructions}
       
       Your task is to analyze search results for the domain "${domain}" to find content gaps.
 
       1. EXECUTE SEARCHES using "site:${domain}":
-         ${searchQueries.map((q, i) => `- Query ${i+1}: ${q}`).join('\n')}
+         ${searchQueries.map((q, i) => `- Query ${i + 1}: ${q}`).join('\n')}
 
       2. IDENTIFY CONTENT GAPS:
          - Identify relevant sub-topics or pages that *should* exist for an authoritative site on this topic, but were NOT found in the search results.
@@ -289,7 +289,7 @@ export const scanForInternalLinks = async (websiteUrl: string, topic: string, ke
       if (chunk.web?.uri && chunk.web?.title) {
         const uri = chunk.web.uri;
         const title = chunk.web.title;
-        
+
         // Strict Domain Check
         let isMatch = false;
         try {
@@ -314,7 +314,7 @@ export const scanForInternalLinks = async (websiteUrl: string, topic: string, ke
     const uniqueLinks: InternalLink[] = [];
     const seenUrls = new Set();
     for (const link of validLinks) {
-      const normalizedUrl = link.url.replace(/\/$/, ""); 
+      const normalizedUrl = link.url.replace(/\/$/, "");
       if (!seenUrls.has(normalizedUrl)) {
         seenUrls.add(normalizedUrl);
         uniqueLinks.push(link);
@@ -335,7 +335,7 @@ export const scanForInternalLinks = async (websiteUrl: string, topic: string, ke
     }
 
     return { links: uniqueLinks, opportunities };
-    
+
   } catch (error) {
     console.error("Error scanning for internal links:", error);
     return { links: [], opportunities: [] };
@@ -372,7 +372,7 @@ export const scanForExternalLinks = async (topic: string, excludeDomain?: string
       }
     });
 
-     // STRICT SOURCE OF TRUTH: Grounding Metadata
+    // STRICT SOURCE OF TRUTH: Grounding Metadata
     const rawChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
     let validLinks: ExternalLink[] = [];
 
@@ -380,16 +380,16 @@ export const scanForExternalLinks = async (topic: string, excludeDomain?: string
       if (chunk.web?.uri && chunk.web?.title) {
         const uri = chunk.web.uri;
         const title = chunk.web.title;
-        
+
         // Exclude Domain Check
         if (excludeDomain && uri.includes(excludeDomain)) {
           continue;
         }
 
         validLinks.push({
-            title: title,
-            url: uri,
-            snippet: "Verified External Source"
+          title: title,
+          url: uri,
+          snippet: "Verified External Source"
         });
       }
     }
@@ -398,10 +398,10 @@ export const scanForExternalLinks = async (topic: string, excludeDomain?: string
     const uniqueLinks: ExternalLink[] = [];
     const seenUrls = new Set();
     for (const link of validLinks) {
-       if (!seenUrls.has(link.url)) {
-         seenUrls.add(link.url);
-         uniqueLinks.push(link);
-       }
+      if (!seenUrls.has(link.url)) {
+        seenUrls.add(link.url);
+        uniqueLinks.push(link);
+      }
     }
 
     return uniqueLinks.slice(0, 15);
@@ -465,18 +465,18 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
 
   try {
     if (!isGeminiSelected()) {
-      throw new Error("Gemini provider not selected. Aborting Gemini article generation.");
+      throw new Error("Google Gemini is not selected as your AI provider. Please select Gemini in settings or use DeepSeek.");
     }
     const ai = getGenAI();
-    const { 
-      topic, 
-      wordCount, 
-      type, 
-      tone, 
-      primaryKeywords, 
-      nlpKeywords, 
-      includeFaq, 
-      includeConclusion, 
+    const {
+      topic,
+      wordCount,
+      type,
+      tone,
+      primaryKeywords,
+      nlpKeywords,
+      includeFaq,
+      includeConclusion,
       websiteUrl,
       deepResearch,
       realTimeData,
@@ -492,10 +492,10 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
     // If enabled, we first fetch latest data using selected search provider
     let realTimeContext = "";
     let realTimeSources: string[] = [];
-    
+
     if (realTimeData) {
       let data: { content: string; sources: string[] };
-      
+
       // Use selected search provider
       if (config.searchProvider === SearchProvider.SERPSTACK) {
         // Use SERPStack for real-time search
@@ -505,11 +505,11 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
         // Default to Gemini (with grounding)
         data = await fetchRealTimeData(topic);
       }
-      
+
       realTimeContext = data.content;
       realTimeSources = data.sources;
     }
-    
+
     // Check abort again after async fetch
     if (signal?.aborted) {
       throw new DOMException('Aborted', 'AbortError');
@@ -623,7 +623,7 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
          - Focus on "showing" rather than "telling".
       `;
     }
-    
+
     // Construct Site Architect Instructions (for Hallucination Prevention)
     // We add the verified URLs from the architecture scan to the prompt.
     let siteArchitectInstruction = "";
@@ -642,11 +642,11 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
       3. PROHIBITED: DO NOT invent, guess, or construct any new URLs (e.g. do not make up /blog/topic-name). If a URL is not in the Verified List or Mandatory List, DO NOT use it.
       `;
     }
-    
+
     // Construct Target Country / Localization Instructions
     let countryInstruction = "";
     if (targetCountry && targetCountry !== TargetCountry.GLOBAL) {
-        countryInstruction = `
+      countryInstruction = `
         TARGET AUDIENCE LOCALIZATION:
         Target Country: ${targetCountry}
         
@@ -662,14 +662,14 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
     let sectionOrderInstruction = `
       STRICT SECTION ORDERING (YOU MUST FOLLOW THIS EXACT SEQUENCE):
       1. Introduction (Following the specified OPENING STYLE)`;
-    
+
     let step = 2;
     sectionOrderInstruction += `\n      ${step++}. Body Paragraphs (Comprehensive coverage)`;
-    
+
     if (includeConclusion) {
       sectionOrderInstruction += `\n      ${step++}. Conclusion / Key Takeaways (Use header: ## Conclusion)`;
     }
-    
+
     if (includeFaq) {
       sectionOrderInstruction += `\n      ${step++}. FAQ Section (Use header: ## Frequently Asked Questions)`;
     }
@@ -734,48 +734,48 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
 
     // Strategy: Try the robust Pro model first. If it hits limits (429) or is overloaded, fallback to Flash.
     const executeGeneration = async (modelName: string) => {
-        const generationPromise = ai.models.generateContent({
-            model: modelName,
-            contents: prompt,
-            config: {
-                // If deep research is enabled, we enable tools to allow the model to verify facts if needed.
-                // gemini-2.5-flash handles tools well too.
-                tools: deepResearch ? [{ googleSearch: {} }] : [],
-            }
-        });
-        
-        return await Promise.race([
-            generationPromise,
-            new Promise<any>((_, reject) => {
-                if (signal) {
-                    signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
-                }
-            })
-        ]);
+      const generationPromise = ai.models.generateContent({
+        model: modelName,
+        contents: prompt,
+        config: {
+          // If deep research is enabled, we enable tools to allow the model to verify facts if needed.
+          // gemini-2.5-flash handles tools well too.
+          tools: deepResearch ? [{ googleSearch: {} }] : [],
+        }
+      });
+
+      return await Promise.race([
+        generationPromise,
+        new Promise<any>((_, reject) => {
+          if (signal) {
+            signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+          }
+        })
+      ]);
     };
 
     let response;
     try {
-        response = await executeGeneration('gemini-3-pro-preview');
+      response = await executeGeneration('gemini-3-pro-preview');
     } catch (error: any) {
-         if (signal?.aborted) throw error;
-         
-         const isQuotaError = error.status === 429 || 
-                              error.status === 503 ||
-                              error.toString().includes('429') || 
-                              error.toString().includes('quota') ||
-                              error.toString().includes('RESOURCE_EXHAUSTED');
-                              
-         if (isQuotaError) {
-             console.warn("Primary model (Pro) quota exceeded. Falling back to gemini-2.5-flash.");
-             response = await executeGeneration('gemini-2.5-flash');
-         } else {
-             throw error;
-         }
+      if (signal?.aborted) throw error;
+
+      const isQuotaError = error.status === 429 ||
+        error.status === 503 ||
+        error.toString().includes('429') ||
+        error.toString().includes('quota') ||
+        error.toString().includes('RESOURCE_EXHAUSTED');
+
+      if (isQuotaError) {
+        console.warn("Primary model (Pro) quota exceeded. Falling back to gemini-2.5-flash.");
+        response = await executeGeneration('gemini-2.5-flash');
+      } else {
+        throw error;
+      }
     }
 
     const content = response.text || "";
-    
+
     // Extract sources if grounding was used in the main call
     let sources: string[] = [];
     if (response.candidates?.[0]?.groundingMetadata?.groundingChunks) {
@@ -783,10 +783,10 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
         .map((chunk: any) => chunk.web?.uri)
         .filter((uri: string) => !!uri);
     }
-    
+
     // Merge with real-time sources
     sources = [...sources, ...realTimeSources];
-    
+
     // Deduplicate
     sources = [...new Set(sources)];
 
@@ -795,7 +795,7 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error;
     }
-    
+
     console.error("Error generating article:", error);
     throw new Error("Failed to generate article. Please try again or check your API Key.");
   }
