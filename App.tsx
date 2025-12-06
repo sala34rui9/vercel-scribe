@@ -1,12 +1,12 @@
 
-import React, { useState, useCallback, useRef, Suspense } from 'react';
+import React, { useState, useCallback, useRef, Suspense, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { ArticleForm } from './components/ArticleForm';
 const ArticlePreview = React.lazy(() => import('./components/ArticlePreview').then(m => ({ default: m.ArticlePreview })));
 import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel } from './types';
 import { generateArticle, generatePrimaryKeywords, generateNLPKeywords, scanForInternalLinks, scanForExternalLinks } from './services/geminiService';
 import { generateArticleDeepSeek, generatePrimaryKeywordsDeepSeek, generateNLPKeywordsDeepSeek } from './services/deepseekService';
-import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, BrainCircuit, Activity } from 'lucide-react';
+import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, BrainCircuit, Activity, GripVertical } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -24,6 +24,53 @@ const App: React.FC = () => {
 
   // Ref to hold the current AbortController
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Resizable panel state
+  const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
+    const saved = localStorage.getItem('seo_scribe_panel_width');
+    return saved ? parseInt(saved) : 25; // Default 25%
+  });
+  const isDraggingRef = useRef(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Handle resize drag
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDraggingRef.current = true;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, []);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current || !containerRef.current) return;
+
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
+
+      // Clamp between 20% and 50%
+      const clampedWidth = Math.min(50, Math.max(20, newWidth));
+      setLeftPanelWidth(clampedWidth);
+    };
+
+    const handleMouseUp = () => {
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        // Save preference
+        localStorage.setItem('seo_scribe_panel_width', leftPanelWidth.toString());
+      }
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [leftPanelWidth]);
 
   // Helper to handle generation with fallback
   const generateWithFallback = async (config: ArticleConfig, signal: AbortSignal): Promise<{ content: string, sources: string[] }> => {
@@ -258,14 +305,28 @@ const App: React.FC = () => {
 
   return (
     <Layout>
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-8rem)]">
-        {/* Left Column: Configuration */}
-        <div className="lg:col-span-4 xl:col-span-3 h-full overflow-y-auto pr-2">
+      <div ref={containerRef} className="flex h-[calc(100vh-8rem)] gap-0">
+        {/* Left Column: Configuration - Resizable */}
+        <div
+          className="h-full overflow-y-auto pr-2 flex-shrink-0"
+          style={{ width: `${leftPanelWidth}%` }}
+        >
           <ArticleForm key={formKey} onGenerate={handleGenerate} isGenerating={isGenerating} />
         </div>
 
-        {/* Right Column: Output */}
-        <div className="lg:col-span-8 xl:col-span-9 h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+        {/* Resize Handle */}
+        <div
+          onMouseDown={handleMouseDown}
+          className="w-2 h-full flex-shrink-0 cursor-col-resize flex items-center justify-center group hover:bg-blue-50 transition-colors"
+          title="Drag to resize"
+        >
+          <div className="w-1 h-16 bg-slate-200 rounded-full group-hover:bg-blue-400 transition-colors flex items-center justify-center">
+            <GripVertical className="w-3 h-3 text-slate-400 group-hover:text-blue-600" />
+          </div>
+        </div>
+
+        {/* Right Column: Output - Takes remaining space */}
+        <div className="flex-1 h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative min-w-0">
           {error && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 backdrop-blur-sm p-6">
               <div className="text-center max-w-md">
