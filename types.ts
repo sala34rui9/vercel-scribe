@@ -59,7 +59,8 @@ export enum DeepSeekModel {
 
 export enum SearchProvider {
   GEMINI = "Google Gemini",
-  SERPSTACK = "SERPStack"
+  SERPSTACK = "SERPStack",
+  TAVILY = "Tavily"
 }
 
 export interface InternalLink {
@@ -84,7 +85,7 @@ export interface ArticleConfig {
   topic: string; // Used for single mode
   queueTopics?: string[]; // Used for queue/bulk mode
   autoOptimize: boolean; // Enables the Auto-SEO pipeline
-  
+
   wordCount: number;
   type: ArticleType;
   tone: ToneVoice;
@@ -92,25 +93,27 @@ export interface ArticleConfig {
   readability?: ReadabilityLevel;
   targetCountry: TargetCountry;
   humanizeContent: boolean;
-  
+
   primaryKeywords: string[];
   nlpKeywords: string[];
-  
+
   includeFaq: boolean;
   includeConclusion: boolean;
-  
+
   websiteUrl?: string;
   deepResearch: boolean;
   realTimeData: boolean;
-  
+
   internalLinks?: InternalLink[];
   externalLinks?: ExternalLink[];
   enableExternalLinks?: boolean; // For queue mode auto-scanning
-  
+
   // AI Provider Settings
   provider: AIProvider;
   deepSeekModel?: DeepSeekModel;
-  searchProvider?: SearchProvider; // For real-time data search (Gemini or SERPStack)
+  searchProvider?: SearchProvider; // For real-time data search (Gemini, SERPStack, or Tavily)
+  externalLinkSearchProvider?: SearchProvider; // For external link discovery (Gemini or Tavily)
+  manualReferenceUrls?: string[]; // User-provided URLs for reference extraction
 }
 
 export interface GeneratedArticle {

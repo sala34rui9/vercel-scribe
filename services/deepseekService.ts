@@ -263,13 +263,41 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
 
   // Adapted instructions for DeepSeek-only execution
   let deepResearchInstruction = "";
+  let deepResearchContext = "";
   if (deepResearch && websiteUrl) {
-    deepResearchInstruction = `
+    // Try to use Tavily Crawl for deep brand research if available
+    try {
+      const { analyzeBrandWebsite, getTavilyApiKey } = await import('./tavilyService');
+      if (getTavilyApiKey()) {
+        console.log('[DeepSeek] Using Tavily Crawl for deep brand research');
+        const brandAnalysis = await analyzeBrandWebsite(websiteUrl);
+        if (brandAnalysis.content) {
+          deepResearchContext = brandAnalysis.content;
+          deepResearchInstruction = `
+      BRAND ANALYSIS (via Tavily Crawl):
+      The following brand/site analysis was gathered:
+      ${deepResearchContext.substring(0, 3000)}
+      
+      Site Architecture discovered:
+      ${brandAnalysis.siteArchitecture.slice(0, 10).join('\n')}
+      
+      Please adapt your writing tone to align with this brand presence.
+          `;
+        }
+      }
+    } catch (e) {
+      console.warn('[DeepSeek] Tavily Crawl failed, using fallback', e);
+    }
+
+    // Fallback if Tavily not available
+    if (!deepResearchInstruction) {
+      deepResearchInstruction = `
       BRAND ANALYSIS INSTRUCTION:
       The user has provided a Brand Website: ${websiteUrl}.
       Please analyze this URL (based on your internal training data/knowledge) to infer the brand's likely voice, industry, and structure.
       Adapt your writing tone to align with this brand presence.
       `;
+    }
   }
 
   let realTimeDataInstruction = "";
@@ -278,7 +306,27 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
 
   if (realTimeData) {
     // Fetch real-time data using selected search provider
-    if (config.searchProvider === SearchProvider.SERPSTACK) {
+    if (config.searchProvider === SearchProvider.TAVILY) {
+      // Use Tavily for real-time search (recommended for DeepSeek)
+      try {
+        const { fetchRealTimeDataTavily, getTavilyApiKey } = await import('./tavilyService');
+        if (getTavilyApiKey()) {
+          console.log('[DeepSeek] Using Tavily Search for real-time data');
+          const data = await fetchRealTimeDataTavily(config.topic);
+          realTimeContext = data.content;
+          realTimeSources = data.sources;
+          realTimeDataInstruction = `
+      DATA FRESHNESS INSTRUCTION:
+      The following real-time search data was retrieved via Tavily:
+      ${realTimeContext}
+      
+      Please incorporate this information into your article to ensure it's current and relevant.
+          `;
+        }
+      } catch (e) {
+        console.warn('[DeepSeek] Tavily Search failed', e);
+      }
+    } else if (config.searchProvider === SearchProvider.SERPSTACK) {
       // Use SERPStack for real-time search
       const { fetchRealTimeDataSERPStack } = await import('./serpstackService');
       const data = await fetchRealTimeDataSERPStack(config.topic);
@@ -291,13 +339,37 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       
       Please incorporate this information into your article to ensure it's current and relevant.
       `;
-    } else {
-      // Default: use DeepSeek's internal knowledge (no external search)
+    }
+
+    // Fallback: use DeepSeek's internal knowledge (no external search)
+    if (!realTimeDataInstruction) {
       realTimeDataInstruction = `
       DATA FRESHNESS INSTRUCTION:
       The user requested Real-Time Data. 
       Please use your most recent internal knowledge to provide up-to-date statistics, news, or trends relevant to the topic.
       `;
+    }
+  }
+
+  // Process manual reference URLs if provided
+  let manualReferencesInstruction = "";
+  if (config.manualReferenceUrls && config.manualReferenceUrls.length > 0) {
+    try {
+      const { extractManualReferences, getTavilyApiKey } = await import('./tavilyService');
+      if (getTavilyApiKey()) {
+        console.log('[DeepSeek] Extracting manual reference URLs via Tavily');
+        const extracted = await extractManualReferences(config.manualReferenceUrls);
+        if (extracted.content) {
+          realTimeSources = [...realTimeSources, ...extracted.sources];
+          manualReferencesInstruction = `
+      MANUAL REFERENCE MATERIALS:
+      The user provided the following URLs for reference. Use this information:
+      ${extracted.content.substring(0, 3000)}
+          `;
+        }
+      }
+    } catch (e) {
+      console.warn('[DeepSeek] Manual reference extraction failed', e);
     }
   }
 
@@ -332,6 +404,7 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       
       ${deepResearchInstruction}
       ${realTimeDataInstruction}
+      ${manualReferencesInstruction}
       ${countryInstruction}
       ${openingInstruction}
       ${readabilityInstruction}

@@ -479,7 +479,22 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
       let data: { content: string; sources: string[] };
 
       // Use selected search provider
-      if (config.searchProvider === SearchProvider.SERPSTACK) {
+      if (config.searchProvider === SearchProvider.TAVILY) {
+        // Use Tavily for real-time search
+        try {
+          const { fetchRealTimeDataTavily, getTavilyApiKey } = await import('./tavilyService');
+          if (getTavilyApiKey()) {
+            console.log('[Gemini] Using Tavily Search for real-time data');
+            data = await fetchRealTimeDataTavily(topic);
+          } else {
+            // Fallback to Gemini grounding if no Tavily key
+            data = await fetchRealTimeData(topic);
+          }
+        } catch (e) {
+          console.warn('[Gemini] Tavily Search failed, falling back to Gemini grounding', e);
+          data = await fetchRealTimeData(topic);
+        }
+      } else if (config.searchProvider === SearchProvider.SERPSTACK) {
         // Use SERPStack for real-time search
         const { fetchRealTimeDataSERPStack } = await import('./serpstackService');
         data = await fetchRealTimeDataSERPStack(topic);

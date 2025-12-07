@@ -107,6 +107,15 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   const [selectedExternalLinkUrls, setSelectedExternalLinkUrls] = useState<Set<string>>(new Set());
   const [isScanningExternal, setIsScanningExternal] = useState(false);
 
+  // Manual Reference URLs State
+  const [manualReferenceUrls, setManualReferenceUrls] = useState<string>('');
+
+  // External Link Search Provider State
+  const [externalLinkSearchProvider, setExternalLinkSearchProvider] = useState<SearchProvider>(() => {
+    const stored = localStorage.getItem('seo_scribe_external_link_provider');
+    return (stored as SearchProvider) || SearchProvider.GEMINI;
+  });
+
   // Persistence Effects
   useEffect(() => {
     localStorage.setItem('seo_scribe_provider', provider);
@@ -360,6 +369,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       internalLinks,
       externalLinks,
       enableExternalLinks: includeExternalLinks, // Pass preference for auto-scan
+      externalLinkSearchProvider: includeExternalLinks ? externalLinkSearchProvider : undefined,
+      manualReferenceUrls: manualReferenceUrls.trim()
+        ? manualReferenceUrls.split('\n').map(u => u.trim()).filter(u => u.length > 0)
+        : undefined,
       provider,
       deepSeekModel
     });
@@ -662,6 +675,21 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                       />
                       <span className="text-sm text-slate-700 font-medium">SERPStack API</span>
                     </label>
+                    <label className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="searchProvider"
+                        value={SearchProvider.TAVILY}
+                        checked={realTimeSearchProvider === SearchProvider.TAVILY}
+                        onChange={(e) => {
+                          const provider = e.target.value as SearchProvider;
+                          setRealTimeSearchProvider(provider);
+                          localStorage.setItem('seo_scribe_realtime_search_provider', provider);
+                        }}
+                        className="w-4 h-4 text-orange-600 border-slate-300 rounded focus:ring-orange-500"
+                      />
+                      <span className="text-sm text-slate-700 font-medium">Tavily (recommended for DeepSeek)</span>
+                    </label>
                   </div>
                 </div>
               )}
@@ -947,6 +975,31 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Manual Reference URLs Section */}
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200">
+              <h3 className="text-sm font-semibold text-slate-800 flex items-center">
+                <BookOpen className="w-4 h-4 mr-2 text-teal-600" />
+                Manual Reference URLs (Optional)
+              </h3>
+            </div>
+            <div className="p-4 bg-white">
+              <p className="text-xs text-slate-500 mb-3">
+                Paste URLs you want to use as references. Tavily will extract content from these URLs for research.
+              </p>
+              <textarea
+                value={manualReferenceUrls}
+                onChange={(e) => setManualReferenceUrls(e.target.value)}
+                placeholder={"https://example.com/article-1\nhttps://example.com/article-2"}
+                rows={3}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none text-sm resize-y"
+              />
+              <p className="text-xs text-slate-400 mt-1">
+                One URL per line. These will be processed via Tavily Extract API.
+              </p>
+            </div>
           </div>
 
           {/* Type & Tone */}
