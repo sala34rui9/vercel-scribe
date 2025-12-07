@@ -467,7 +467,11 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
       openingStyle,
       readability,
       humanizeContent,
-      targetCountry
+      targetCountry,
+      includeBulletPoints,
+      includeTables,
+      includeItalics,
+      includeBold
     } = config;
 
     // --- REAL-TIME DATA FETCHING STEP ---
@@ -603,22 +607,50 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
       "HUMANIZE CONTENT" MODE ENABLED (ANTI-ROBOTIC WRITING):
       You MUST write in a natural, human-like manner. The user explicitly wants to avoid "AI-sounding" text.
       
-      STRICT RULES:
-      1. BANNED AI PHRASES: Do NOT use the following words/phrases or their variations:
-         - "Delve", "Dive deep", "In the ever-evolving landscape", "Game-changer"
-         - "Unleash", "Unlock", "Elevate", "Realm", "Tapestry", "Symphony"
-         - "In conclusion", "It is important to note"
+      STRICTLY BANNED WORDS/PHRASES (NEVER USE THESE - INSTANT PENALTY):
+      - "Delve", "Dive deep", "In the ever-evolving landscape", "Game-changer", "Unleash", "Unlock"
+      - "Elevate", "Realm", "Tapestry", "Symphony", "In conclusion", "It is important to note"
+      - "In today's world", "Cutting-edge", "Revolutionize", "Leverage", "Harness the power"
+      - "First and foremost", "Furthermore", "Moreover", "Additionally", "Navigate the complexities"
+      - "At the end of the day", "Moving forward", "In essence", "Ultimately", "As such", "Thus", "Therefore"
+      - "A myriad of", "Plethora", "Multitude", "Vast array", "Seamlessly", "Effortlessly", "Robust"
+      - "Streamline", "Empower", "Synergy", "Holistic", "Paradigm shift", "It goes without saying"
+      - "Needless to say", "It's worth noting", "Not only...but also", "Whether you're...or..."
+      - "From X to Y", "Journey", "Landscape", "Crucial", "Pivotal", "Comprehensive", "Beacon"
+      - "Testament", "Nestled", "Bustling", "Hidden gem", "Architect", "Masterpiece", "Underscore"
       
-      2. SENTENCE VARIETY: 
-         - Mix very short, punchy sentences with longer, flowing ones.
-         - Avoid repetitive sentence structures (e.g., starting every paragraph with "Additionally").
-      
-      3. CONVERSATIONAL FLOW:
-         - Write as if speaking to a colleague or friend (depending on tone).
-         - Use contractions (e.g., "it's" instead of "it is") unless the tone is strictly academic.
-         - Use rhetorical questions sparingly but effectively.
-         - Focus on "showing" rather than "telling".
+      HUMAN WRITING GUIDELINES:
+      - Use short, punchy sentences. Fragment sentences are okay for effect.
+      - Start sentences with conjunctions (And, But, So, Or).
+      - REQUIRED: Use contractions everywhere (don't, won't, can't, it's, you'll).
+      - Use First and Second person (I, We, You) to build a connection.
+      - Ask rhetorical questions to engage the reader.
+      - Use simple, Anglo-Saxon words over Latinate complex ones.
+      - write like you are talking to a friend over a coffee. Casual but informative.
+      - ALLOW quirks and personal opinions.
       `;
+    }
+
+    // Construct Formatting Instructions
+    let formattingInstruction = `
+      FORMATTING GUIDELINES (STRICT):
+      1. Use H2 (##) and H3 (###) for clear hierarchy.
+    `;
+
+    if (includeBulletPoints) {
+      formattingInstruction += `\n      2. USE BULLET POINTS: Break down complex lists or features into bullet points for readability.`;
+    }
+
+    if (includeTables) {
+      formattingInstruction += `\n      3. USE TABLES: formatting data, comparisons, or pros/cons. Minimum one table per article if data allows.`;
+    }
+
+    if (includeBold) {
+      formattingInstruction += `\n      4. USE BOLD TEXT (**text**): Highlight *specific* key terms, important stats, or "aha!" moments. DO NOT bold entire sentences.`;
+    }
+
+    if (includeItalics) {
+      formattingInstruction += `\n      5. USE ITALICS (*text*): Use for emphasis on spoken-word stress or foreign terms. Use sparingly.`;
     }
 
     // Construct Site Architect Instructions (for Hallucination Prevention)
@@ -715,9 +747,7 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
       
       STRICT STRUCTURE & FORMATTING RULES:
       1. MAIN TITLE: Start with a clear H1 (#) title.
-      2. SUBHEADINGS: Use H2 (##) for main sections and H3 (###) for detailed subsections. Ensure logical hierarchy.
-      3. BOLDING: Use **bold text** for key takeaways, important terms, and primary keywords to improve skimmability.
-      4. CONTENT BLOCKS: Use short paragraphs, bullet points, and numbered lists to break up text.
+      ${formattingInstruction}
       
       CONTENT INTEGRATION REQUIREMENTS (CRITICAL):
       ${internalLinkingInstructions}

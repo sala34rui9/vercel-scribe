@@ -190,7 +190,11 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
     readability,
     humanizeContent,
     targetCountry,
-    deepSeekModel
+    deepSeekModel,
+    includeBulletPoints,
+    includeTables,
+    includeItalics,
+    includeBold
   } = config;
 
   // --- PURE DEEPSEEK EXECUTION ---
@@ -254,11 +258,53 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
   let humanizeInstruction = "";
   if (humanizeContent) {
     humanizeInstruction = `
-      "HUMANIZE CONTENT" MODE ENABLED:
-      You MUST write in a natural, human-like manner. 
-      STRICTLY AVOID AI clichés like "delve", "ever-evolving", "tapestry", "realm", "symphony".
-      Use conversational flow, active voice, and sentence variety.
-      `;
+    "HUMANIZE CONTENT" MODE ENABLED (ANTI-ROBOTIC WRITING):
+    You MUST write in a natural, human-like manner. The user explicitly wants to avoid "AI-sounding" text.
+    
+    STRICTLY BANNED WORDS/PHRASES (NEVER USE THESE - INSTANT PENALTY):
+    - "Delve", "Dive deep", "In the ever-evolving landscape", "Game-changer", "Unleash", "Unlock"
+    - "Elevate", "Realm", "Tapestry", "Symphony", "In conclusion", "It is important to note"
+    - "In today's world", "Cutting-edge", "Revolutionize", "Leverage", "Harness the power"
+    - "First and foremost", "Furthermore", "Moreover", "Additionally", "Navigate the complexities"
+    - "At the end of the day", "Moving forward", "In essence", "Ultimately", "As such", "Thus", "Therefore"
+    - "A myriad of", "Plethora", "Multitude", "Vast array", "Seamlessly", "Effortlessly", "Robust"
+    - "Streamline", "Empower", "Synergy", "Holistic", "Paradigm shift", "It goes without saying"
+    - "Needless to say", "It's worth noting", "Not only...but also", "Whether you're...or..."
+    - "From X to Y", "Journey", "Landscape", "Crucial", "Pivotal", "Comprehensive", "Beacon"
+    - "Testament", "Nestled", "Bustling", "Hidden gem", "Architect", "Masterpiece", "Underscore"
+    
+    HUMAN WRITING GUIDELINES:
+    - Use short, punchy sentences. Fragment sentences are okay for effect.
+    - Start sentences with conjunctions (And, But, So, Or).
+    - REQUIRED: Use contractions everywhere (don't, won't, can't, it's, you'll).
+    - Use First and Second person (I, We, You) to build a connection.
+    - Ask rhetorical questions to engage the reader.
+    - Use simple, Anglo-Saxon words over Latinate complex ones.
+    - write like you are talking to a friend over a coffee. Casual but informative.
+    - ALLOW quirks and personal opinions.
+    `;
+  }
+
+  // Construct Formatting Instructions
+  let formattingInstruction = `
+    FORMATTING GUIDELINES (STRICT):
+    1. Use H2 (##) and H3 (###) for clear hierarchy.
+  `;
+
+  if (includeBulletPoints) {
+    formattingInstruction += `\n    2. USE BULLET POINTS: Break down complex lists or features into bullet points for readability.`;
+  }
+
+  if (includeTables) {
+    formattingInstruction += `\n    3. USE TABLES: formatting data, comparisons, or pros/cons. Minimum one table per article if data allows.`;
+  }
+
+  if (includeBold) {
+    formattingInstruction += `\n    4. USE BOLD TEXT (**text**): Highlight *specific* key terms, important stats, or "aha!" moments. DO NOT bold entire sentences.`;
+  }
+
+  if (includeItalics) {
+    formattingInstruction += `\n    5. USE ITALICS (*text*): Use for emphasis on spoken-word stress or foreign terms. Use sparingly.`;
   }
 
   // Adapted instructions for DeepSeek-only execution
@@ -409,6 +455,8 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       ${openingInstruction}
       ${readabilityInstruction}
       ${humanizeInstruction}
+      
+      ${formattingInstruction}
       
       CONTENT REQUIREMENTS:
       ${internalLinkingInstructions}

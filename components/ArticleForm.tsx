@@ -89,8 +89,15 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   const [primaryKeywords, setPrimaryKeywords] = useState<string[]>([]);
   const [isGeneratingPrimary, setIsGeneratingPrimary] = useState(false);
 
+  const [nlpKeywordInput, setNlpKeywordInput] = useState('');
   const [nlpKeywords, setNlpKeywords] = useState<string[]>([]);
   const [isGeneratingKeywords, setIsGeneratingKeywords] = useState(false);
+
+  // Formatting Options State
+  const [includeBulletPoints, setIncludeBulletPoints] = useState(true);
+  const [includeTables, setIncludeTables] = useState(false);
+  const [includeItalics, setIncludeItalics] = useState(true);
+  const [includeBold, setIncludeBold] = useState(true);
 
   const [includeFaq, setIncludeFaq] = useState(true);
   const [includeConclusion, setIncludeConclusion] = useState(true);
@@ -199,6 +206,21 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
   const removeNlpKeyword = (kw: string) => {
     setNlpKeywords(nlpKeywords.filter(k => k !== kw));
+  };
+
+  const addNlpKeyword = () => {
+    if (nlpKeywordInput.trim()) {
+      // Split by comma or newline to allow bulk paste
+      const newKeywords = nlpKeywordInput
+        .split(/[,\n]+/)
+        .map(k => k.trim())
+        .filter(k => k.length > 0 && !nlpKeywords.includes(k));
+
+      if (newKeywords.length > 0) {
+        setNlpKeywords([...nlpKeywords, ...newKeywords]);
+        setNlpKeywordInput('');
+      }
+    }
   };
 
   const handleSaveUrl = () => {
@@ -358,6 +380,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       readability,
       targetCountry,
       humanizeContent,
+      includeBulletPoints,
+      includeTables,
+      includeItalics,
+      includeBold,
       primaryKeywords,
       nlpKeywords,
       includeFaq,
@@ -1184,6 +1210,52 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               <span className="text-sm text-slate-700">Include Key Takeaways/Conclusion</span>
             </label>
           </div>
+
+          {/* Formatting Options Section */}
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <h4 className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">Formatting Options</h4>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                <input
+                  type="checkbox"
+                  checked={includeBulletPoints}
+                  onChange={(e) => setIncludeBulletPoints(e.target.checked)}
+                  className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+                />
+                <span className="text-sm text-slate-700">Include Bullet Points</span>
+              </label>
+              <label className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                <input
+                  type="checkbox"
+                  checked={includeTables}
+                  onChange={(e) => setIncludeTables(e.target.checked)}
+                  className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+                />
+                <span className="text-sm text-slate-700">Include Tables</span>
+              </label>
+              <label className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                <input
+                  type="checkbox"
+                  checked={includeItalics}
+                  onChange={(e) => setIncludeItalics(e.target.checked)}
+                  className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+                />
+                <span className="text-sm text-slate-700">Use Italics</span>
+              </label>
+              <label className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                <input
+                  type="checkbox"
+                  checked={includeBold}
+                  onChange={(e) => setIncludeBold(e.target.checked)}
+                  className="w-4 h-4 text-teal-600 border-slate-300 rounded focus:ring-teal-500"
+                />
+                <span className="text-sm text-slate-700">Use Bold Text</span>
+              </label>
+            </div>
+            <p className="text-xs text-slate-400 mt-2">
+              Italics and bold will be applied only to key terms and important phrases, not everywhere.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -1280,10 +1352,28 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 </button>
               </div>
 
-              <div className="min-h-[80px] p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <div className="flex space-x-2 mb-2">
+                <input
+                  type="text"
+                  value={nlpKeywordInput}
+                  onChange={(e) => setNlpKeywordInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addNlpKeyword())}
+                  placeholder="Type and press Enter"
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={addNlpKeyword}
+                  className="px-3 py-2 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="min-h-[60px] p-3 bg-slate-50 border border-slate-200 rounded-lg">
                 {nlpKeywords.length === 0 ? (
                   <p className="text-xs text-slate-400 text-center py-2">
-                    {!isFormValid ? "Enter a topic to generate NLP keywords" : "Click Auto-Generate to fetch semantic keywords"}
+                    {!isFormValid ? "Enter a topic to generate NLP keywords" : "Add keywords manually or click Auto-Generate"}
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">

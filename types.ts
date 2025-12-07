@@ -94,6 +94,12 @@ export interface ArticleConfig {
   targetCountry: TargetCountry;
   humanizeContent: boolean;
 
+  // Formatting Options
+  includeBulletPoints: boolean;
+  includeTables: boolean;
+  includeItalics: boolean;
+  includeBold: boolean;
+
   primaryKeywords: string[];
   nlpKeywords: string[];
 
