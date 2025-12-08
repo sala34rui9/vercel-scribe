@@ -9,12 +9,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react-markdown": "^10.1.0",
-    "react": "^19.2.0",
+    "@auth0/auth0-react": "^2.10.0",
     "@google/genai": "^1.30.0",
-    "react-dom": "^19.2.0",
     "lucide-react": "^0.555.0",
-    "marked": "15.0.0"
+    "marked": "15.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
