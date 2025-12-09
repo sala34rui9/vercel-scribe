@@ -3,9 +3,10 @@ import React, { useState, useCallback, useRef, Suspense, useEffect } from 'react
 import { Layout } from './components/Layout';
 import { ArticleForm } from './components/ArticleForm';
 const ArticlePreview = React.lazy(() => import('./components/ArticlePreview').then(m => ({ default: m.ArticlePreview })));
-import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel } from './types';
+import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel, SearchProvider } from './types';
 import { generateArticle, generatePrimaryKeywords, generateNLPKeywords, scanForInternalLinks, scanForExternalLinks } from './services/geminiService';
 import { generateArticleDeepSeek, generatePrimaryKeywordsDeepSeek, generateNLPKeywordsDeepSeek } from './services/deepseekService';
+import { scanForInternalLinksTavily, scanForExternalLinksTavily } from './services/tavilyService';
 import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, BrainCircuit, Activity, GripVertical } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -195,23 +196,33 @@ const App: React.FC = () => {
 
               // --- AUTO-OPTIMIZATION PIPELINE (Per Article) ---
               if (config.autoOptimize) {
-                // 1. KEYWORD ANALYSIS - Always use Gemini (hybrid strategy)
-                // Gemini has real-time search capabilities that DeepSeek lacks
+                // 1. KEYWORD ANALYSIS - Use provider-based generation
                 try {
-                  topicPrimaryKeywords = await generatePrimaryKeywords(topic);
-                  topicNLPKeywords = await generateNLPKeywords(topic);
+                  if (config.provider === AIProvider.DEEPSEEK) {
+                    topicPrimaryKeywords = await generatePrimaryKeywordsDeepSeek(topic);
+                    topicNLPKeywords = await generateNLPKeywordsDeepSeek(topic);
+                  } else {
+                    topicPrimaryKeywords = await generatePrimaryKeywords(topic);
+                    topicNLPKeywords = await generateNLPKeywords(topic);
+                  }
                 } catch (e) {
                   console.warn(`Keyword generation failed for ${topic}`, e);
                 }
 
-                // 2. LINK SCANNING - Always use Gemini (hybrid strategy)
-                // Gemini has web search grounding for finding real links
+                // 2. LINK SCANNING - Respect provider + research provider
 
                 // Internal Links
                 if (config.websiteUrl) {
                   try {
-                    const scanResult = await scanForInternalLinks(config.websiteUrl, topic, topicPrimaryKeywords, config.deepResearch);
-                    topicInternalLinks = scanResult.links.slice(0, 3);
+                    if (config.provider === AIProvider.DEEPSEEK && config.researchProvider === SearchProvider.TAVILY) {
+                      const tavilyResult = await scanForInternalLinksTavily(config.websiteUrl, topic);
+                      topicInternalLinks = tavilyResult.links.slice(0, 3);
+                    } else if (config.provider === AIProvider.GEMINI || config.researchProvider === SearchProvider.GEMINI) {
+                      const scanResult = await scanForInternalLinks(config.websiteUrl, topic, topicPrimaryKeywords, config.deepResearch);
+                      topicInternalLinks = scanResult.links.slice(0, 3);
+                    } else {
+                      topicInternalLinks = [];
+                    }
                   } catch (e) {
                     console.warn(`Internal link scanning failed for ${topic}`, e);
                   }
@@ -227,8 +238,13 @@ const App: React.FC = () => {
                       }
                     } catch (e) { }
 
-                    const extLinks = await scanForExternalLinks(topic, domainToExclude);
-                    topicExternalLinks = extLinks.slice(0, 5);
+                    if (config.provider === AIProvider.DEEPSEEK && (config.externalLinkSearchProvider === SearchProvider.TAVILY || config.researchProvider === SearchProvider.TAVILY)) {
+                      const extLinks = await scanForExternalLinksTavily(topic, domainToExclude);
+                      topicExternalLinks = extLinks.slice(0, 5);
+                    } else {
+                      const extLinks = await scanForExternalLinks(topic, domainToExclude);
+                      topicExternalLinks = extLinks.slice(0, 5);
+                    }
                   } catch (e) {
                     console.warn(`External link scanning failed for ${topic}`, e);
                   }

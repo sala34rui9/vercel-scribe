@@ -1327,6 +1327,9 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               </div>
             </div>
         </div>
+        )}
+
+        }
 
         <button
           type="submit"
@@ -1345,7 +1348,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
             </>
           ) : (
             <>
-              {mode === 'single' ? 'Generate SEO Article' : `Start Queue Processing (${bulkInput.split('\n').filter(l => l.trim()).length})`}
+              {mode === 'single' ? 'Generate SEO Article' : ('Start Queue Processing (' + bulkInput.split('\n').filter(l => l.trim()).length + ')')}
               <Wand2 className="w-5 h-5 ml-2" />
             </>
           )}

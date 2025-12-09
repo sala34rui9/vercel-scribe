@@ -103,7 +103,8 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
         footer: true,
         pageNumber: false
       });
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      const arrayBuffer = (buffer instanceof ArrayBuffer) ? buffer : (buffer?.buffer || buffer);
+      const blob = new Blob([arrayBuffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
