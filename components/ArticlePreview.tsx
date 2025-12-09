@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { GeneratedArticle } from '../types';
 import { Copy, RefreshCw, CheckCircle, ExternalLink, Microscope, Code, ChevronRight, FileText, XCircle } from 'lucide-react';
@@ -14,6 +14,7 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
   const [selectedArticleId, setSelectedArticleId] = useState<string>(articles[0]?.id || '');
   const [copied, setCopied] = React.useState(false);
   const [htmlCopied, setHtmlCopied] = React.useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
   
   // HTML Preview Modal State
   const [showHtmlPreview, setShowHtmlPreview] = React.useState(false);
@@ -50,6 +51,60 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
     navigator.clipboard.writeText(htmlContent);
     setHtmlCopied(true);
     setTimeout(() => setHtmlCopied(false), 2000);
+  };
+
+  const sanitizeFilename = (name: string, ext: string) => {
+    const base = (name || 'Article')
+      .replace(/[^a-zA-Z0-9\- _]/g, '')
+      .trim()
+      .slice(0, 80) || 'Article';
+    return `${base}.${ext}`;
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!activeArticle || !contentRef.current) return;
+    const [{ default: html2pdf }] = await Promise.all([
+      import('html2pdf.js')
+    ]);
+    const filename = sanitizeFilename(activeArticle.title, 'pdf');
+    const element = contentRef.current;
+    const opt = {
+      margin:       10,
+      filename,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'pt', format: 'a4', orientation: 'portrait' }
+    } as any;
+    try {
+      await (html2pdf() as any).from(element).set(opt).save();
+    } catch (e) {
+      console.error('PDF export failed', e);
+    }
+  };
+
+  const handleDownloadDocx = async () => {
+    if (!activeArticle) return;
+    try {
+      const { default: htmlToDocx } = await import('html-to-docx');
+      const html = await marked.parse(activeArticle.content);
+      const css = '<style>body{font-family:Inter,Arial,sans-serif; font-size:14px; line-height:1.6;} h1{font-size:28px;} h2{font-size:22px;} h3{font-size:18px;}</style>';
+      const fullHtml = `<!DOCTYPE html><html><head>${css}</head><body>${html}</body></html>`;
+      const blob = await (htmlToDocx as any)(fullHtml, null, {
+        table: { row: {cantSplit: true} },
+        footer: true,
+        pageNumber: false
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = sanitizeFilename(activeArticle.title, 'docx');
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error('DOCX export failed', e);
+    }
   };
 
   const isBulkMode = articles.length > 1;
@@ -112,6 +167,22 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
           </div>
           <div className="flex items-center space-x-2 shrink-0">
             <button
+              onClick={handleDownloadPdf}
+              className="flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+              title="Download PDF"
+            >
+              <FileText className="w-4 h-4 mr-1.5" />
+              Download PDF
+            </button>
+            <button
+              onClick={handleDownloadDocx}
+              className="flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
+              title="Download DOCX"
+            >
+              <FileText className="w-4 h-4 mr-1.5" />
+              Download DOCX
+            </button>
+            <button
               onClick={handleCopyHtml}
               className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-white text-slate-700 border border-slate-200 hover:bg-slate-50`}
               title="View & Copy HTML"
@@ -154,12 +225,13 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
           <div className="max-w-3xl mx-auto">
             {activeArticle ? (
               <>
+                 <div ref={contentRef} id="article-content">
                  <ReactMarkdown
                   components={{
                     h1: ({node, ...props}) => <h1 className="text-4xl font-extrabold text-slate-900 mb-6 mt-4 leading-tight border-b pb-4" {...props} />,
                     h2: ({node, ...props}) => <h2 className="text-2xl font-bold text-slate-800 mt-10 mb-4 leading-snug" {...props} />,
-                    h3: ({node, ...props}) => <h3 className="text-xl font-bold text-slate-800 mt-6 mb-3" {...props} />,
-                    p: ({node, ...props}) => <p className="mb-4 text-slate-600 leading-7" {...props} />,
+                    h3: ({node, ...props}) => <h3 className="text-xl font-bold text-slate-800 mt-6 mb-3" {...props} />, 
+                    p: ({node, ...props}) => <p className="mb-4 text-slate-600 leading-7" {...props} />, 
                     ul: ({node, ...props}) => <ul className="list-disc pl-6 mb-4 text-slate-600 space-y-2" {...props} />,
                     ol: ({node, ...props}) => <ol className="list-decimal pl-6 mb-4 text-slate-600 space-y-2" {...props} />,
                     li: ({node, ...props}) => <li className="pl-1" {...props} />,
@@ -171,6 +243,7 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
                 >
                   {activeArticle.content}
                 </ReactMarkdown>
+                 </div>
 
                 {/* Sources Section */}
                 {activeArticle.sources && activeArticle.sources.length > 0 && (
