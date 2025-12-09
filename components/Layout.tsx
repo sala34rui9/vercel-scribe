@@ -4,9 +4,12 @@ import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap, Sear
 
 interface LayoutProps {
   children: React.ReactNode;
+  onShowArticles?: () => void;
+  onShowEditor?: () => void;
+  savedCount?: number;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onShowArticles, onShowEditor, savedCount = 0 }) => {
   const [showKeyModal, setShowKeyModal] = useState(false);
 
   const [geminiKey, setGeminiKey] = useState('');
@@ -151,8 +154,16 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               <Key className="w-5 h-5" />
               {(hasGeminiKey || hasDeepSeekKey || hasSerpstackKey || hasTavilyKey) && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border border-white"></span>}
             </button>
-            <button className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
-              <Layers className="w-5 h-5" />
+            <button
+              onClick={onShowArticles}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors flex items-center"
+              title="View Saved Articles"
+            >
+              <Layers className="w-4 h-4 mr-1.5" />
+              Articles
+              {savedCount > 0 && (
+                <span className="ml-2 px-1.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded text-[10px]">{savedCount}</span>
+              )}
             </button>
           </div>
         </div>

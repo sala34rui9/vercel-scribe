@@ -2,19 +2,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { GeneratedArticle } from '../types';
-import { Copy, RefreshCw, CheckCircle, ExternalLink, Microscope, Code, ChevronRight, FileText, XCircle } from 'lucide-react';
+import { Copy, RefreshCw, CheckCircle, ExternalLink, Microscope, Code, ChevronRight, FileText, XCircle, Save } from 'lucide-react';
 import { marked } from 'marked';
 
 interface ArticlePreviewProps {
-  articles: GeneratedArticle[]; // Now accepts an array
+  articles: GeneratedArticle[];
   onReset: () => void;
+  onSave?: () => void;
 }
 
-export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onReset }) => {
+export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onReset, onSave }) => {
   const [selectedArticleId, setSelectedArticleId] = useState<string>(articles[0]?.id || '');
   const [copied, setCopied] = React.useState(false);
   const [htmlCopied, setHtmlCopied] = React.useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+  const [saved, setSaved] = React.useState(false);
+  const [exporting, setExporting] = React.useState<'none' | 'pdf' | 'docx'>('none');
   
   // HTML Preview Modal State
   const [showHtmlPreview, setShowHtmlPreview] = React.useState(false);
@@ -53,6 +56,12 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
     setTimeout(() => setHtmlCopied(false), 2000);
   };
 
+  const handleSave = () => {
+    if (onSave) onSave();
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
   const sanitizeFilename = (name: string, ext: string) => {
     const base = (name || 'Article')
       .replace(/[^a-zA-Z0-9\- _]/g, '')
@@ -89,11 +98,12 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
       const html = await marked.parse(activeArticle.content);
       const css = '<style>body{font-family:Inter,Arial,sans-serif; font-size:14px; line-height:1.6;} h1{font-size:28px;} h2{font-size:22px;} h3{font-size:18px;}</style>';
       const fullHtml = `<!DOCTYPE html><html><head>${css}</head><body>${html}</body></html>`;
-      const blob = await (htmlToDocx as any)(fullHtml, null, {
+      const buffer = await (htmlToDocx as any)(fullHtml, null, {
         table: { row: {cantSplit: true} },
         footer: true,
         pageNumber: false
       });
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -104,6 +114,96 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
       document.body.removeChild(a);
     } catch (e) {
       console.error('DOCX export failed', e);
+    }
+  };
+
+  const handleExportAllPdf = async () => {
+    if (!articles || articles.length === 0) return;
+    setExporting('pdf');
+    try {
+      const [{ default: html2pdf }] = await Promise.all([
+        import('html2pdf.js')
+      ]);
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      for (const a of articles.filter(x => x.status !== 'failed')) {
+        const html = await marked.parse(a.content);
+        const container = document.createElement('div');
+        container.style.position = 'fixed';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        container.innerHTML = `<div style="font-family:Inter,Arial,sans-serif;">${html}</div>`;
+        document.body.appendChild(container);
+        const opt = {
+          margin: 10,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2 },
+          jsPDF: { unit: 'pt', format: 'a4', orientation: 'portrait' }
+        } as any;
+        const blob: Blob = await new Promise((resolve, reject) => {
+          try {
+            (html2pdf() as any)
+              .from(container)
+              .set(opt)
+              .toPdf()
+              .get('pdf')
+              .then((pdf: any) => {
+                const b = pdf.output('blob');
+                resolve(b);
+              });
+          } catch (e) { reject(e); }
+        });
+        document.body.removeChild(container);
+        const name = sanitizeFilename(a.title, 'pdf');
+        zip.file(name, blob);
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      const aEl = document.createElement('a');
+      aEl.href = URL.createObjectURL(zipBlob);
+      aEl.download = 'articles-pdf.zip';
+      document.body.appendChild(aEl);
+      aEl.click();
+      URL.revokeObjectURL(aEl.href);
+      document.body.removeChild(aEl);
+    } catch (e) {
+      console.error('Export all PDF failed', e);
+    } finally {
+      setExporting('none');
+    }
+  };
+
+  const handleExportAllDocx = async () => {
+    if (!articles || articles.length === 0) return;
+    setExporting('docx');
+    try {
+      const { default: htmlToDocx } = await import('html-to-docx');
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      for (const a of articles.filter(x => x.status !== 'failed')) {
+        const html = await marked.parse(a.content);
+        const css = '<style>body{font-family:Inter,Arial,sans-serif; font-size:14px; line-height:1.6;} h1{font-size:28px;} h2{font-size:22px;} h3{font-size:18px;}</style>';
+        const fullHtml = `<!DOCTYPE html><html><head>${css}</head><body>${html}</body></html>`;
+        const buffer = await (htmlToDocx as any)(fullHtml, null, {
+          table: { row: { cantSplit: true } },
+          footer: true,
+          pageNumber: false
+        });
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+        const name = sanitizeFilename(a.title, 'docx');
+        zip.file(name, blob);
+      }
+      const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+      const aEl = document.createElement('a');
+      aEl.href = URL.createObjectURL(zipBlob);
+      aEl.download = 'articles-docx.zip';
+      document.body.appendChild(aEl);
+      aEl.click();
+      URL.revokeObjectURL(aEl.href);
+      document.body.removeChild(aEl);
+    } catch (e) {
+      console.error('Export all DOCX failed', e);
+    } finally {
+      setExporting('none');
     }
   };
 
@@ -166,6 +266,28 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
             )}
           </div>
           <div className="flex items-center space-x-2 shrink-0">
+            {isBulkMode && (
+              <>
+                <button
+                  onClick={handleExportAllPdf}
+                  disabled={exporting !== 'none'}
+                  className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${exporting==='pdf' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}
+                  title="Export All PDFs (ZIP)"
+                >
+                  <FileText className="w-4 h-4 mr-1.5" />
+                  {exporting==='pdf' ? 'Exporting PDFs...' : 'Export All PDFs'}
+                </button>
+                <button
+                  onClick={handleExportAllDocx}
+                  disabled={exporting !== 'none'}
+                  className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${exporting==='docx' ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}
+                  title="Export All DOCX (ZIP)"
+                >
+                  <FileText className="w-4 h-4 mr-1.5" />
+                  {exporting==='docx' ? 'Exporting DOCX...' : 'Export All DOCX'}
+                </button>
+              </>
+            )}
             <button
               onClick={handleDownloadPdf}
               className="flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-white text-slate-700 border border-slate-200 hover:bg-slate-50"
@@ -216,6 +338,16 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
             >
               <RefreshCw className="w-4 h-4 mr-1.5" />
               Start Over
+            </button>
+            <button
+              onClick={handleSave}
+              className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                saved ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+              }`}
+              title="Save Articles Locally"
+            >
+              <Save className="w-4 h-4 mr-1.5" />
+              {saved ? 'Saved' : 'Save'}
             </button>
           </div>
         </div>

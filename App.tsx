@@ -325,8 +325,20 @@ const App: React.FC = () => {
     setActivePage('editor');
   };
 
+  const showArticles = useCallback(() => {
+    setActivePage('articles');
+  }, []);
+
+  const showEditor = useCallback(() => {
+    setActivePage('editor');
+  }, []);
+
+  const handleSaveArticles = useCallback(() => {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(generatedArticles)); } catch {}
+  }, [generatedArticles]);
+
   return (
-    <Layout>
+    <Layout onShowArticles={showArticles} onShowEditor={showEditor} savedCount={generatedArticles.length}>
       <div ref={containerRef} className="flex h-[calc(100vh-8rem)] gap-0">
         {/* Left Column: Configuration - Resizable */}
         <div
@@ -441,7 +453,7 @@ const App: React.FC = () => {
                 <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
             }>
-              <ArticlePreview articles={generatedArticles} onReset={handleReset} />
+              <ArticlePreview articles={generatedArticles} onReset={handleReset} onSave={handleSaveArticles} />
             </Suspense>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
