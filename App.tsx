@@ -196,9 +196,10 @@ const App: React.FC = () => {
 
               // --- AUTO-OPTIMIZATION PIPELINE (Per Article) ---
               if (config.autoOptimize) {
-                // 1. KEYWORD ANALYSIS - Use provider-based generation
+                // 1. KEYWORD ANALYSIS - Use keywordAnalysisProvider if available, otherwise fallback to provider
                 try {
-                  if (config.provider === AIProvider.DEEPSEEK) {
+                  const keywordProvider = config.keywordAnalysisProvider || (config.provider === AIProvider.DEEPSEEK ? SearchProvider.TAVILY : SearchProvider.GEMINI);
+                  if (keywordProvider === SearchProvider.TAVILY || config.provider === AIProvider.DEEPSEEK) {
                     topicPrimaryKeywords = await generatePrimaryKeywordsDeepSeek(topic);
                     topicNLPKeywords = await generateNLPKeywordsDeepSeek(topic);
                   } else {

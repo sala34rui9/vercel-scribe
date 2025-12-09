@@ -92,12 +92,13 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
   };
 
   const handleDownloadDocx = async () => {
-    if (!activeArticle) return;
+    if (!activeArticle || !contentRef.current) return;
     try {
       const { default: htmlToDocx } = await import('html-to-docx');
-      const html = await marked.parse(activeArticle.content);
+      // Get HTML from the contentRef which includes sources
+      const htmlContent = contentRef.current.innerHTML;
       const css = '<style>body{font-family:Inter,Arial,sans-serif; font-size:14px; line-height:1.6;} h1{font-size:28px;} h2{font-size:22px;} h3{font-size:18px;}</style>';
-      const fullHtml = `<!DOCTYPE html><html><head>${css}</head><body>${html}</body></html>`;
+      const fullHtml = `<!DOCTYPE html><html><head>${css}</head><body>${htmlContent}</body></html>`;
       const buffer = await (htmlToDocx as any)(fullHtml, null, {
         table: { row: {cantSplit: true} },
         footer: true,
@@ -129,11 +130,33 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
       const zip = new JSZip();
       for (const a of articles.filter(x => x.status !== 'failed')) {
         const html = await marked.parse(a.content);
+        
+        // Add sources section if available
+        let sourcesHtml = '';
+        if (a.sources && a.sources.length > 0) {
+          sourcesHtml = `
+            <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #e2e8f0;">
+              <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                <h3 style="font-size: 1.125rem; font-weight: bold; color: #1e293b;">Deep Research Sources</h3>
+              </div>
+              <ul style="list-style: none; padding: 0; margin: 0;">
+                ${a.sources.map(source => `
+                  <li style="margin-bottom: 0.5rem;">
+                    <div style="padding: 0.75rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem;">
+                      <span style="font-size: 0.875rem; font-weight: 500; color: #475569;">${source}</span>
+                    </div>
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
+          `;
+        }
+        
         const container = document.createElement('div');
         container.style.position = 'fixed';
         container.style.left = '-9999px';
         container.style.top = '0';
-        container.innerHTML = `<div style="font-family:Inter,Arial,sans-serif;">${html}</div>`;
+        container.innerHTML = `<div style="font-family:Inter,Arial,sans-serif;">${html}${sourcesHtml}</div>`;
         document.body.appendChild(container);
         const opt = {
           margin: 10,
@@ -181,9 +204,32 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
       const JSZip = (await import('jszip')).default;
       const zip = new JSZip();
       for (const a of articles.filter(x => x.status !== 'failed')) {
+        // Parse markdown content
         const html = await marked.parse(a.content);
+        
+        // Add sources section if available
+        let sourcesHtml = '';
+        if (a.sources && a.sources.length > 0) {
+          sourcesHtml = `
+            <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #e2e8f0;">
+              <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                <h3 style="font-size: 1.125rem; font-weight: bold; color: #1e293b;">Deep Research Sources</h3>
+              </div>
+              <ul style="list-style: none; padding: 0; margin: 0;">
+                ${a.sources.map(source => `
+                  <li style="margin-bottom: 0.5rem;">
+                    <a href="${source}" style="display: flex; align-items: center; padding: 0.75rem; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 0.5rem; text-decoration: none; color: #475569;">
+                      <span style="font-size: 0.875rem; font-weight: 500;">${source}</span>
+                    </a>
+                  </li>
+                `).join('')}
+              </ul>
+            </div>
+          `;
+        }
+        
         const css = '<style>body{font-family:Inter,Arial,sans-serif; font-size:14px; line-height:1.6;} h1{font-size:28px;} h2{font-size:22px;} h3{font-size:18px;}</style>';
-        const fullHtml = `<!DOCTYPE html><html><head>${css}</head><body>${html}</body></html>`;
+        const fullHtml = `<!DOCTYPE html><html><head>${css}</head><body>${html}${sourcesHtml}</body></html>`;
         const buffer = await (htmlToDocx as any)(fullHtml, null, {
           table: { row: { cantSplit: true } },
           footer: true,
@@ -376,9 +422,8 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
                 >
                   {activeArticle.content}
                 </ReactMarkdown>
-                 </div>
 
-                {/* Sources Section */}
+                {/* Sources Section - Included in captured region for exports */}
                 {activeArticle.sources && activeArticle.sources.length > 0 && (
                   <div className="mt-12 pt-8 border-t border-slate-200">
                     <div className="flex items-center text-slate-800 mb-4">
@@ -402,6 +447,7 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
                     </ul>
                   </div>
                 )}
+                 </div>
               </>
             ) : (
                <div className="text-center py-20 text-slate-400">

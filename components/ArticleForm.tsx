@@ -78,6 +78,12 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     return (localStorage.getItem('seo_scribe_research_provider') as SearchProvider) || SearchProvider.TAVILY;
   });
 
+  // Keyword Analysis Provider State (independent of main provider)
+  const [keywordAnalysisProvider, setKeywordAnalysisProvider] = useState<SearchProvider>(() => {
+    const stored = localStorage.getItem('seo_scribe_keyword_analysis_provider');
+    return (stored as SearchProvider) || SearchProvider.GEMINI;
+  });
+
   const [wordCount, setWordCount] = useState(1000);
   const [type, setType] = useState<ArticleType>(ArticleType.BLOG_POST);
   const [tone, setTone] = useState<ToneVoice>(ToneVoice.PROFESSIONAL);
@@ -126,6 +132,17 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     localStorage.setItem('seo_scribe_research_provider', researchProvider);
   }, [researchProvider]);
 
+  useEffect(() => {
+    localStorage.setItem('seo_scribe_keyword_analysis_provider', keywordAnalysisProvider);
+  }, [keywordAnalysisProvider]);
+
+  // Force Tavily when DeepSeek is selected
+  useEffect(() => {
+    if (provider === AIProvider.DEEPSEEK && researchProvider !== SearchProvider.TAVILY) {
+      setResearchProvider(SearchProvider.TAVILY);
+    }
+  }, [provider, researchProvider]);
+
   // Keyword Management
   const addPrimaryKeyword = () => {
     if (primaryKeywordInput.trim() && !primaryKeywords.includes(primaryKeywordInput.trim())) {
@@ -145,7 +162,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
     let keywords: string[] = [];
     try {
-      if (provider === AIProvider.DEEPSEEK) {
+      // Use keywordAnalysisProvider instead of main provider
+      if (keywordAnalysisProvider === SearchProvider.TAVILY || provider === AIProvider.DEEPSEEK) {
         try {
           keywords = await generatePrimaryKeywordsDeepSeek(topicToAnalyze);
         } catch (e: any) {
@@ -179,7 +197,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
     let keywords: string[] = [];
     try {
-      if (provider === AIProvider.DEEPSEEK) {
+      // Use keywordAnalysisProvider instead of main provider
+      if (keywordAnalysisProvider === SearchProvider.TAVILY || provider === AIProvider.DEEPSEEK) {
         try {
           keywords = await generateNLPKeywordsDeepSeek(topicToAnalyze);
         } catch (e: any) {
@@ -230,9 +249,9 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     const currentTopic = mode === 'single' ? topic : bulkInput.split('\n')[0];
     if (!websiteUrl || !currentTopic) return;
 
-    // STRICT DeepSeek Isolation check replaced with Research Provider Logic
-    if (provider === AIProvider.DEEPSEEK && researchProvider === SearchProvider.GEMINI) {
-      alert("⚠️ Web Scan Disabled for DeepSeek + Gemini\n\nYou have selected Gemini for research, but DeepSeek as your writer. To use web scanning with DeepSeek, please switch the 'Research Provider' to Tavily (or switch the Writer to Gemini).");
+    // DeepSeek requires Tavily (enforced by UI, but keep check as safety)
+    if (provider === AIProvider.DEEPSEEK && researchProvider !== SearchProvider.TAVILY) {
+      alert("⚠️ Web Scan Disabled\n\nDeepSeek requires Tavily for web scanning. Please ensure Tavily is selected as the Research Provider.");
       return;
     }
 
@@ -316,9 +335,9 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     const currentTopic = mode === 'single' ? topic : bulkInput.split('\n')[0];
     if (!currentTopic) return;
 
-    // STRICT DeepSeek Isolation check replaced with logic
-    if (provider === AIProvider.DEEPSEEK && researchProvider === SearchProvider.GEMINI) {
-      alert("⚠️ Web Scan Disabled for DeepSeek + Gemini\n\nPlease switch Research Provider to Tavily to scan for external links while using DeepSeek.");
+    // DeepSeek requires Tavily (enforced by UI, but keep check as safety)
+    if (provider === AIProvider.DEEPSEEK && researchProvider !== SearchProvider.TAVILY) {
+      alert("⚠️ Web Scan Disabled\n\nDeepSeek requires Tavily for web scanning. Please ensure Tavily is selected as the Research Provider.");
       return;
     }
 
@@ -399,6 +418,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       provider,
       deepSeekModel,
       researchProvider, // Pass the selected research provider
+      keywordAnalysisProvider, // Pass the keyword analysis provider
       includeBulletPoints: true, // Default to true if state missing
       includeTables: true,
       includeItalics: true,
@@ -474,35 +494,21 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 Note: Web scanning/research options below depend on your "Research Provider" setting.
               </p>
 
-              {/* Research Provider Selector for DeepSeek */}
+              {/* Research Provider Selector for DeepSeek - Tavily Only */}
               <div className="mt-3 pt-3 border-t border-indigo-200">
                 <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">Research/Scanning Provider</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <button
                     type="button"
-                    onClick={() => setResearchProvider(SearchProvider.TAVILY)}
-                    className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${researchProvider === SearchProvider.TAVILY
-                      ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-bold'
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
+                    disabled
+                    className="text-xs py-2 px-2 rounded border flex items-center justify-center bg-emerald-50 border-emerald-300 text-emerald-700 font-bold cursor-not-allowed"
                   >
                     <Search className="w-3 h-3 mr-1.5" />
-                    Tavily (Recommended)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setResearchProvider(SearchProvider.GEMINI)}
-                    className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${researchProvider === SearchProvider.GEMINI
-                      ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold'
-                      : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                      }`}
-                  >
-                    <Zap className="w-3 h-3 mr-1.5" />
-                    Google Gemini
+                    Tavily (Required for DeepSeek)
                   </button>
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  *Tavily requires API Key. Gemini requires separate quota.
+                  *DeepSeek requires Tavily for web scanning. Gemini option is disabled.
                 </p>
               </div>
             </div>
@@ -827,8 +833,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                             <button
                               type="button"
                               onClick={() => handleScanLinks(true)}
-                              disabled={isScanningLinks || (provider === AIProvider.DEEPSEEK && researchProvider === SearchProvider.GEMINI)}
-                              title={provider === AIProvider.DEEPSEEK && researchProvider === SearchProvider.GEMINI ? 'Disabled: Switch Research Provider to Tavily' : 'Rescan Website'}
+                              disabled={isScanningLinks}
+                              title="Rescan Website"
                               className="py-1.5 px-3 bg-slate-100 text-slate-600 text-xs font-medium rounded hover:bg-slate-200 transition-colors"
                             >
                               <RefreshCw className={`w-3.5 h-3.5 ${isScanningLinks ? 'animate-spin' : ''}`} />
@@ -1219,13 +1225,45 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
             SEO Strategy
           </h2>
 
+          {/* Keyword Analysis Provider Selector */}
+          <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+            <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">Keyword Analysis Provider</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setKeywordAnalysisProvider(SearchProvider.GEMINI)}
+                className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${keywordAnalysisProvider === SearchProvider.GEMINI
+                  ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+              >
+                <Zap className="w-3 h-3 mr-1.5" />
+                Google Gemini
+              </button>
+              <button
+                type="button"
+                onClick={() => setKeywordAnalysisProvider(SearchProvider.TAVILY)}
+                className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${keywordAnalysisProvider === SearchProvider.TAVILY
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-bold'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+              >
+                <Search className="w-3 h-3 mr-1.5" />
+                Tavily (DeepSeek)
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1">
+              Choose provider for keyword analysis (independent of main writer)
+            </p>
+          </div>
+
           {/* Logic: If Bulk + AutoOptimize, show message instead of manual inputs */}
           {mode === 'bulk' && autoOptimize ? (
             <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg text-center">
               <Sparkles className="w-8 h-8 text-blue-500 mx-auto mb-2" />
               <p className="text-sm font-semibold text-slate-700">Auto-Optimization Enabled</p>
               <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-                Keywords will be generated automatically for each topic in the queue to ensure maximum relevance.
+                Keywords will be generated automatically for each topic in the queue using {keywordAnalysisProvider === SearchProvider.TAVILY ? 'DeepSeek' : 'Gemini'} to ensure maximum relevance.
               </p>
             </div>
           ) : (
@@ -1245,7 +1283,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                     ) : (
                       <>
                         <Search className="w-3 h-3 mr-1" />
-                        {provider === AIProvider.DEEPSEEK ? "Analyze via DeepSeek" : "Analyze Topic"}
+                        {keywordAnalysisProvider === SearchProvider.TAVILY ? "Analyze via DeepSeek" : "Analyze via Gemini"}
                       </>
                     )}
                   </button>
@@ -1300,7 +1338,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                     ) : (
                       <>
                         <Wand2 className="w-3 h-3 mr-1" />
-                        {provider === AIProvider.DEEPSEEK ? "Generate via DeepSeek" : "Auto-Generate"}
+                        {keywordAnalysisProvider === SearchProvider.TAVILY ? "Generate via DeepSeek" : "Generate via Gemini"}
                       </>
                     )}
                   </button>
