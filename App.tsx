@@ -10,9 +10,29 @@ import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, Brai
 
 const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedArticles, setGeneratedArticles] = useState<GeneratedArticle[]>([]);
+  const STORAGE_KEY = 'seo_scribe_saved_articles_v1';
+  const [generatedArticles, setGeneratedArticles] = useState<GeneratedArticle[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const arr = JSON.parse(saved);
+        if (Array.isArray(arr)) return arr as GeneratedArticle[];
+      }
+    } catch {}
+    return [];
+  });
   const [error, setError] = useState<string | null>(null);
   const [formKey, setFormKey] = useState(0);
+  const [activePage, setActivePage] = useState<'editor' | 'articles'>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const arr = JSON.parse(saved);
+        if (Array.isArray(arr) && arr.length > 0) return 'articles';
+      }
+    } catch {}
+    return 'editor';
+  });
 
   // Progress & Status for queue generation
   const [bulkProgress, setBulkProgress] = useState({ completed: 0, total: 0 });
@@ -72,6 +92,16 @@ const App: React.FC = () => {
     };
   }, [leftPanelWidth]);
 
+  useEffect(() => {
+    try {
+      if (generatedArticles.length > 0) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(generatedArticles));
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    } catch {}
+  }, [generatedArticles]);
+
   // Helper to handle generation with fallback
   const generateWithFallback = async (config: ArticleConfig, signal: AbortSignal): Promise<{ content: string, sources: string[] }> => {
     // 1. If user explicitly chose DeepSeek, strictly use DeepSeek
@@ -103,7 +133,7 @@ const App: React.FC = () => {
 
     setIsGenerating(true);
     setError(null);
-    setGeneratedArticles([]); // Clear previous results
+    setActivePage('articles');
 
     // Set Provider Name for UI
     let providerName = "Google Gemini";
@@ -125,7 +155,7 @@ const App: React.FC = () => {
         try {
           const result = await generateWithFallback(config, controller.signal);
 
-          setGeneratedArticles([{
+          setGeneratedArticles(prev => [...prev, {
             id: crypto.randomUUID(),
             content: result.content,
             title: config.topic,
@@ -291,6 +321,8 @@ const App: React.FC = () => {
     setGeneratedArticles([]);
     setError(null);
     setFormKey(prev => prev + 1);
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    setActivePage('editor');
   };
 
   return (
@@ -403,7 +435,7 @@ const App: React.FC = () => {
                 Stop Generating
               </button>
             </div>
-          ) : generatedArticles.length > 0 ? (
+          ) : (activePage === 'articles' && generatedArticles.length > 0) ? (
             <Suspense fallback={
               <div className="flex-1 flex items-center justify-center">
                 <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
