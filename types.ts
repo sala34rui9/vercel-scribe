@@ -118,6 +118,7 @@ export interface ArticleConfig {
   provider: AIProvider;
   deepSeekModel?: DeepSeekModel;
   searchProvider?: SearchProvider; // For real-time data search (Gemini, SERPStack, or Tavily)
+  researchProvider?: SearchProvider; // For internal/external link scanning (Gemini or Tavily)
   externalLinkSearchProvider?: SearchProvider; // For external link discovery (Gemini or Tavily)
   manualReferenceUrls?: string[]; // User-provided URLs for reference extraction
 }

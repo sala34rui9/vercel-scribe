@@ -311,15 +311,18 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
   let deepResearchInstruction = "";
   let deepResearchContext = "";
   if (deepResearch && websiteUrl) {
-    // Try to use Tavily Crawl for deep brand research if available
-    try {
-      const { analyzeBrandWebsite, getTavilyApiKey } = await import('./tavilyService');
-      if (getTavilyApiKey()) {
-        console.log('[DeepSeek] Using Tavily Crawl for deep brand research');
-        const brandAnalysis = await analyzeBrandWebsite(websiteUrl);
-        if (brandAnalysis.content) {
-          deepResearchContext = brandAnalysis.content;
-          deepResearchInstruction = `
+    // Only use Tavily if specified as the Research Provider (or if default)
+    // If user explicitly selected Gemini, we skip Tavily here and fall back to internal knowledge
+    // (since we cannot easily call Gemini from within DeepSeek service context)
+    if (config.researchProvider === SearchProvider.TAVILY || !config.researchProvider) {
+      try {
+        const { analyzeBrandWebsite, getTavilyApiKey } = await import('./tavilyService');
+        if (getTavilyApiKey()) {
+          console.log('[DeepSeek] Using Tavily Crawl for deep brand research');
+          const brandAnalysis = await analyzeBrandWebsite(websiteUrl);
+          if (brandAnalysis.content) {
+            deepResearchContext = brandAnalysis.content;
+            deepResearchInstruction = `
       BRAND ANALYSIS (via Tavily Crawl):
       The following brand/site analysis was gathered:
       ${deepResearchContext.substring(0, 3000)}
@@ -329,10 +332,11 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       
       Please adapt your writing tone to align with this brand presence.
           `;
+          }
         }
+      } catch (e) {
+        console.warn('[DeepSeek] Tavily Crawl failed, using fallback', e);
       }
-    } catch (e) {
-      console.warn('[DeepSeek] Tavily Crawl failed, using fallback', e);
     }
 
     // Fallback if Tavily not available

@@ -420,3 +420,81 @@ export const analyzeBrandWebsite = async (
         content: crawlResult.content
     };
 };
+
+/**
+ * Scan for internal links using Tavily Search
+ * Used when DeepSeek is active but user wants to use Tavily for research
+ */
+export const scanForInternalLinksTavily = async (
+    websiteUrl: string,
+    topic: string
+): Promise<{ links: { title: string; url: string; snippet?: string }[]; opportunities: { topic: string; reason: string }[] }> => {
+
+    let domain = websiteUrl;
+    try {
+        const urlToParse = websiteUrl.match(/^https?:\/\//) ? websiteUrl : `https://${websiteUrl}`;
+        const urlObj = new URL(urlToParse);
+        domain = urlObj.hostname;
+    } catch (e) {
+        console.warn("Invalid URL format for internal link scan, using as is:", websiteUrl);
+    }
+
+    const options: TavilySearchOptions = {
+        maxResults: 15,
+        topic: 'general',
+        searchDepth: 'basic',
+        includeDomains: [domain]
+    };
+
+    // We search for the topic restricted to the domain
+    const result = await tavilySearch(`site:${domain} ${topic}`, options);
+
+    const links: { title: string; url: string; snippet?: string }[] = [];
+
+    // Tavily results are already parsed
+    // We need to fetch the full object list again because tavilySearch returns string content
+    // To save API calls, we'll just re-implement a tailored search call here or trust tavilySearch returns enough info?
+    // tavilySearch returns { content: string, sources: string[] } which is flattened. 
+    // We better make a direct API call here to get titles and snippets properly.
+
+    const apiKey = getTavilyApiKey();
+    if (!apiKey) return { links: [], opportunities: [] };
+
+    try {
+        const response = await fetch(`${TAVILY_API_BASE}/search`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                api_key: apiKey,
+                query: `site:${domain} ${topic}`,
+                max_results: 15,
+                search_depth: 'basic',
+                include_domains: [domain]
+            })
+        });
+
+        if (response.ok) {
+            const data = await response.json();
+            const results: TavilySearchResult[] = data.results || [];
+
+            for (const r of results) {
+                // strict domain check just in case
+                if (r.url.includes(domain)) {
+                    links.push({
+                        title: r.title,
+                        url: r.url,
+                        snippet: r.content?.substring(0, 150)
+                    });
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[Tavily] Internal link scan failed', e);
+    }
+
+    // Tavily doesn't give us "Content Gaps" / Opportunities directly like Gemini's prompt does.
+    // We return empty opportunities for now, or we could infer them (but that requires LLM processing).
+    // Simple implementation: return links only.
+
+    return { links, opportunities: [] };
+};
