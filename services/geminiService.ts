@@ -380,6 +380,59 @@ export const scanForInternalLinks = async (websiteUrl: string, topic: string, ke
 };
 
 /**
+ * Uses Gemini to intelligently select the most relevant internal links for a given topic
+ * from a provided list of potential links.
+ */
+export const selectBestInternalLinks = async (topic: string, links: InternalLink[]): Promise<string[]> => {
+  const apiKey = getApiKey();
+  if (!apiKey || links.length === 0) return [];
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    // Optimize payload: only send Title and URL
+    const candidates = links.map(l => `- Title: "${l.title}", URL: ${l.url}`).join('\n');
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Act as a Senior SEO Specialist.
+      
+      TASK: Select the most relevant internal links for an article about: "${topic}".
+      
+      CANDIDATE LINKS:
+      ${candidates}
+      
+      INSTRUCTIONS:
+      1. Analyze the semantic relevance of each link to the topic.
+      2. Select the top 5-10 links that would add the most value / context to the article.
+      3. Return a JSON object with a single array "selectedUrls" containing the exact URLs of the chosen links.
+      `,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            selectedUrls: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING }
+            }
+          }
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) return [];
+
+    const data = JSON.parse(text);
+    return data.selectedUrls || [];
+  } catch (e) {
+    console.error("Error identifying best links (Gemini):", e);
+    // Fallback: return top 5 original links if AI fails
+    return links.slice(0, 5).map(l => l.url);
+  }
+};
+
+/**
  * Scans the web for external linking opportunities related to the topic.
  * Uses gemini-2.5-flash for speed.
  */

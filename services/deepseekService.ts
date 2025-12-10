@@ -1,4 +1,4 @@
-import { ArticleConfig, DeepSeekModel, OpeningStyle, ReadabilityLevel, TargetCountry, SearchProvider } from "../types";
+import { ArticleConfig, DeepSeekModel, OpeningStyle, ReadabilityLevel, TargetCountry, SearchProvider, InternalLink } from "../types";
 
 const DEEPSEEK_API_URL = "https://deepseek-proxy.ubantuplx.workers.dev";
 const LOCAL_STORAGE_KEY_KEY = 'user_deepseek_api_key';
@@ -648,5 +648,63 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
     }
     logApiDiagnostics('generateArticle (Unexpected Error)', apiKey, error);
     throw error;
+  }
+};
+
+/**
+ * Uses DeepSeek to intelligently select the most relevant internal links for a given topic
+ * from a provided list of potential links.
+ */
+export const selectBestInternalLinksDeepSeek = async (topic: string, links: InternalLink[]): Promise<string[]> => {
+  const apiKey = getApiKey();
+  if (!apiKey || links.length === 0) return [];
+
+  const candidates = links.map(l => `- Title: "${l.title}", URL: ${l.url}`).join('\n');
+
+  const payload = {
+    model: "deepseek-chat",
+    messages: [
+      {
+        role: "system",
+        content: "You are an expert SEO Specialist."
+      },
+      {
+        role: "user",
+        content: `Analyze the topic: "${topic}".
+        
+        Evaluate these candidate internal links:
+        ${candidates}
+        
+        Select the top 5-10 most relevant links that strictly compliment this topic.
+        Return ONLY a raw JSON object with a "selectedUrls" array of strings. No markdown.`
+      }
+    ],
+    response_format: { type: "json_object" }
+  };
+
+  try {
+    logApiDiagnostics('selectBestInternalLinks', apiKey);
+
+    const response = await fetch(DEEPSEEK_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`DeepSeek API Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+
+    const cleanedContent = cleanJsonOutput(content);
+    const json = JSON.parse(cleanedContent);
+    return Array.isArray(json.selectedUrls) ? json.selectedUrls : [];
+
+  } catch (error) {
+    console.error("DeepSeek link selection error:", error);
+    // Fallback
+    return links.slice(0, 5).map(l => l.url);
   }
 };

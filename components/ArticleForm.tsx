@@ -116,6 +116,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   const [selectedLinkUrls, setSelectedLinkUrls] = useState<Set<string>>(new Set());
 
   const [isScanningLinks, setIsScanningLinks] = useState(false);
+  const [isAutoSelecting, setIsAutoSelecting] = useState(false);
   const [isManualLinkInputOpen, setIsManualLinkInputOpen] = useState(false);
   const [manualLinkInput, setManualLinkInput] = useState('');
 
@@ -445,6 +446,39 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     e.target.value = '';
   };
 
+
+
+  const handleAutoLinkSelection = async () => {
+    const currentTopic = mode === 'single' ? topic : bulkInput.split('\n')[0];
+    if (!currentTopic || foundLinks.length === 0) return;
+
+    setIsAutoSelecting(true);
+    try {
+      let selectedUrls: string[] = [];
+
+      if (provider === AIProvider.DEEPSEEK) {
+        const { selectBestInternalLinksDeepSeek } = await import('../services/deepseekService');
+        selectedUrls = await selectBestInternalLinksDeepSeek(currentTopic, foundLinks);
+      } else {
+        const { selectBestInternalLinks } = await import('../services/geminiService');
+        selectedUrls = await selectBestInternalLinks(currentTopic, foundLinks);
+      }
+
+      if (selectedUrls.length > 0) {
+        setSelectedLinkUrls(new Set(selectedUrls));
+        const providerName = provider === AIProvider.DEEPSEEK ? 'DeepSeek' : 'Gemini';
+        alert(`✨ ${providerName} selected ${selectedUrls.length} relevant links for you!`);
+      } else {
+        alert("AI couldn't find strongly relevant links. Default selection kept.");
+      }
+    } catch (e) {
+      console.error("Auto-select failed", e);
+      alert("Failed to auto-select links. Please try again.");
+    } finally {
+      setIsAutoSelecting(false);
+    }
+  };
+
   const handleManualLinksSubmit = () => {
     if (!manualLinkInput.trim()) return;
 
@@ -487,6 +521,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     const newSelection = new Set<string>();
     foundLinks.forEach(link => newSelection.add(link.url));
     setSelectedLinkUrls(newSelection);
+  };
+
+  const clearLinkSelection = () => {
+    setSelectedLinkUrls(new Set());
   };
 
   const handleScanExternalLinks = async () => {
@@ -1248,18 +1286,50 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   ) : (
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className={`text-xs font-medium ${selectedExternalLinkUrls.size >= 10 ? 'text-amber-600' : 'text-slate-500'}`}>
-                          {selectedExternalLinkUrls.size}/10 selected
+                        <span className="text-slate-500 text-xs">
+                          {selectedExternalLinkUrls.size} selected
                         </span>
-                        <button
-                          type="button"
-                          onClick={() => setFoundExternalLinks([])}
-                          className="text-xs text-red-500 hover:text-red-700 font-medium"
-                        >
-                          Clear Results
-                        </button>
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={handleAutoLinkSelection}
+                            disabled={isAutoSelecting}
+                            className={`text-xs px-2 py-1 rounded transition-colors flex items-center ${isAutoSelecting
+                              ? 'bg-indigo-100 text-indigo-400 cursor-wait'
+                              : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200'
+                              }`}
+                            title={`Use ${provider === AIProvider.DEEPSEEK ? 'DeepSeek' : 'Gemini'} to select best links`}
+                          >
+                            {isAutoSelecting ? (
+                              <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-3 h-3 mr-1" />
+                            )}
+                            Auto-Select (AI)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={selectMostComplimenting}
+                            className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            Select Top 3
+                          </button>
+                          <button
+                            type="button"
+                            onClick={selectAllLinks}
+                            className="text-xs text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            All
+                          </button>
+                          <button
+                            type="button"
+                            onClick={clearLinkSelection}
+                            className="text-xs text-slate-400 hover:text-slate-600 hover:underline"
+                          >
+                            None
+                          </button>
+                        </div>
                       </div>
-
                       <div className="max-h-48 overflow-y-auto border border-slate-100 rounded-lg divide-y divide-slate-100">
                         {foundExternalLinks.map((link, idx) => (
                           <div
