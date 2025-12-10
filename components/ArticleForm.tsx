@@ -1033,364 +1033,363 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Type & Tone */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Article Type</label>
-                <div className="relative">
-                  <Type className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                  <select
-                    value={type}
-                    onChange={(e) => setType(e.target.value as ArticleType)}
-                    className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm appearance-none bg-white"
-                  >
-                    {Object.values(ArticleType).map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Brand Voice</label>
-                <div className="relative">
-                  <Sparkles className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                  <select
-                    value={tone}
-                    onChange={(e) => setTone(e.target.value as ToneVoice)}
-                    className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm appearance-none bg-white"
-                  >
-                    {Object.values(ToneVoice).map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Target Country Selection */}
+          {/* Type & Tone */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Target Country & Localization</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Article Type</label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                <Type className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
                 <select
-                  value={targetCountry}
-                  onChange={(e) => setTargetCountry(e.target.value as TargetCountry)}
+                  value={type}
+                  onChange={(e) => setType(e.target.value as ArticleType)}
                   className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm appearance-none bg-white"
                 >
-                  {Object.values(TargetCountry).map(c => (
-                    <option key={c} value={c}>{c}</option>
+                  {Object.values(ArticleType).map(t => (
+                    <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Target Word Count: <span className="font-bold text-blue-600">{wordCount}</span>
-              </label>
-              <div className="flex items-center space-x-4">
-                <input
-                  type="range"
-                  min="500"
-                  max="5000"
-                  step="100"
-                  value={wordCount}
-                  onChange={(e) => setWordCount(parseInt(e.target.value))}
-                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-                />
+              <label className="block text-sm font-medium text-slate-700 mb-1">Brand Voice</label>
+              <div className="relative">
+                <Sparkles className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+                <select
+                  value={tone}
+                  onChange={(e) => setTone(e.target.value as ToneVoice)}
+                  className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm appearance-none bg-white"
+                >
+                  {Object.values(ToneVoice).map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-800 flex items-center mb-4">
-            <AlignLeft className="w-5 h-5 mr-2 text-blue-600" />
-            Structure & Style
-          </h2>
-          <div className="space-y-4">
-            {/* Readability Selection */}
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Text Readability</label>
-              <div className="relative">
-                <GraduationCap className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
-                <select
-                  value={readability}
-                  onChange={(e) => setReadability(e.target.value as ReadabilityLevel)}
-                  className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm appearance-none bg-white"
-                >
-                  {Object.values(ReadabilityLevel).map(level => (
-                    <option key={level} value={level}>{level}</option>
-                  ))}
-                </select>
-              </div>
+          {/* Target Country Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Target Country & Localization</label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+              <select
+                value={targetCountry}
+                onChange={(e) => setTargetCountry(e.target.value as TargetCountry)}
+                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm appearance-none bg-white"
+              >
+                {Object.values(TargetCountry).map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
             </div>
+          </div>
 
-            {/* Humanize Content Toggle */}
-            <div className={`p-3 rounded-lg border transition-all ${humanizeContent ? 'bg-pink-50 border-pink-200' : 'bg-slate-50 border-slate-200'}`}>
-              <label className="flex items-start cursor-pointer">
-                <div className="flex items-center h-5">
-                  <input
-                    type="checkbox"
-                    checked={humanizeContent}
-                    onChange={(e) => setHumanizeContent(e.target.checked)}
-                    className="w-4 h-4 text-pink-600 border-slate-300 rounded focus:ring-pink-500 mt-1"
-                  />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Target Word Count: <span className="font-bold text-blue-600">{wordCount}</span>
+            </label>
+            <div className="flex items-center space-x-4">
+              <input
+                type="range"
+                min="500"
+                max="5000"
+                step="100"
+                value={wordCount}
+                onChange={(e) => setWordCount(parseInt(e.target.value))}
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h2 className="text-lg font-semibold text-slate-800 flex items-center mb-4">
+          <AlignLeft className="w-5 h-5 mr-2 text-blue-600" />
+          Structure & Style
+        </h2>
+        <div className="space-y-4">
+          {/* Readability Selection */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Text Readability</label>
+            <div className="relative">
+              <GraduationCap className="absolute left-3 top-2.5 w-4 h-4 text-slate-400" />
+              <select
+                value={readability}
+                onChange={(e) => setReadability(e.target.value as ReadabilityLevel)}
+                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm appearance-none bg-white"
+              >
+                {Object.values(ReadabilityLevel).map(level => (
+                  <option key={level} value={level}>{level}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Humanize Content Toggle */}
+          <div className={`p-3 rounded-lg border transition-all ${humanizeContent ? 'bg-pink-50 border-pink-200' : 'bg-slate-50 border-slate-200'}`}>
+            <label className="flex items-start cursor-pointer">
+              <div className="flex items-center h-5">
+                <input
+                  type="checkbox"
+                  checked={humanizeContent}
+                  onChange={(e) => setHumanizeContent(e.target.checked)}
+                  className="w-4 h-4 text-pink-600 border-slate-300 rounded focus:ring-pink-500 mt-1"
+                />
+              </div>
+              <div className="ml-3">
+                <div className="flex items-center">
+                  <UserCheck className={`w-4 h-4 mr-1.5 ${humanizeContent ? 'text-pink-600' : 'text-slate-500'}`} />
+                  <span className={`block text-sm font-semibold ${humanizeContent ? 'text-pink-800' : 'text-slate-700'}`}>
+                    Humanize Content (Anti-Bot Mode)
+                  </span>
                 </div>
-                <div className="ml-3">
-                  <div className="flex items-center">
-                    <UserCheck className={`w-4 h-4 mr-1.5 ${humanizeContent ? 'text-pink-600' : 'text-slate-500'}`} />
-                    <span className={`block text-sm font-semibold ${humanizeContent ? 'text-pink-800' : 'text-slate-700'}`}>
-                      Humanize Content (Anti-Bot Mode)
-                    </span>
-                  </div>
-                  <p className={`text-xs mt-1 ${humanizeContent ? 'text-pink-600' : 'text-slate-500'}`}>
-                    Removes AI-sounding terms (e.g., "delve", "tapestry"). Prioritizes natural, conversational flow.
+                <p className={`text-xs mt-1 ${humanizeContent ? 'text-pink-600' : 'text-slate-500'}`}>
+                  Removes AI-sounding terms (e.g., "delve", "tapestry"). Prioritizes natural, conversational flow.
+                </p>
+              </div>
+            </label>
+          </div>
+
+          {/* Custom Opening Section */}
+          <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start">
+                <BookOpen className="w-5 h-5 text-blue-600 mt-0.5 mr-3" />
+                <div>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={useCustomOpening}
+                      onChange={(e) => setUseCustomOpening(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm font-semibold text-slate-800">Customize Opening Style</span>
+                  </label>
+                  <p className="text-xs text-slate-500 mt-1 ml-6">
+                    Choose specifically how you want the article to begin.
                   </p>
                 </div>
-              </label>
+              </div>
             </div>
 
-            {/* Custom Opening Section */}
-            <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start">
-                  <BookOpen className="w-5 h-5 text-blue-600 mt-0.5 mr-3" />
-                  <div>
-                    <label className="flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={useCustomOpening}
-                        onChange={(e) => setUseCustomOpening(e.target.checked)}
-                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="ml-2 text-sm font-semibold text-slate-800">Customize Opening Style</span>
-                    </label>
-                    <p className="text-xs text-slate-500 mt-1 ml-6">
-                      Choose specifically how you want the article to begin.
-                    </p>
-                  </div>
+            {useCustomOpening && (
+              <div className="mt-3 ml-8 animate-in fade-in slide-in-from-top-2 duration-200">
+                <label className="block text-xs font-medium text-slate-700 mb-1.5">Select Opening Type</label>
+                <div className="relative">
+                  <Lightbulb className="absolute left-3 top-2.5 w-4 h-4 text-amber-500" />
+                  <select
+                    value={openingStyle}
+                    onChange={(e) => setOpeningStyle(e.target.value as OpeningStyle)}
+                    className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm appearance-none bg-white"
+                  >
+                    {Object.values(OpeningStyle)
+                      .filter(style => style !== OpeningStyle.NONE)
+                      .map(style => (
+                        <option key={style} value={style}>{style}</option>
+                      ))}
+                  </select>
                 </div>
               </div>
+            )}
+          </div>
 
-              {useCustomOpening && (
-                <div className="mt-3 ml-8 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <label className="block text-xs font-medium text-slate-700 mb-1.5">Select Opening Type</label>
-                  <div className="relative">
-                    <Lightbulb className="absolute left-3 top-2.5 w-4 h-4 text-amber-500" />
-                    <select
-                      value={openingStyle}
-                      onChange={(e) => setOpeningStyle(e.target.value as OpeningStyle)}
-                      className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm appearance-none bg-white"
-                    >
-                      {Object.values(OpeningStyle)
-                        .filter(style => style !== OpeningStyle.NONE)
-                        .map(style => (
-                          <option key={style} value={style}>{style}</option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
+          <div className="flex flex-col space-y-2">
+            <label className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors">
+              <input
+                type="checkbox"
+                checked={includeFaq}
+                onChange={(e) => setIncludeFaq(e.target.checked)}
+                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+              />
+              <span className="text-sm text-slate-700">Include FAQ Section</span>
+            </label>
+            <label className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors">
+              <input
+                type="checkbox"
+                checked={includeConclusion}
+                onChange={(e) => setIncludeConclusion(e.target.checked)}
+                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+              />
+              <span className="text-sm text-slate-700">Include Key Takeaways/Conclusion</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h2 className="text-lg font-semibold text-slate-800 flex items-center mb-4">
+          <Target className="w-5 h-5 mr-2 text-blue-600" />
+          SEO Strategy
+        </h2>
+
+        {/* Keyword Analysis Provider Selector */}
+        <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+          <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">Keyword Analysis Provider</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setKeywordAnalysisProvider(SearchProvider.GEMINI)}
+              className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${keywordAnalysisProvider === SearchProvider.GEMINI
+                ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+            >
+              <Zap className="w-3 h-3 mr-1.5" />
+              Google Gemini
+            </button>
+            <button
+              type="button"
+              onClick={() => setKeywordAnalysisProvider(SearchProvider.TAVILY)}
+              className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${keywordAnalysisProvider === SearchProvider.TAVILY
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-bold'
+                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                }`}
+            >
+              <Search className="w-3 h-3 mr-1.5" />
+              Tavily (DeepSeek)
+            </button>
+          </div>
+          <p className="text-[10px] text-slate-400 mt-1">
+            Choose provider for keyword analysis (independent of main writer)
+          </p>
+        </div>
+
+        {/* Logic: If Bulk + AutoOptimize, show message instead of manual inputs */}
+        {mode === 'bulk' && autoOptimize ? (
+          <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg text-center">
+            <Sparkles className="w-8 h-8 text-blue-500 mx-auto mb-2" />
+            <p className="text-sm font-semibold text-slate-700">Auto-Optimization Enabled</p>
+            <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+              Keywords will be generated automatically for each topic in the queue using {keywordAnalysisProvider === SearchProvider.TAVILY ? 'DeepSeek' : 'Gemini'} to ensure maximum relevance.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Primary Keywords */}
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-medium text-slate-700">Primary Keywords</label>
+                <button
+                  type="button"
+                  onClick={handleGeneratePrimary}
+                  disabled={!isFormValid || isGeneratingPrimary}
+                  className="text-xs flex items-center text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50 transition-colors"
+                >
+                  {isGeneratingPrimary ? (
+                    <span className="animate-pulse">Analyzing...</span>
+                  ) : (
+                    <>
+                      <Search className="w-3 h-3 mr-1" />
+                      {keywordAnalysisProvider === SearchProvider.TAVILY ? "Analyze via DeepSeek" : "Analyze via Gemini"}
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="flex space-x-2 mb-2">
+                <input
+                  type="text"
+                  value={primaryKeywordInput}
+                  onChange={(e) => setPrimaryKeywordInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addPrimaryKeyword())}
+                  placeholder="Type and press Enter"
+                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={addPrimaryKeyword}
+                  className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {primaryKeywords.map((kw, idx) => (
+                  <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                    {kw}
+                    <button type="button" onClick={() => removePrimaryKeyword(kw)} className="ml-1.5 hover:text-blue-900">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                ))}
+              </div>
+              {primaryKeywords.length === 0 && (
+                <p className="text-xs text-slate-400 mt-1">
+                  Add main keywords to target or click "Analyze Topic" to auto-suggest.
+                </p>
               )}
             </div>
 
-            <div className="flex flex-col space-y-2">
-              <label className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors">
-                <input
-                  type="checkbox"
-                  checked={includeFaq}
-                  onChange={(e) => setIncludeFaq(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm text-slate-700">Include FAQ Section</span>
-              </label>
-              <label className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors">
-                <input
-                  type="checkbox"
-                  checked={includeConclusion}
-                  onChange={(e) => setIncludeConclusion(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-sm text-slate-700">Include Key Takeaways/Conclusion</span>
-              </label>
-            </div>
-          </div>
-        </div>
+            {/* NLP Keywords */}
+            <div>
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-sm font-medium text-slate-700">NLP & LSI Keywords</label>
+                <button
+                  type="button"
+                  onClick={handleGenerateNLP}
+                  disabled={!isFormValid || isGeneratingKeywords}
+                  className="text-xs flex items-center text-purple-600 hover:text-purple-700 font-medium disabled:opacity-50 transition-colors"
+                >
+                  {isGeneratingKeywords ? (
+                    <span className="animate-pulse">Analyzing...</span>
+                  ) : (
+                    <>
+                      <Wand2 className="w-3 h-3 mr-1" />
+                      {keywordAnalysisProvider === SearchProvider.TAVILY ? "Generate via DeepSeek" : "Generate via Gemini"}
+                    </>
+                  )}
+                </button>
+              </div>
 
-        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-800 flex items-center mb-4">
-            <Target className="w-5 h-5 mr-2 text-blue-600" />
-            SEO Strategy
-          </h2>
-
-          {/* Keyword Analysis Provider Selector */}
-          <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-            <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">Keyword Analysis Provider</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setKeywordAnalysisProvider(SearchProvider.GEMINI)}
-                className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${keywordAnalysisProvider === SearchProvider.GEMINI
-                  ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold'
-                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-              >
-                <Zap className="w-3 h-3 mr-1.5" />
-                Google Gemini
-              </button>
-              <button
-                type="button"
-                onClick={() => setKeywordAnalysisProvider(SearchProvider.TAVILY)}
-                className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${keywordAnalysisProvider === SearchProvider.TAVILY
-                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-bold'
-                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                  }`}
-              >
-                <Search className="w-3 h-3 mr-1.5" />
-                Tavily (DeepSeek)
-              </button>
-            </div>
-            <p className="text-[10px] text-slate-400 mt-1">
-              Choose provider for keyword analysis (independent of main writer)
-            </p>
-          </div>
-
-          {/* Logic: If Bulk + AutoOptimize, show message instead of manual inputs */}
-          {mode === 'bulk' && autoOptimize ? (
-            <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg text-center">
-              <Sparkles className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-              <p className="text-sm font-semibold text-slate-700">Auto-Optimization Enabled</p>
-              <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-                Keywords will be generated automatically for each topic in the queue using {keywordAnalysisProvider === SearchProvider.TAVILY ? 'DeepSeek' : 'Gemini'} to ensure maximum relevance.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Primary Keywords */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-medium text-slate-700">Primary Keywords</label>
-                  <button
-                    type="button"
-                    onClick={handleGeneratePrimary}
-                    disabled={!isFormValid || isGeneratingPrimary}
-                    className="text-xs flex items-center text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50 transition-colors"
-                  >
-                    {isGeneratingPrimary ? (
-                      <span className="animate-pulse">Analyzing...</span>
-                    ) : (
-                      <>
-                        <Search className="w-3 h-3 mr-1" />
-                        {keywordAnalysisProvider === SearchProvider.TAVILY ? "Analyze via DeepSeek" : "Analyze via Gemini"}
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div className="flex space-x-2 mb-2">
-                  <input
-                    type="text"
-                    value={primaryKeywordInput}
-                    onChange={(e) => setPrimaryKeywordInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addPrimaryKeyword())}
-                    placeholder="Type and press Enter"
-                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={addPrimaryKeyword}
-                    className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {primaryKeywords.map((kw, idx) => (
-                    <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
-                      {kw}
-                      <button type="button" onClick={() => removePrimaryKeyword(kw)} className="ml-1.5 hover:text-blue-900">
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-                {primaryKeywords.length === 0 && (
-                  <p className="text-xs text-slate-400 mt-1">
-                    Add main keywords to target or click "Analyze Topic" to auto-suggest.
+              <div className="min-h-[80px] p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                {nlpKeywords.length === 0 ? (
+                  <p className="text-xs text-slate-400 text-center py-2">
+                    {!isFormValid ? "Enter a topic to generate NLP keywords" : "Click Auto-Generate to fetch semantic keywords"}
                   </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {nlpKeywords.map((kw, idx) => (
+                      <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
+                        {kw}
+                        <button type="button" onClick={() => removeNlpKeyword(kw)} className="ml-1.5 hover:text-purple-900">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
-
-              {/* NLP Keywords */}
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-medium text-slate-700">NLP & LSI Keywords</label>
-                  <button
-                    type="button"
-                    onClick={handleGenerateNLP}
-                    disabled={!isFormValid || isGeneratingKeywords}
-                    className="text-xs flex items-center text-purple-600 hover:text-purple-700 font-medium disabled:opacity-50 transition-colors"
-                  >
-                    {isGeneratingKeywords ? (
-                      <span className="animate-pulse">Analyzing...</span>
-                    ) : (
-                      <>
-                        <Wand2 className="w-3 h-3 mr-1" />
-                        {keywordAnalysisProvider === SearchProvider.TAVILY ? "Generate via DeepSeek" : "Generate via Gemini"}
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <div className="min-h-[80px] p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                  {nlpKeywords.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-2">
-                      {!isFormValid ? "Enter a topic to generate NLP keywords" : "Click Auto-Generate to fetch semantic keywords"}
-                    </p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {nlpKeywords.map((kw, idx) => (
-                        <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
-                          {kw}
-                          <button type="button" onClick={() => removeNlpKeyword(kw)} className="ml-1.5 hover:text-purple-900">
-                            <X className="w-3 h-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
-        </div>
+          </div>
         )}
+      </div>
 
-        }
-
-        <button
-          type="submit"
-          disabled={isGenerating || !isFormValid}
-          className={`w-full py-4 px-6 rounded-xl text-white font-medium text-lg flex items-center justify-center transition-all ${isGenerating || !isFormValid
-            ? 'bg-slate-400 cursor-not-allowed'
-            : provider === AIProvider.DEEPSEEK
-              ? 'bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/25'
-              : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-blue-500/25'
-            }`}
-        >
-          {isGenerating ? (
-            <>
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3" />
-              {mode === 'single' ? 'Generating Content...' : 'Processing Queue...'}
-            </>
-          ) : (
-            <>
-              {mode === 'single' ? 'Generate SEO Article' : ('Start Queue Processing (' + bulkInput.split('\n').filter(l => l.trim()).length + ')')}
-              <Wand2 className="w-5 h-5 ml-2" />
-            </>
-          )}
-        </button>
+      <button
+        type="submit"
+        disabled={isGenerating || !isFormValid}
+        className={`w-full py-4 px-6 rounded-xl text-white font-medium text-lg flex items-center justify-center transition-all ${isGenerating || !isFormValid
+          ? 'bg-slate-400 cursor-not-allowed'
+          : provider === AIProvider.DEEPSEEK
+            ? 'bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/25'
+            : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-blue-500/25'
+          }`}
+      >
+        {isGenerating ? (
+          <>
+            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3" />
+            {mode === 'single' ? 'Generating Content...' : 'Processing Queue...'}
+          </>
+        ) : (
+          <>
+            {mode === 'single' ? 'Generate SEO Article' : ('Start Queue Processing (' + bulkInput.split('\n').filter(l => l.trim()).length + ')')}
+            <Wand2 className="w-5 h-5 ml-2" />
+          </>
+        )}
+      </button>
     </form>
   );
 }
