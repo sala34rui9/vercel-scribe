@@ -217,25 +217,24 @@ export const generateFullSEOStrategyDeepSeek = async (topic: string): Promise<{ 
         primaryKeywords: Array.isArray(json.primaryKeywords) ? json.primaryKeywords : [],
         nlpKeywords: Array.isArray(json.nlpKeywords) ? json.nlpKeywords : []
       };
-    } catch (e) {
-      console.warn("DeepSeek Full Strategy parse failed", e, "Content:", content);
+    } catch (parseError) {
+      console.warn("DeepSeek Full Strategy parse failed", parseError, "Content:", content);
 
       // Fallback: try reasonable defaults if keys are missing but content exists
-      // e.g., if it returned { keywords: [...] } or { primary: [...] }
-      const fallbackJson = JSON.parse(cleanJsonOutput(content)); // re-parse to be safe
-      return {
-        primaryKeywords: fallbackJson.primaryKeywords || fallbackJson.primary || fallbackJson.keywords || [],
-        nlpKeywords: fallbackJson.nlpKeywords || fallbackJson.nlp || fallbackJson.lsi || []
-      };
+      try {
+        const fallbackJson = JSON.parse(cleanJsonOutput(content));
+        return {
+          primaryKeywords: fallbackJson.primaryKeywords || fallbackJson.primary || fallbackJson.keywords || [],
+          nlpKeywords: fallbackJson.nlpKeywords || fallbackJson.nlp || fallbackJson.lsi || []
+        };
+      } catch {
+        return { primaryKeywords: [], nlpKeywords: [] };
+      }
     }
-  } catch (e) {
-    console.warn("DeepSeek Full Strategy parse failed", e, "Content:", content);
-    return { primaryKeywords: [], nlpKeywords: [] };
+  } catch (error: any) {
+    console.error("DeepSeek Full Strategy error:", error);
+    throw error;
   }
-} catch (error: any) {
-  console.error("DeepSeek Full Strategy error:", error);
-  throw error;
-}
 };
 
 export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: AbortSignal): Promise<{ content: string; sources: string[] }> => {
@@ -406,10 +405,23 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
   let deepResearchInstruction = "";
   let deepResearchContext = "";
   if (deepResearch && websiteUrl) {
-    // Only use Tavily if specified as the Research Provider (or if default)
-    // If user explicitly selected Gemini, we skip Tavily here and fall back to internal knowledge
-    // (since we cannot easily call Gemini from within DeepSeek service context)
-    if (config.researchProvider === SearchProvider.TAVILY || !config.researchProvider) {
+    // CHECK FOR CACHED BRAND RESEARCH FIRST (Bulk Mode Optimization)
+    if (config.cachedBrandResearch && config.cachedBrandResearch.content) {
+      console.log('[DeepSeek] Using CACHED brand research (no API call)');
+      deepResearchContext = config.cachedBrandResearch.content;
+      deepResearchInstruction = `
+      BRAND ANALYSIS (Cached - Pre-fetched):
+      The following brand/site analysis was gathered:
+      ${deepResearchContext.substring(0, 3000)}
+      
+      Site Architecture discovered:
+      ${config.cachedBrandResearch.siteArchitecture.slice(0, 10).join('\n')}
+      
+      Please adapt your writing tone to align with this brand presence.
+          `;
+    }
+    // Only use Tavily if specified as the Research Provider (or if default) AND no cache
+    else if (config.researchProvider === SearchProvider.TAVILY || !config.researchProvider) {
       try {
         const { analyzeBrandWebsite, getTavilyApiKey } = await import('./tavilyService');
         if (getTavilyApiKey()) {

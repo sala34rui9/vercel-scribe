@@ -122,6 +122,14 @@ export interface ArticleConfig {
   externalLinkSearchProvider?: SearchProvider; // For external link discovery (Gemini or Tavily)
   keywordAnalysisProvider?: SearchProvider; // For keyword analysis (Gemini or Tavily/DeepSeek)
   manualReferenceUrls?: string[]; // User-provided URLs for reference extraction
+
+  // Caching fields (for bulk optimization)
+  cachedBrandResearch?: {
+    brandVoice: string;
+    siteArchitecture: string[];
+    content: string;
+  };
+  cachedInternalLinks?: InternalLink[]; // Pre-scanned internal links for reuse
 }
 
 export interface GeneratedArticle {

@@ -188,6 +188,42 @@ const App: React.FC = () => {
         const queue = [...topics];
         let completedCount = 0;
 
+        // ========== CACHING OPTIMIZATION ==========
+        // 1. BRAND RESEARCH CACHE: Fetch once, reuse for all articles
+        let cachedBrandResearch: { brandVoice: string; siteArchitecture: string[]; content: string } | undefined;
+        if (config.deepResearch && config.websiteUrl && config.provider === AIProvider.DEEPSEEK) {
+          try {
+            setProcessingStatus("Pre-fetching Brand Research (will be reused for all articles)...");
+            const { analyzeBrandWebsite, getTavilyApiKey } = await import('./services/tavilyService');
+            if (getTavilyApiKey()) {
+              console.log('[Bulk Optimization] Fetching brand research ONCE for all articles');
+              cachedBrandResearch = await analyzeBrandWebsite(config.websiteUrl);
+            }
+          } catch (e) {
+            console.warn('[Bulk Optimization] Brand research pre-fetch failed, will use fallback per article', e);
+          }
+        }
+
+        // 2. INTERNAL LINKS CACHE: Scan once per websiteUrl, reuse for all articles
+        let cachedInternalLinks: { title: string; url: string; snippet?: string }[] = [];
+        if (config.websiteUrl && config.autoOptimize) {
+          try {
+            setProcessingStatus("Pre-scanning Internal Links (will be reused for all articles)...");
+            if (config.provider === AIProvider.DEEPSEEK && config.researchProvider === SearchProvider.TAVILY) {
+              const tavilyResult = await scanForInternalLinksTavily(config.websiteUrl, config.queueTopics?.[0] || 'general');
+              cachedInternalLinks = tavilyResult.links;
+              console.log(`[Bulk Optimization] Cached ${cachedInternalLinks.length} internal links from Tavily`);
+            } else if (config.provider === AIProvider.GEMINI || config.researchProvider === SearchProvider.GEMINI) {
+              const scanResult = await scanForInternalLinks(config.websiteUrl, config.queueTopics?.[0] || 'general', config.primaryKeywords || [], config.deepResearch);
+              cachedInternalLinks = scanResult.links;
+              console.log(`[Bulk Optimization] Cached ${cachedInternalLinks.length} internal links from Gemini`);
+            }
+          } catch (e) {
+            console.warn('[Bulk Optimization] Internal link pre-scan failed', e);
+          }
+        }
+        // ========== END CACHING OPTIMIZATION ==========
+
         // Worker Function
         const worker = async (workerId: number) => {
           while (queue.length > 0 && !controller.signal.aborted) {
@@ -229,22 +265,29 @@ const App: React.FC = () => {
                   console.warn(`Keyword generation failed for ${topic}`, e);
                 }
 
-                // 2. LINK SCANNING - Respect provider + research provider
+                // 2. LINK SCANNING - USE CACHED DATA IF AVAILABLE
 
-                // Internal Links
+                // Internal Links - Use cached links if available
                 if (config.websiteUrl) {
-                  try {
-                    if (config.provider === AIProvider.DEEPSEEK && config.researchProvider === SearchProvider.TAVILY) {
-                      const tavilyResult = await scanForInternalLinksTavily(config.websiteUrl, topic);
-                      topicInternalLinks = tavilyResult.links.slice(0, 3);
-                    } else if (config.provider === AIProvider.GEMINI || config.researchProvider === SearchProvider.GEMINI) {
-                      const scanResult = await scanForInternalLinks(config.websiteUrl, topic, topicPrimaryKeywords, config.deepResearch);
-                      topicInternalLinks = scanResult.links.slice(0, 3);
-                    } else {
-                      topicInternalLinks = [];
+                  if (cachedInternalLinks.length > 0) {
+                    // USE CACHED DATA - No API call needed!
+                    topicInternalLinks = cachedInternalLinks.slice(0, 3);
+                    console.log(`[Bulk Optimization] Reusing ${topicInternalLinks.length} cached internal links for "${topic}"`);
+                  } else {
+                    // Fallback: Scan per article (should rarely happen)
+                    try {
+                      if (config.provider === AIProvider.DEEPSEEK && config.researchProvider === SearchProvider.TAVILY) {
+                        const tavilyResult = await scanForInternalLinksTavily(config.websiteUrl, topic);
+                        topicInternalLinks = tavilyResult.links.slice(0, 3);
+                      } else if (config.provider === AIProvider.GEMINI || config.researchProvider === SearchProvider.GEMINI) {
+                        const scanResult = await scanForInternalLinks(config.websiteUrl, topic, topicPrimaryKeywords, config.deepResearch);
+                        topicInternalLinks = scanResult.links.slice(0, 3);
+                      } else {
+                        topicInternalLinks = [];
+                      }
+                    } catch (e) {
+                      console.warn(`Internal link scanning failed for ${topic}`, e);
                     }
-                  } catch (e) {
-                    console.warn(`Internal link scanning failed for ${topic}`, e);
                   }
                 }
 
@@ -280,7 +323,10 @@ const App: React.FC = () => {
                 primaryKeywords: topicPrimaryKeywords,
                 nlpKeywords: topicNLPKeywords,
                 internalLinks: topicInternalLinks,
-                externalLinks: topicExternalLinks
+                externalLinks: topicExternalLinks,
+                // Pass cached data to avoid redundant API calls
+                cachedBrandResearch: cachedBrandResearch,
+                cachedInternalLinks: cachedInternalLinks.length > 0 ? cachedInternalLinks : undefined
               };
 
               const result = await generateWithFallback(singleConfig, controller.signal);

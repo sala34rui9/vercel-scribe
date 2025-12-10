@@ -1043,9 +1043,9 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                     System will automatically find authoritative external sources for each topic.
                   </div>
                 ) : (
-                  <div className="flex items-center text-slate-500">
-                    <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
-                    Link search skipped for DeepSeek queue to prevent quota errors.
+                  <div className="flex items-center text-blue-600">
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    System will find external sources via Tavily for each topic (runs sequentially for stability).
                   </div>
                 )}
               </div>
