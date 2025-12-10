@@ -761,7 +761,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               Formatting Preferences
             </h3>
             <div className="grid grid-cols-2 gap-3">
-              <label className="flex items-center space-x-2 cursor-pointer touch-manipulation">
+              <label className="relative flex items-center space-x-2 cursor-pointer touch-manipulation">
                 <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${includeBulletPoints ? 'bg-violet-600 border-violet-600' : 'bg-white border-slate-300'}`}>
                   {includeBulletPoints && <Check className="w-3.5 h-3.5 text-white" />}
                 </div>
@@ -769,12 +769,12 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   type="checkbox"
                   checked={includeBulletPoints}
                   onChange={(e) => setIncludeBulletPoints(e.target.checked)}
-                  className="sr-only"
+                  className="opacity-0 absolute w-0 h-0"
                 />
                 <span className="text-sm text-slate-700">Bullet Points</span>
               </label>
 
-              <label className="flex items-center space-x-2 cursor-pointer touch-manipulation">
+              <label className="relative flex items-center space-x-2 cursor-pointer touch-manipulation">
                 <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${includeTables ? 'bg-violet-600 border-violet-600' : 'bg-white border-slate-300'}`}>
                   {includeTables && <Check className="w-3.5 h-3.5 text-white" />}
                 </div>
@@ -782,12 +782,12 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   type="checkbox"
                   checked={includeTables}
                   onChange={(e) => setIncludeTables(e.target.checked)}
-                  className="sr-only"
+                  className="opacity-0 absolute w-0 h-0"
                 />
                 <span className="text-sm text-slate-700">Tables (Comparison)</span>
               </label>
 
-              <label className="flex items-center space-x-2 cursor-pointer touch-manipulation">
+              <label className="relative flex items-center space-x-2 cursor-pointer touch-manipulation">
                 <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${includeBold ? 'bg-violet-600 border-violet-600' : 'bg-white border-slate-300'}`}>
                   {includeBold && <Check className="w-3.5 h-3.5 text-white" />}
                 </div>
@@ -795,12 +795,12 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   type="checkbox"
                   checked={includeBold}
                   onChange={(e) => setIncludeBold(e.target.checked)}
-                  className="sr-only"
+                  className="opacity-0 absolute w-0 h-0"
                 />
                 <span className="text-sm text-slate-700">Bold Text</span>
               </label>
 
-              <label className="flex items-center space-x-2 cursor-pointer touch-manipulation">
+              <label className="relative flex items-center space-x-2 cursor-pointer touch-manipulation">
                 <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${includeItalics ? 'bg-violet-600 border-violet-600' : 'bg-white border-slate-300'}`}>
                   {includeItalics && <Check className="w-3.5 h-3.5 text-white" />}
                 </div>
@@ -808,7 +808,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   type="checkbox"
                   checked={includeItalics}
                   onChange={(e) => setIncludeItalics(e.target.checked)}
-                  className="sr-only"
+                  className="opacity-0 absolute w-0 h-0"
                 />
                 <span className="text-sm text-slate-700">Italics</span>
               </label>
