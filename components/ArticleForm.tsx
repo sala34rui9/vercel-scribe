@@ -715,39 +715,30 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               {/* Search Provider Selection - Only show when realTimeData is enabled */}
               {realTimeData && (
                 <div className="mt-3 pl-7 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Search Provider:</label>
-                  <div className="flex gap-3">
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="searchProvider"
-                        value={SearchProvider.GEMINI}
-                        checked={realTimeSearchProvider === SearchProvider.GEMINI}
-                        onChange={(e) => {
-                          const provider = e.target.value as SearchProvider;
-                          setRealTimeSearchProvider(provider);
-                          localStorage.setItem('seo_scribe_realtime_search_provider', provider);
-                        }}
-                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-slate-700 font-medium">Google Gemini (with grounding)</span>
-                    </label>
-                    <label className="flex items-center space-x-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="searchProvider"
-                        value={SearchProvider.SERPSTACK}
-                        checked={realTimeSearchProvider === SearchProvider.SERPSTACK}
-                        onChange={(e) => {
-                          const provider = e.target.value as SearchProvider;
-                          setRealTimeSearchProvider(provider);
-                          localStorage.setItem('seo_scribe_realtime_search_provider', provider);
-                        }}
-                        className="w-4 h-4 text-green-600 border-slate-300 rounded focus:ring-green-500"
-                      />
-                      <span className="text-sm text-slate-700 font-medium">SERPStack API</span>
-                    </label>
+                  <label className="text-xs font-semibold text-slate-600 uppercase tracking-wide">Search Provider</label>
+                  <div className="relative">
+                    <select
+                      value={realTimeSearchProvider}
+                      onChange={(e) => {
+                        const provider = e.target.value as SearchProvider;
+                        setRealTimeSearchProvider(provider);
+                        localStorage.setItem('seo_scribe_realtime_search_provider', provider);
+                      }}
+                      className="w-full pl-3 pr-10 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm bg-white text-slate-700 appearance-none cursor-pointer hover:border-blue-400 transition-colors"
+                    >
+                      <option value={SearchProvider.GEMINI}>Google Gemini (with grounding)</option>
+                      <option value={SearchProvider.SERPSTACK}>SERPStack API</option>
+                      <option value={SearchProvider.TAVILY}>Tavily Search API</option>
+                    </select>
+                    <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-500">
+                      <Search className="w-4 h-4" />
+                    </div>
                   </div>
+                  <p className="text-[10px] text-slate-400 italic">
+                    {realTimeSearchProvider === SearchProvider.GEMINI && "Best for general knowledge & latest Google data."}
+                    {realTimeSearchProvider === SearchProvider.SERPSTACK && "Good for scraping specific SERP features."}
+                    {realTimeSearchProvider === SearchProvider.TAVILY && "Optimized for AI research & accurate citations."}
+                  </p>
                 </div>
               )}
             </div>
