@@ -149,6 +149,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     }
   }, [provider, researchProvider]);
 
+  const [isGeneratingFullStrategy, setIsGeneratingFullStrategy] = useState(false);
+
   // Keyword Management
   const addPrimaryKeyword = () => {
     if (primaryKeywordInput.trim() && !primaryKeywords.includes(primaryKeywordInput.trim())) {
@@ -159,6 +161,39 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
   const removePrimaryKeyword = (kw: string) => {
     setPrimaryKeywords(primaryKeywords.filter(k => k !== kw));
+  };
+
+  const handleGenerateFullStrategy = async () => {
+    const topicToAnalyze = mode === 'single' ? topic : bulkInput.split('\n')[0];
+    if (!topicToAnalyze) return;
+    setIsGeneratingFullStrategy(true);
+
+    try {
+      let result = { primaryKeywords: [] as string[], nlpKeywords: [] as string[] };
+
+      // Use keywordAnalysisProvider or DeepSeek if selected
+      if (keywordAnalysisProvider === SearchProvider.TAVILY || provider === AIProvider.DEEPSEEK) {
+        const { generateFullSEOStrategyDeepSeek } = await import('../services/deepseekService');
+        result = await generateFullSEOStrategyDeepSeek(topicToAnalyze);
+      } else {
+        const { generateFullSEOStrategy } = await import('../services/geminiService');
+        result = await generateFullSEOStrategy(topicToAnalyze);
+      }
+
+      if (result.primaryKeywords.length > 0) {
+        setPrimaryKeywords(prev => [...new Set([...prev, ...result.primaryKeywords])]);
+      }
+
+      if (result.nlpKeywords.length > 0) {
+        setNlpKeywords(prev => [...new Set([...prev, ...result.nlpKeywords])]);
+      }
+
+    } catch (e) {
+      console.error("Failed to generate full strategy", e);
+      alert("Failed to generate strategy. Please try again.");
+    } finally {
+      setIsGeneratingFullStrategy(false);
+    }
   };
 
   const handleGeneratePrimary = async () => {
@@ -234,6 +269,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   const removeNlpKeyword = (kw: string) => {
     setNlpKeywords(nlpKeywords.filter(k => k !== kw));
   };
+
 
   const handleSaveUrl = () => {
     if (websiteUrl) {
@@ -1281,10 +1317,25 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       </div>
 
       <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
-        <h2 className="text-lg font-semibold text-slate-800 flex items-center mb-4">
-          <Target className="w-5 h-5 mr-2 text-blue-600" />
-          SEO Strategy
-        </h2>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold text-slate-800 flex items-center">
+            <Target className="w-5 h-5 mr-2 text-blue-600" />
+            SEO Strategy
+          </h2>
+          <button
+            type="button"
+            onClick={handleGenerateFullStrategy}
+            disabled={isGeneratingFullStrategy || (!topic && !bulkInput)}
+            className="text-xs flex items-center bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-3 py-1.5 rounded-full hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isGeneratingFullStrategy ? (
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Zap className="w-3.5 h-3.5 mr-1.5 fill-white" />
+            )}
+            {isGeneratingFullStrategy ? 'Generating Strategy...' : 'Generate Full Strategy'}
+          </button>
+        </div>
 
         {/* Keyword Analysis Provider Selector */}
         <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">

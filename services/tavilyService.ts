@@ -49,12 +49,12 @@ export interface TavilySearchResult {
 export const tavilySearch = async (
     query: string,
     options: TavilySearchOptions = {}
-): Promise<{ content: string; sources: string[]; answer?: string }> => {
+): Promise<{ content: string; sources: string[]; answer?: string; results: TavilySearchResult[] }> => {
     const apiKey = getTavilyApiKey();
 
     if (!apiKey) {
         console.warn('[Tavily] API key is missing for search');
-        return { content: '', sources: [] };
+        return { content: '', sources: [], results: [] };
     }
 
     try {
@@ -111,10 +111,10 @@ export const tavilySearch = async (
 
         console.log('[Tavily] Search successful:', results.length, 'results');
 
-        return { content, sources, answer };
+        return { content, sources, answer, results };
     } catch (error: any) {
         logTavilyDiagnostics('Search Error', error);
-        return { content: '', sources: [] };
+        return { content: '', sources: [], results: [] };
     }
 };
 
@@ -321,42 +321,20 @@ export const scanForExternalLinksTavily = async (
         options.excludeDomains = [excludeDomain];
     }
 
+    // Call Tavily Search ONCE and get the full results objects
     const result = await tavilySearch(`${topic} authoritative sources research`, options);
 
-    // Parse results back into link format
+    // Parse results directly from the search response
     const links: Array<{ title: string; url: string; snippet?: string }> = [];
 
-    // We need to re-fetch to get structured results
-    const apiKey = getTavilyApiKey();
-    if (!apiKey) return [];
-
-    try {
-        const response = await fetch(`${TAVILY_API_BASE}/search`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                api_key: apiKey,
-                query: `${topic} authoritative sources`,
-                max_results: 15,
-                search_depth: 'advanced',
-                exclude_domains: excludeDomain ? [excludeDomain] : []
-            })
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            const results: TavilySearchResult[] = data.results || [];
-
-            for (const r of results) {
-                links.push({
-                    title: r.title,
-                    url: r.url,
-                    snippet: r.content?.substring(0, 150) || 'External source'
-                });
-            }
+    if (result.results && Array.isArray(result.results)) {
+        for (const r of result.results) {
+            links.push({
+                title: r.title,
+                url: r.url,
+                snippet: r.content?.substring(0, 150) || 'External source'
+            });
         }
-    } catch (e) {
-        console.warn('[Tavily] External link scan error:', e);
     }
 
     return links.slice(0, 15);
@@ -446,55 +424,26 @@ export const scanForInternalLinksTavily = async (
         includeDomains: [domain]
     };
 
-    // We search for the topic restricted to the domain
+    // Call Tavily Search ONCE and get the full results objects
     const result = await tavilySearch(`site:${domain} ${topic}`, options);
 
     const links: { title: string; url: string; snippet?: string }[] = [];
 
-    // Tavily results are already parsed
-    // We need to fetch the full object list again because tavilySearch returns string content
-    // To save API calls, we'll just re-implement a tailored search call here or trust tavilySearch returns enough info?
-    // tavilySearch returns { content: string, sources: string[] } which is flattened. 
-    // We better make a direct API call here to get titles and snippets properly.
-
-    const apiKey = getTavilyApiKey();
-    if (!apiKey) return { links: [], opportunities: [] };
-
-    try {
-        const response = await fetch(`${TAVILY_API_BASE}/search`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                api_key: apiKey,
-                query: `site:${domain} ${topic}`,
-                max_results: 15,
-                search_depth: 'basic',
-                include_domains: [domain]
-            })
-        });
-
-        if (response.ok) {
-            const data = await response.json();
-            const results: TavilySearchResult[] = data.results || [];
-
-            for (const r of results) {
-                // strict domain check just in case
-                if (r.url.includes(domain)) {
-                    links.push({
-                        title: r.title,
-                        url: r.url,
-                        snippet: r.content?.substring(0, 150)
-                    });
-                }
+    if (result.results && Array.isArray(result.results)) {
+        for (const r of result.results) {
+            // strict domain check just in case
+            if (r.url.includes(domain)) {
+                links.push({
+                    title: r.title,
+                    url: r.url,
+                    snippet: r.content?.substring(0, 150)
+                });
             }
         }
-    } catch (e) {
-        console.warn('[Tavily] Internal link scan failed', e);
     }
 
     // Tavily doesn't give us "Content Gaps" / Opportunities directly like Gemini's prompt does.
     // We return empty opportunities for now, or we could infer them (but that requires LLM processing).
-    // Simple implementation: return links only.
 
     return { links, opportunities: [] };
 };

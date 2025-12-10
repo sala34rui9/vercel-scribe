@@ -153,6 +153,55 @@ export const generateNLPKeywords = async (topic: string): Promise<string[]> => {
 };
 
 /**
+ * Generates BOTH Primary and NLP keywords in a single API call.
+ * optimize cost and speed (50% savings).
+ */
+export const generateFullSEOStrategy = async (topic: string): Promise<{ primaryKeywords: string[], nlpKeywords: string[] }> => {
+  try {
+    const response = await generateContentWithRetry("gemini-2.5-flash", {
+      contents: `Act as a senior SEO Specialist. Analyze the article topic: "${topic}".
+      
+      TASK: Generate a complete SEO keyword strategy in one go.
+      1. Identify 5-7 high-potential "Primary Keywords" (mix of head terms and long-tail).
+      2. Identify 10-15 high-value "NLP/LSI Keywords" (semantically related context terms).
+      
+      Return a JSON object with two arrays: 'primaryKeywords' and 'nlpKeywords'.`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            primaryKeywords: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "5-7 Primary SEO Keywords"
+            },
+            nlpKeywords: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+              description: "10-15 NLP/LSI Contextual Keywords"
+            }
+          },
+          required: ["primaryKeywords", "nlpKeywords"]
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) return { primaryKeywords: [], nlpKeywords: [] };
+
+    const data = JSON.parse(text);
+    return {
+      primaryKeywords: data.primaryKeywords || [],
+      nlpKeywords: data.nlpKeywords || []
+    };
+  } catch (error) {
+    console.error("Error generating Full SEO Strategy (Gemini):", error);
+    return { primaryKeywords: [], nlpKeywords: [] };
+  }
+};
+
+/**
  * Fetches a broad list of verified URLs from a domain to build a "Site Architecture".
  * Used for deep research to prevent hallucinations.
  */

@@ -166,6 +166,67 @@ export const generateNLPKeywordsDeepSeek = async (topic: string): Promise<string
   }
 };
 
+export const generateFullSEOStrategyDeepSeek = async (topic: string): Promise<{ primaryKeywords: string[], nlpKeywords: string[] }> => {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    console.warn('[DeepSeek] No API key found for generateFullSEOStrategy');
+    throw new Error("DeepSeek API Key is missing. Please add your API key in Settings.");
+  }
+
+  const payload = {
+    model: "deepseek-chat",
+    messages: [
+      {
+        role: "system",
+        content: "You are an expert SEO Specialist."
+      },
+      {
+        role: "user",
+        content: `Analyze the topic: "${topic}". 
+        Generate a complete SEO strategy:
+        1. 5-7 Primary Keywords (Head & Long-tail).
+        2. 10-15 NLP/LSI Keywords (Contextual).
+        
+        Return ONLY a raw JSON object with keys 'primaryKeywords' and 'nlpKeywords'. No markdown.`
+      }
+    ],
+    response_format: { type: "json_object" }
+  };
+
+  try {
+    logApiDiagnostics('generateFullSEOStrategy', apiKey);
+
+    const response = await fetch(DEEPSEEK_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`DeepSeek API Error (${response.status}): ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || "";
+
+    try {
+      const cleanedContent = cleanJsonOutput(content);
+      const json = JSON.parse(cleanedContent);
+      return {
+        primaryKeywords: Array.isArray(json.primaryKeywords) ? json.primaryKeywords : [],
+        nlpKeywords: Array.isArray(json.nlpKeywords) ? json.nlpKeywords : []
+      };
+    } catch (e) {
+      console.warn("DeepSeek Full Strategy parse failed", e, "Content:", content);
+      return { primaryKeywords: [], nlpKeywords: [] };
+    }
+  } catch (error: any) {
+    console.error("DeepSeek Full Strategy error:", error);
+    throw error;
+  }
+};
+
 export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: AbortSignal): Promise<{ content: string; sources: string[] }> => {
   const apiKey = getApiKey();
   if (!apiKey) {
