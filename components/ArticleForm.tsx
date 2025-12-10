@@ -745,295 +745,296 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Internal Linking Section */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden">
-              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
-                <h3 className="text-sm font-semibold text-slate-800 flex items-center">
-                  <LinkIcon className="w-4 h-4 mr-2 text-blue-600" />
-                  Internal Linking Strategy
-                </h3>
-              </div>
-
-              {/* Logic Branch: If Bulk + AutoOptimize, we hide controls and show info message */}
-              {mode === 'bulk' && autoOptimize ? (
-                <div className="p-4 bg-white text-sm text-slate-500 italic">
-                  {websiteUrl ? (
-                    provider === AIProvider.GEMINI ? (
-                      <div className="flex items-center text-blue-600">
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        System will automatically scan <strong>{websiteUrl}</strong> for relevant links for each topic in the queue.
-                      </div>
-                    ) : (
-                      provider === AIProvider.DEEPSEEK && researchProvider === SearchProvider.TAVILY ? (
-                        <div className="flex items-center text-emerald-600">
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          System will scan <strong>{websiteUrl}</strong> via Tavily for each topic.
-                        </div>
-                      ) : (
-                        <div className="flex items-center text-slate-500">
-                          <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
-                          Link scanning disabled (Gemini research in DeepSeek mode). Switch to Tavily.
-                        </div>
-                      )
-                    )
-                  ) : (
-                    "Add a Brand Website above to enable auto-linking in queue mode."
-                  )}
-                </div>
-              ) : (
-                <div className="p-4 bg-white">
-                  {!websiteUrl ? (
-                    <div className="text-center py-4 text-slate-400 text-sm">
-                      Enter a Brand Website above to enable internal linking features.
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-
-                      {foundLinks.length === 0 && contentOpportunities.length === 0 ? (
-                        <button
-                          type="button"
-                          onClick={() => handleScanLinks(false)}
-                          disabled={isScanningLinks || (mode === 'single' && !topic)}
-                          className="w-full py-2 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center disabled:opacity-50"
-                        >
-                          {isScanningLinks ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-2"></div>
-                              Scanning Website...
-                            </>
-                          ) : (
-                            <>
-                              <Search className="w-4 h-4 mr-2" />
-                              Scan for Internal Links
-                              {deepResearch && <span className="ml-1 text-xs text-indigo-600 font-bold">(Deep)</span>}
-                            </>
-                          )}
-                        </button>
-                      ) : (
-                        <div className="space-y-4">
-                          {/* Action Buttons */}
-                          <div className="flex space-x-2">
-                            <button
-                              type="button"
-                              onClick={selectMostComplimenting}
-                              disabled={foundLinks.length === 0}
-                              className="flex-1 py-1.5 px-3 bg-blue-50 text-blue-700 text-xs font-medium rounded hover:bg-blue-100 transition-colors disabled:opacity-50"
-                            >
-                              Top 3
-                            </button>
-                            <button
-                              type="button"
-                              onClick={selectAllLinks}
-                              disabled={foundLinks.length === 0}
-                              className="flex-1 py-1.5 px-3 bg-slate-100 text-slate-700 text-xs font-medium rounded hover:bg-slate-200 transition-colors disabled:opacity-50"
-                            >
-                              All
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleScanLinks(true)}
-                              disabled={isScanningLinks}
-                              title="Rescan Website"
-                              className="py-1.5 px-3 bg-slate-100 text-slate-600 text-xs font-medium rounded hover:bg-slate-200 transition-colors"
-                            >
-                              <RefreshCw className={`w-3.5 h-3.5 ${isScanningLinks ? 'animate-spin' : ''}`} />
-                            </button>
-                          </div>
-
-                          {/* Verified Links List */}
-                          {foundLinks.length > 0 ? (
-                            <div className="space-y-2">
-                              <div className="flex items-center text-xs font-semibold text-green-700">
-                                <Check className="w-3.5 h-3.5 mr-1" /> Verified Existing Pages ({foundLinks.length})
-                              </div>
-                              <div className="max-h-48 overflow-y-auto border border-green-100 bg-green-50/20 rounded-lg divide-y divide-green-50">
-                                {foundLinks.map((link, idx) => (
-                                  <div
-                                    key={idx}
-                                    onClick={() => toggleLinkSelection(link.url)}
-                                    className={`p-3 flex items-start space-x-3 cursor-pointer transition-colors ${selectedLinkUrls.has(link.url) ? 'bg-blue-50/50' : 'hover:bg-slate-50'
-                                      }`}
-                                  >
-                                    <div className="mt-0.5">
-                                      {selectedLinkUrls.has(link.url) ? (
-                                        <CheckSquare className="w-4 h-4 text-blue-600" />
-                                      ) : (
-                                        <Square className="w-4 h-4 text-slate-300" />
-                                      )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className={`text-sm font-medium truncate ${selectedLinkUrls.has(link.url) ? 'text-blue-700' : 'text-slate-700'}`}>
-                                        {link.title}
-                                      </p>
-                                      <a
-                                        href={link.url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="text-xs text-slate-400 hover:text-blue-500 flex items-center mt-0.5 truncate"
-                                      >
-                                        {link.url} <ExternalLinkIcon className="w-3 h-3 ml-1 inline" />
-                                      </a>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                              <p className="text-xs text-slate-500 text-right">
-                                {selectedLinkUrls.size} links selected
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="p-3 bg-slate-50 border border-slate-100 rounded text-xs text-slate-500 text-center">
-                              No direct existing links found for this topic.
-                            </div>
-                          )}
-
-                          {/* Content Opportunities Section */}
-                          {contentOpportunities.length > 0 && (
-                            <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
-                              <div className="flex items-center text-xs font-semibold text-amber-700">
-                                <AlertTriangle className="w-3.5 h-3.5 mr-1" /> Content Gap Analysis ({contentOpportunities.length})
-                              </div>
-                              <p className="text-xs text-slate-500 mb-2">
-                                These topics are highly relevant but were NOT found on your site. Consider creating them to boost authority.
-                              </p>
-                              <div className="max-h-40 overflow-y-auto border border-amber-100 bg-amber-50/30 rounded-lg">
-                                {contentOpportunities.map((op, idx) => (
-                                  <div key={idx} className="p-3 border-b border-amber-50 last:border-0 hover:bg-amber-50/50 transition-colors">
-                                    <div className="flex items-start">
-                                      <FilePlus className="w-4 h-4 text-amber-400 mt-0.5 mr-2 shrink-0" />
-                                      <div>
-                                        <p className="text-sm font-medium text-slate-800">{op.topic}</p>
-                                        <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{op.reason}</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+          {/* Internal Linking Section */}
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+              <h3 className="text-sm font-semibold text-slate-800 flex items-center">
+                <LinkIcon className="w-4 h-4 mr-2 text-blue-600" />
+                Internal Linking Strategy
+              </h3>
             </div>
 
-            {/* External Linking Section */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden">
-              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
-                <div className="flex items-center">
-                  <ExternalLinkIcon className="w-4 h-4 mr-2 text-indigo-600" />
-                  <h3 className="text-sm font-semibold text-slate-800">External Linking Strategy</h3>
-                </div>
-                <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={includeExternalLinks}
-                    onChange={(e) => setIncludeExternalLinks(e.target.checked)}
-                    className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
-                  />
-                  <span className="ml-2 text-xs font-medium text-slate-600">Enable</span>
-                </label>
-              </div>
-
-              {/* Logic Branch: If Bulk + AutoOptimize + Enabled, hide manual search */}
-              {includeExternalLinks && mode === 'bulk' && autoOptimize ? (
-                <div className="p-4 bg-white text-sm text-slate-500 italic">
-                  {provider === AIProvider.GEMINI ? (
-                    <div className="flex items-center text-indigo-600">
+            {/* Logic Branch: If Bulk + AutoOptimize, we hide controls and show info message */}
+            {mode === 'bulk' && autoOptimize ? (
+              <div className="p-4 bg-white text-sm text-slate-500 italic">
+                {websiteUrl ? (
+                  provider === AIProvider.GEMINI ? (
+                    <div className="flex items-center text-blue-600">
                       <Sparkles className="w-4 h-4 mr-2" />
-                      System will automatically find authoritative external sources for each topic.
+                      System will automatically scan <strong>{websiteUrl}</strong> for relevant links for each topic in the queue.
                     </div>
                   ) : (
-                    <div className="flex items-center text-slate-500">
-                      <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
-                      Link search skipped for DeepSeek queue to prevent quota errors.
-                    </div>
-                  )}
-                </div>
-              ) : includeExternalLinks && (
-                <div className="p-4 bg-white animate-in slide-in-from-top-2 duration-200">
-                  <div className="space-y-3">
-                    <p className="text-xs text-slate-500">
-                      Find authoritative external sources to boost credibility. Select up to 10 links.
-                    </p>
+                    provider === AIProvider.DEEPSEEK && researchProvider === SearchProvider.TAVILY ? (
+                      <div className="flex items-center text-emerald-600">
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        System will scan <strong>{websiteUrl}</strong> via Tavily for each topic.
+                      </div>
+                    ) : (
+                      <div className="flex items-center text-slate-500">
+                        <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
+                        Link scanning disabled (Gemini research in DeepSeek mode). Switch to Tavily.
+                      </div>
+                    )
+                  )
+                ) : (
+                  "Add a Brand Website above to enable auto-linking in queue mode."
+                )}
+              </div>
+            ) : (
+              <div className="p-4 bg-white">
+                {!websiteUrl ? (
+                  <div className="text-center py-4 text-slate-400 text-sm">
+                    Enter a Brand Website above to enable internal linking features.
+                  </div>
+                ) : (
+                  <div className="space-y-4">
 
-                    {foundExternalLinks.length === 0 ? (
+                    {foundLinks.length === 0 && contentOpportunities.length === 0 ? (
                       <button
                         type="button"
-                        onClick={handleScanExternalLinks}
-                        disabled={isScanningExternal || (mode === 'single' && !topic)}
+                        onClick={() => handleScanLinks(false)}
+                        disabled={isScanningLinks || (mode === 'single' && !topic)}
                         className="w-full py-2 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center disabled:opacity-50"
                       >
-                        {isScanningExternal ? (
+                        {isScanningLinks ? (
                           <>
                             <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-2"></div>
-                            Finding Resources...
+                            Scanning Website...
                           </>
                         ) : (
                           <>
-                            <Globe className="w-4 h-4 mr-2" />
-                            Find External Sources
+                            <Search className="w-4 h-4 mr-2" />
+                            Scan for Internal Links
+                            {deepResearch && <span className="ml-1 text-xs text-indigo-600 font-bold">(Deep)</span>}
                           </>
                         )}
                       </button>
                     ) : (
-                      <div className="space-y-3">
-                        <div className="flex justify-between items-center">
-                          <span className={`text-xs font-medium ${selectedExternalLinkUrls.size >= 10 ? 'text-amber-600' : 'text-slate-500'}`}>
-                            {selectedExternalLinkUrls.size}/10 selected
-                          </span>
+                      <div className="space-y-4">
+                        {/* Action Buttons */}
+                        <div className="flex space-x-2">
                           <button
                             type="button"
-                            onClick={() => setFoundExternalLinks([])}
-                            className="text-xs text-red-500 hover:text-red-700 font-medium"
+                            onClick={selectMostComplimenting}
+                            disabled={foundLinks.length === 0}
+                            className="flex-1 py-1.5 px-3 bg-blue-50 text-blue-700 text-xs font-medium rounded hover:bg-blue-100 transition-colors disabled:opacity-50"
                           >
-                            Clear Results
+                            Top 3
+                          </button>
+                          <button
+                            type="button"
+                            onClick={selectAllLinks}
+                            disabled={foundLinks.length === 0}
+                            className="flex-1 py-1.5 px-3 bg-slate-100 text-slate-700 text-xs font-medium rounded hover:bg-slate-200 transition-colors disabled:opacity-50"
+                          >
+                            All
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleScanLinks(true)}
+                            disabled={isScanningLinks}
+                            title="Rescan Website"
+                            className="py-1.5 px-3 bg-slate-100 text-slate-600 text-xs font-medium rounded hover:bg-slate-200 transition-colors"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isScanningLinks ? 'animate-spin' : ''}`} />
                           </button>
                         </div>
 
-                        <div className="max-h-48 overflow-y-auto border border-slate-100 rounded-lg divide-y divide-slate-100">
-                          {foundExternalLinks.map((link, idx) => (
-                            <div
-                              key={idx}
-                              onClick={() => toggleExternalLinkSelection(link.url)}
-                              className={`p-3 flex items-start space-x-3 cursor-pointer transition-colors ${selectedExternalLinkUrls.has(link.url) ? 'bg-indigo-50/50' : 'hover:bg-slate-50'
-                                }`}
-                            >
-                              <div className="mt-0.5">
-                                {selectedExternalLinkUrls.has(link.url) ? (
-                                  <CheckSquare className="w-4 h-4 text-indigo-600" />
-                                ) : (
-                                  <Square className="w-4 h-4 text-slate-300" />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-medium truncate ${selectedExternalLinkUrls.has(link.url) ? 'text-indigo-700' : 'text-slate-700'}`}>
-                                  {link.title}
-                                </p>
-                                <a
-                                  href={link.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="text-xs text-slate-400 hover:text-indigo-500 flex items-center mt-0.5 truncate"
-                                >
-                                  {link.url} <ExternalLinkIcon className="w-3 h-3 ml-1 inline" />
-                                </a>
-                              </div>
+                        {/* Verified Links List */}
+                        {foundLinks.length > 0 ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center text-xs font-semibold text-green-700">
+                              <Check className="w-3.5 h-3.5 mr-1" /> Verified Existing Pages ({foundLinks.length})
                             </div>
-                          ))}
-                        </div>
+                            <div className="max-h-48 overflow-y-auto border border-green-100 bg-green-50/20 rounded-lg divide-y divide-green-50">
+                              {foundLinks.map((link, idx) => (
+                                <div
+                                  key={idx}
+                                  onClick={() => toggleLinkSelection(link.url)}
+                                  className={`p-3 flex items-start space-x-3 cursor-pointer transition-colors ${selectedLinkUrls.has(link.url) ? 'bg-blue-50/50' : 'hover:bg-slate-50'
+                                    }`}
+                                >
+                                  <div className="mt-0.5">
+                                    {selectedLinkUrls.has(link.url) ? (
+                                      <CheckSquare className="w-4 h-4 text-blue-600" />
+                                    ) : (
+                                      <Square className="w-4 h-4 text-slate-300" />
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-sm font-medium truncate ${selectedLinkUrls.has(link.url) ? 'text-blue-700' : 'text-slate-700'}`}>
+                                      {link.title}
+                                    </p>
+                                    <a
+                                      href={link.url}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-xs text-slate-400 hover:text-blue-500 flex items-center mt-0.5 truncate"
+                                    >
+                                      {link.url} <ExternalLinkIcon className="w-3 h-3 ml-1 inline" />
+                                    </a>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <p className="text-xs text-slate-500 text-right">
+                              {selectedLinkUrls.size} links selected
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="p-3 bg-slate-50 border border-slate-100 rounded text-xs text-slate-500 text-center">
+                            No direct existing links found for this topic.
+                          </div>
+                        )}
+
+                        {/* Content Opportunities Section */}
+                        {contentOpportunities.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                            <div className="flex items-center text-xs font-semibold text-amber-700">
+                              <AlertTriangle className="w-3.5 h-3.5 mr-1" /> Content Gap Analysis ({contentOpportunities.length})
+                            </div>
+                            <p className="text-xs text-slate-500 mb-2">
+                              These topics are highly relevant but were NOT found on your site. Consider creating them to boost authority.
+                            </p>
+                            <div className="max-h-40 overflow-y-auto border border-amber-100 bg-amber-50/30 rounded-lg">
+                              {contentOpportunities.map((op, idx) => (
+                                <div key={idx} className="p-3 border-b border-amber-50 last:border-0 hover:bg-amber-50/50 transition-colors">
+                                  <div className="flex items-start">
+                                    <FilePlus className="w-4 h-4 text-amber-400 mt-0.5 mr-2 shrink-0" />
+                                    <div>
+                                      <p className="text-sm font-medium text-slate-800">{op.topic}</p>
+                                      <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">{op.reason}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
+
+          {/* External Linking Section */}
+          <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+              <div className="flex items-center">
+                <ExternalLinkIcon className="w-4 h-4 mr-2 text-indigo-600" />
+                <h3 className="text-sm font-semibold text-slate-800">External Linking Strategy</h3>
+              </div>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeExternalLinks}
+                  onChange={(e) => setIncludeExternalLinks(e.target.checked)}
+                  className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                />
+                <span className="ml-2 text-xs font-medium text-slate-600">Enable</span>
+              </label>
+            </div>
+
+            {/* Logic Branch: If Bulk + AutoOptimize + Enabled, hide manual search */}
+            {includeExternalLinks && mode === 'bulk' && autoOptimize ? (
+              <div className="p-4 bg-white text-sm text-slate-500 italic">
+                {provider === AIProvider.GEMINI ? (
+                  <div className="flex items-center text-indigo-600">
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    System will automatically find authoritative external sources for each topic.
+                  </div>
+                ) : (
+                  <div className="flex items-center text-slate-500">
+                    <AlertTriangle className="w-4 h-4 mr-2 text-amber-500" />
+                    Link search skipped for DeepSeek queue to prevent quota errors.
+                  </div>
+                )}
+              </div>
+            ) : includeExternalLinks && (
+              <div className="p-4 bg-white animate-in slide-in-from-top-2 duration-200">
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500">
+                    Find authoritative external sources to boost credibility. Select up to 10 links.
+                  </p>
+
+                  {foundExternalLinks.length === 0 ? (
+                    <button
+                      type="button"
+                      onClick={handleScanExternalLinks}
+                      disabled={isScanningExternal || (mode === 'single' && !topic)}
+                      className="w-full py-2 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium transition-colors flex items-center justify-center disabled:opacity-50"
+                    >
+                      {isScanningExternal ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-2"></div>
+                          Finding Resources...
+                        </>
+                      ) : (
+                        <>
+                          <Globe className="w-4 h-4 mr-2" />
+                          Find External Sources
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className={`text-xs font-medium ${selectedExternalLinkUrls.size >= 10 ? 'text-amber-600' : 'text-slate-500'}`}>
+                          {selectedExternalLinkUrls.size}/10 selected
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setFoundExternalLinks([])}
+                          className="text-xs text-red-500 hover:text-red-700 font-medium"
+                        >
+                          Clear Results
+                        </button>
+                      </div>
+
+                      <div className="max-h-48 overflow-y-auto border border-slate-100 rounded-lg divide-y divide-slate-100">
+                        {foundExternalLinks.map((link, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => toggleExternalLinkSelection(link.url)}
+                            className={`p-3 flex items-start space-x-3 cursor-pointer transition-colors ${selectedExternalLinkUrls.has(link.url) ? 'bg-indigo-50/50' : 'hover:bg-slate-50'
+                              }`}
+                          >
+                            <div className="mt-0.5">
+                              {selectedExternalLinkUrls.has(link.url) ? (
+                                <CheckSquare className="w-4 h-4 text-indigo-600" />
+                              ) : (
+                                <Square className="w-4 h-4 text-slate-300" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-medium truncate ${selectedExternalLinkUrls.has(link.url) ? 'text-indigo-700' : 'text-slate-700'}`}>
+                                {link.title}
+                              </p>
+                              <a
+                                href={link.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs text-slate-400 hover:text-indigo-500 flex items-center mt-0.5 truncate"
+                              >
+                                {link.url} <ExternalLinkIcon className="w-3 h-3 ml-1 inline" />
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
 
           {/* Type & Tone */}
           <div className="grid grid-cols-2 gap-4">
@@ -1103,6 +1104,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               />
             </div>
           </div>
+
         </div>
       </div>
 

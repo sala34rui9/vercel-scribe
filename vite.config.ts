@@ -30,9 +30,12 @@ export default defineConfig(({ mode }) => {
             'vendor-markdown': ['react-markdown', 'marked'],
             'vendor-genai': ['@google/genai'],
             'vendor-icons': ['lucide-react'],
+            'vendor-pdf': ['html2pdf.js', 'jspdf', 'html2canvas'],
+            'vendor-docx': ['html-to-docx', 'jszip'],
           }
         }
-      }
+      },
+      chunkSizeWarningLimit: 1000,
     }
   };
 });
