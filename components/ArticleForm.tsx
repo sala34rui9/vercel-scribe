@@ -1119,9 +1119,26 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                       <div className="flex space-x-2">
                         <button
                           type="button"
+                          onClick={handleAutoLinkSelection}
+                          disabled={isAutoSelecting}
+                          className={`flex-1 py-1.5 px-3 rounded transition-colors flex items-center justify-center text-xs font-medium ${isAutoSelecting
+                              ? 'bg-indigo-100 text-indigo-400 cursor-wait'
+                              : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100'
+                            }`}
+                          title={`Use ${provider === AIProvider.DEEPSEEK ? 'DeepSeek' : 'Gemini'} to select best links`}
+                        >
+                          {isAutoSelecting ? (
+                            <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                          ) : (
+                            <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                          )}
+                          Auto-Select
+                        </button>
+                        <button
+                          type="button"
                           onClick={selectMostComplimenting}
                           disabled={foundLinks.length === 0}
-                          className="flex-1 py-1.5 px-3 bg-blue-50 text-blue-700 text-xs font-medium rounded hover:bg-blue-100 transition-colors disabled:opacity-50"
+                          className="py-1.5 px-3 bg-blue-50 text-blue-700 text-xs font-medium rounded hover:bg-blue-100 transition-colors disabled:opacity-50"
                         >
                           Top 3
                         </button>
@@ -1129,7 +1146,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                           type="button"
                           onClick={selectAllLinks}
                           disabled={foundLinks.length === 0}
-                          className="flex-1 py-1.5 px-3 bg-slate-100 text-slate-700 text-xs font-medium rounded hover:bg-slate-200 transition-colors disabled:opacity-50"
+                          className="py-1.5 px-3 bg-slate-100 text-slate-700 text-xs font-medium rounded hover:bg-slate-200 transition-colors disabled:opacity-50"
                         >
                           All
                         </button>
