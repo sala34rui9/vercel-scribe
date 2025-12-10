@@ -773,9 +773,10 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
 
     if (includeFaq) {
       sectionOrderInstruction += `\n      ${step++}. FAQ Section (Use header: ## Frequently Asked Questions)`;
+      sectionOrderInstruction += `\n      CRITICAL: You MUST include a FAQ section with 3-5 relevant questions and answers. It must appear AFTER the Conclusion.`;
+    } else {
+      sectionOrderInstruction += `\n      CRITICAL: DO NOT include a FAQ section.`;
     }
-
-    sectionOrderInstruction += `\n\n      CRITICAL: The FAQ section (if requested) MUST appear AFTER the Conclusion. Do not end the article with the Conclusion if FAQs are required.`;
 
     const prompt = `
       You are an expert SEO Content Writer with decades of experience in creating high-ranking content.

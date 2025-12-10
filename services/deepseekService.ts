@@ -219,12 +219,23 @@ export const generateFullSEOStrategyDeepSeek = async (topic: string): Promise<{ 
       };
     } catch (e) {
       console.warn("DeepSeek Full Strategy parse failed", e, "Content:", content);
-      return { primaryKeywords: [], nlpKeywords: [] };
+
+      // Fallback: try reasonable defaults if keys are missing but content exists
+      // e.g., if it returned { keywords: [...] } or { primary: [...] }
+      const fallbackJson = JSON.parse(cleanJsonOutput(content)); // re-parse to be safe
+      return {
+        primaryKeywords: fallbackJson.primaryKeywords || fallbackJson.primary || fallbackJson.keywords || [],
+        nlpKeywords: fallbackJson.nlpKeywords || fallbackJson.nlp || fallbackJson.lsi || []
+      };
     }
-  } catch (error: any) {
-    console.error("DeepSeek Full Strategy error:", error);
-    throw error;
+  } catch (e) {
+    console.warn("DeepSeek Full Strategy parse failed", e, "Content:", content);
+    return { primaryKeywords: [], nlpKeywords: [] };
   }
+} catch (error: any) {
+  console.error("DeepSeek Full Strategy error:", error);
+  throw error;
+}
 };
 
 export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: AbortSignal): Promise<{ content: string; sources: string[] }> => {
@@ -523,7 +534,7 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       ${includeConclusion ? "3. Conclusion / Key Takeaways (Header: ## Conclusion)" : ""}
       ${includeFaq ? "4. FAQ Section (Header: ## Frequently Asked Questions)" : ""}
       
-      CRITICAL: FAQ section MUST appear AFTER the Conclusion.
+      CRITICAL: ${includeFaq ? "You MUST include a FAQ section AFTER the Conclusion." : "DO NOT include a FAQ section."}
     `;
 
   const userPrompt = `

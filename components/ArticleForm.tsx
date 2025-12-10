@@ -646,7 +646,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                         </>
                       ) : (
                         <>
-                          <br /><span className="text-amber-600 font-bold">• Note: Web Scanning skipped for DeepSeek</span>
+                          <br /><span className="text-amber-600 font-bold">• Note: Web Scanning in Bulk Mode will run sequentially (slower) to prevent errors.</span>
                         </>
                       )}
                     </p>

@@ -19,7 +19,7 @@ const App: React.FC = () => {
         const arr = JSON.parse(saved);
         if (Array.isArray(arr)) return arr as GeneratedArticle[];
       }
-    } catch {}
+    } catch { }
     return [];
   });
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +31,7 @@ const App: React.FC = () => {
         const arr = JSON.parse(saved);
         if (Array.isArray(arr) && arr.length > 0) return 'articles';
       }
-    } catch {}
+    } catch { }
     return 'editor';
   });
 
@@ -100,7 +100,7 @@ const App: React.FC = () => {
       } else {
         localStorage.removeItem(STORAGE_KEY);
       }
-    } catch {}
+    } catch { }
   }, [generatedArticles]);
 
   // Helper to handle generation with fallback
@@ -175,18 +175,37 @@ const App: React.FC = () => {
         setBulkProgress({ completed: 0, total: topics.length });
 
         // CONCURRENCY CONTROL
-        const CONCURRENCY_LIMIT = 3;
+        // Default to higher parallelism for Gemini
+        let CONCURRENCY_LIMIT = 5;
+        const isDeepSeekWebMode = config.provider === AIProvider.DEEPSEEK && (config.deepResearch || config.realTimeData);
+
+        // If DeepSeek + Web Scan is active, force Sequential Mode to prevent Rate Limits/Crashes
+        if (isDeepSeekWebMode) {
+          CONCURRENCY_LIMIT = 1;
+          console.log("DeepSeek Web Mode detected: Switching to Safe Sequential Processing (1 at a time)");
+        }
+
         const queue = [...topics];
         let completedCount = 0;
 
         // Worker Function
         const worker = async (workerId: number) => {
           while (queue.length > 0 && !controller.signal.aborted) {
+
+            // Critical Section: Get next topic
+            // In sequential mode, this naturally happens one by one.
             const topic = queue.shift();
             if (!topic) break;
 
             setActiveTasks(prev => prev + 1);
-            setProcessingStatus("Running Auto-SEO Analysis...");
+            setProcessingStatus(isDeepSeekWebMode
+              ? `DeepSeek Web Mode: Analyzing "${topic}" (Safe Mode)...`
+              : "Running Auto-SEO Analysis...");
+
+            // Artificial Delay for DeepSeek Web Mode to let API cool down
+            if (isDeepSeekWebMode) {
+              await new Promise(resolve => setTimeout(resolve, 2000));
+            }
 
             try {
               let topicPrimaryKeywords = config.primaryKeywords;
@@ -338,7 +357,7 @@ const App: React.FC = () => {
     setGeneratedArticles([]);
     setError(null);
     setFormKey(prev => prev + 1);
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch { }
     setActivePage('editor');
   };
 
@@ -351,7 +370,7 @@ const App: React.FC = () => {
   }, []);
 
   const handleSaveArticles = useCallback(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(generatedArticles)); } catch {}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(generatedArticles)); } catch { }
   }, [generatedArticles]);
 
   return (

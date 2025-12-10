@@ -428,11 +428,12 @@ export const scanForInternalLinksTavily = async (
     const result = await tavilySearch(`site:${domain} ${topic}`, options);
 
     const links: { title: string; url: string; snippet?: string }[] = [];
+    const cleanDomain = domain.replace(/^www\./, '');
 
     if (result.results && Array.isArray(result.results)) {
         for (const r of result.results) {
-            // strict domain check just in case
-            if (r.url.includes(domain)) {
+            // relaxed domain check to handle www vs non-www
+            if (r.url.includes(cleanDomain)) {
                 links.push({
                     title: r.title,
                     url: r.url,
