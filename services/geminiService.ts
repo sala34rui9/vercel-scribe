@@ -639,18 +639,26 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
 
     if (includeBulletPoints) {
       formattingInstruction += `\n      2. USE BULLET POINTS: Break down complex lists or features into bullet points for readability.`;
+    } else {
+      formattingInstruction += `\n      2. DO NOT use bullet points. Use full paragraphs only.`;
     }
 
     if (includeTables) {
       formattingInstruction += `\n      3. USE TABLES: formatting data, comparisons, or pros/cons. Minimum one table per article if data allows.`;
+    } else {
+      formattingInstruction += `\n      3. DO NOT use Markdown tables. Present all data in paragraph or list format.`;
     }
 
     if (includeBold) {
       formattingInstruction += `\n      4. USE BOLD TEXT (**text**): Highlight *specific* key terms, important stats, or "aha!" moments. DO NOT bold entire sentences.`;
+    } else {
+      formattingInstruction += `\n      4. DO NOT use bold text (**text**). Keep all text weight uniform.`;
     }
 
     if (includeItalics) {
       formattingInstruction += `\n      5. USE ITALICS (*text*): Use for emphasis on spoken-word stress or foreign terms. Use sparingly.`;
+    } else {
+      formattingInstruction += `\n      5. DO NOT use italics (*text*). Keep all text style uniform.`;
     }
 
     // Construct Site Architect Instructions (for Hallucination Prevention)
