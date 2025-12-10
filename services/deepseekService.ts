@@ -298,7 +298,22 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
   }
 
   if (includeTables) {
-    formattingInstruction += `\n    3. USE TABLES: formatting data, comparisons, or pros/cons. Minimum one table per article if data allows.`;
+    formattingInstruction += `
+    3. USE TABLES: For comparisons, data, or pros/cons, use proper Markdown tables.
+       CRITICAL: Tables MUST have:
+       - A header row with column names separated by |
+       - A separator row with dashes (e.g., | --- | --- |)
+       - Data rows with values separated by |
+       - EACH ROW ON A NEW LINE (not inline)
+       
+       CORRECT Markdown Table Example:
+       | Feature | Description | Rating |
+       | --- | --- | --- |
+       | Speed | Very fast | 9/10 |
+       | Price | Affordable | 8/10 |
+       
+       WRONG (do NOT do this): | Feature | Description | | --- | --- | | Speed | Very fast |
+    `;
   } else {
     formattingInstruction += `\n    3. DO NOT use Markdown tables. Present all data in paragraph or list format.`;
   }
