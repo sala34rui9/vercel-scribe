@@ -419,6 +419,10 @@ const App: React.FC = () => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(generatedArticles)); } catch { }
   }, [generatedArticles]);
 
+  const handleDeleteArticle = useCallback((id: string) => {
+    setGeneratedArticles(prev => prev.filter(a => a.id !== id));
+  }, []);
+
   return (
     <Layout onShowArticles={showArticles} onShowEditor={showEditor} savedCount={generatedArticles.length}>
       <div ref={containerRef} className="flex h-[calc(100vh-8rem)] gap-0">
@@ -535,7 +539,7 @@ const App: React.FC = () => {
                 <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
             }>
-              <ArticlePreview articles={generatedArticles} onReset={handleReset} onSave={handleSaveArticles} />
+              <ArticlePreview articles={generatedArticles} onReset={handleReset} onSave={handleSaveArticles} onDelete={handleDeleteArticle} />
             </Suspense>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-slate-400">
