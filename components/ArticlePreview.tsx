@@ -378,6 +378,18 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
               Copy HTML
             </button>
             <button
+              onClick={() => {
+                if (window.confirm('Delete this article?')) {
+                  onDelete?.(activeArticle.id);
+                }
+              }}
+              className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors bg-white text-red-600 border border-red-200 hover:bg-red-50`}
+              title="Delete This Article"
+            >
+              <Trash2 className="w-4 h-4 mr-1.5" />
+              Delete
+            </button>
+            <button
               onClick={handleCopy}
               className={`flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${copied
                 ? 'bg-green-100 text-green-700 border border-green-200'
