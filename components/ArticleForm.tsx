@@ -475,39 +475,6 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     setPersonalFileName('');
   };
 
-
-
-  const handleAutoLinkSelection = async () => {
-    const currentTopic = mode === 'single' ? topic : bulkInput.split('\n')[0];
-    if (!currentTopic || foundLinks.length === 0) return;
-
-    setIsAutoSelecting(true);
-    try {
-      let selectedUrls: string[] = [];
-
-      if (provider === AIProvider.DEEPSEEK) {
-        const { selectBestInternalLinksDeepSeek } = await import('../services/deepseekService');
-        selectedUrls = await selectBestInternalLinksDeepSeek(currentTopic, foundLinks);
-      } else {
-        const { selectBestInternalLinks } = await import('../services/geminiService');
-        selectedUrls = await selectBestInternalLinks(currentTopic, foundLinks);
-      }
-
-      if (selectedUrls.length > 0) {
-        setSelectedLinkUrls(new Set(selectedUrls));
-        const providerName = provider === AIProvider.DEEPSEEK ? 'DeepSeek' : 'Gemini';
-        alert(`✨ ${providerName} selected ${selectedUrls.length} relevant links for you!`);
-      } else {
-        alert("AI couldn't find strongly relevant links. Default selection kept.");
-      }
-    } catch (e) {
-      console.error("Auto-select failed", e);
-      alert("Failed to auto-select links. Please try again.");
-    } finally {
-      setIsAutoSelecting(false);
-    }
-  };
-
   const handleManualLinksSubmit = () => {
     if (!manualLinkInput.trim()) return;
 
