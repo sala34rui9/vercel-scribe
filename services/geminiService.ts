@@ -806,3 +806,90 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
     throw new Error("Failed to generate article. Please try again or check your API Key.");
   }
 };
+
+/**
+ * Generates a complete SEO strategy (Primary and NLP keywords) in one go.
+ */
+export const generateFullSEOStrategy = async (topic: string): Promise<{ primaryKeywords: string[], nlpKeywords: string[] }> => {
+  if (!isGeminiSelected()) {
+    console.warn("generateFullSEOStrategy: Gemini not selected — skipping Gemini API call.");
+    return { primaryKeywords: [], nlpKeywords: [] };
+  }
+  try {
+    const ai = getGenAI();
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Analyze the topic: "${topic}".
+      Generate a comprehensive SEO Strategy containing:
+      1. 5-7 Primary Keywords (Head & Long-tail)
+      2. 10-15 NLP/LSI Keywords (Contextual)
+      
+      Return JSON format:
+      {
+        "primaryKeywords": ["..."],
+        "nlpKeywords": ["..."]
+      }`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            primaryKeywords: { type: Type.ARRAY, items: { type: Type.STRING } },
+            nlpKeywords: { type: Type.ARRAY, items: { type: Type.STRING } }
+          }
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) return { primaryKeywords: [], nlpKeywords: [] };
+    const data = JSON.parse(text);
+    return {
+      primaryKeywords: data.primaryKeywords || [],
+      nlpKeywords: data.nlpKeywords || []
+    };
+  } catch (error) {
+    console.error("Error generating Full SEO Strategy (Gemini):", error);
+    return { primaryKeywords: [], nlpKeywords: [] };
+  }
+};
+
+/**
+ * intelligently selects the most relevant internal links for a given topic
+ */
+export const selectBestInternalLinks = async (topic: string, links: InternalLink[]): Promise<string[]> => {
+  if (!isGeminiSelected() || links.length === 0) return [];
+
+  try {
+    const ai = getGenAI();
+    const candidates = links.map(l => `- Title: "${l.title}", URL: ${l.url}`).join('\n');
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Analyze the topic: "${topic}".
+      Evaluate these candidate internal links:
+      ${candidates.substring(0, 10000)}
+      
+      Select the top 5-10 most relevant links that strictly compliment this topic.
+      Return JSON format: { "selectedUrls": ["url1", "url2"] }`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            selectedUrls: { type: Type.ARRAY, items: { type: Type.STRING } }
+          }
+        }
+      }
+    });
+
+    const text = response.text;
+    if (!text) return [];
+    const data = JSON.parse(text);
+    return data.selectedUrls || [];
+  } catch (error) {
+    console.error("Error selecting best links (Gemini):", error);
+    return links.slice(0, 5).map(l => l.url);
+  }
+};
+

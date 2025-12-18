@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ArticleConfig, ArticleType, ToneVoice, InternalLink, ExternalLink, OpeningStyle, ReadabilityLevel, ContentOpportunity, TargetCountry, AIProvider, DeepSeekModel, SearchProvider } from '../types';
-import { generateNLPKeywords, generatePrimaryKeywords, scanForInternalLinks, scanForExternalLinks } from '../services/geminiService';
+import { generateNLPKeywords, generatePrimaryKeywords, scanForInternalLinks, scanForExternalLinks, generateFullSEOStrategy, selectBestInternalLinks } from '../services/geminiService';
 import { generateNLPKeywordsDeepSeek, generatePrimaryKeywordsDeepSeek } from '../services/deepseekService';
 import { scanForInternalLinksTavily, scanForExternalLinksTavily } from '../services/tavilyService';
 import {
@@ -1686,8 +1686,6 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
           </div>
         </div>
       </div>
-    </div>
-      </div >
 
       <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
         <div className="flex justify-between items-center mb-4">
@@ -1862,11 +1860,18 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
             : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-blue-500/25'
           }`}
       >
-                  {mode === 'single' ? 'Generate SEO Article' : ('Start Queue Processing (' + bulkInput.split('\n').filter(l => l.trim()).length + ')')}
-                  <Wand2 className="w-5 h-5 ml-2" />
-                </>
-              )}
-            </button >
-          </form >
-        );
-      };
+        {isGenerating ? (
+          <>
+            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3" />
+            {mode === 'single' ? 'Generating Content...' : 'Processing Queue...'}
+          </>
+        ) : (
+          <>
+            {mode === 'single' ? 'Generate SEO Article' : ('Start Queue Processing (' + bulkInput.split('\n').filter(l => l.trim()).length + ')')}
+            <Wand2 className="w-5 h-5 ml-2" />
+          </>
+        )}
+      </button>
+    </form >
+  );
+}
