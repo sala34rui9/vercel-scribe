@@ -131,6 +131,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   const [includeTables, setIncludeTables] = useState(true);
   const [includeItalics, setIncludeItalics] = useState(true);
   const [includeBold, setIncludeBold] = useState(true);
+  const [personalResources, setPersonalResources] = useState('');
+  const [personalFileName, setPersonalFileName] = useState('');
 
   // Persistence Effects
   useEffect(() => {
@@ -446,6 +448,33 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     e.target.value = '';
   };
 
+  const handlePersonalResourcesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'text/plain' && !file.name.endsWith('.txt')) {
+      alert("Please upload a .txt file only.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) {
+        setPersonalResources(text);
+        setPersonalFileName(file.name);
+        alert(`Successfully loaded context from ${file.name}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const clearPersonalResources = () => {
+    setPersonalResources('');
+    setPersonalFileName('');
+  };
+
 
 
   const handleAutoLinkSelection = async () => {
@@ -648,7 +677,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       includeBulletPoints,
       includeTables,
       includeItalics,
-      includeBold
+      includeBold,
+      personalResources: personalResources || undefined
     });
   };
 
@@ -1600,8 +1630,64 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               <span className="text-sm text-slate-700">Include Key Takeaways/Conclusion</span>
             </label>
           </div>
+
+          {/* Personal Resources Section */}
+          <div className="p-4 bg-indigo-50/50 rounded-lg border border-indigo-100">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start">
+                <FileText className="w-5 h-5 text-indigo-600 mt-0.5 mr-3" />
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-800">Personal Resources</h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Upload a .txt file to provide additional context, facts, or guidelines.
+                  </p>
+                </div>
+              </div>
+              <div className="relative">
+                <input
+                  type="file"
+                  accept=".txt"
+                  onChange={handlePersonalResourcesUpload}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                  id="personal-resources-upload"
+                />
+                <button
+                  type="button"
+                  className="flex items-center px-3 py-1.5 bg-white border border-indigo-200 rounded-lg text-xs font-medium text-indigo-700 hover:bg-indigo-50 transition-colors shadow-sm"
+                >
+                  <Upload className="w-3.5 h-3.5 mr-1.5" />
+                  {personalFileName ? 'Change' : 'Upload .txt'}
+                </button>
+              </div>
+            </div>
+
+            {personalFileName && (
+              <div className="mt-3 flex items-center justify-between p-2 bg-white border border-indigo-100 rounded-md animate-in fade-in slide-in-from-left-2 duration-200">
+                <div className="flex items-center min-w-0">
+                  <div className="p-1 px-1.5 bg-indigo-100 rounded text-indigo-700 font-bold text-[10px] mr-2">TXT</div>
+                  <span className="text-xs text-slate-600 truncate max-w-[200px]">{personalFileName}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearPersonalResources}
+                  className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                  title="Remove context"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {personalResources && (
+              <p className="text-[10px] text-indigo-500 mt-2 flex items-center">
+                <Check className="w-3 h-3 mr-1" /> Context stored and will be used for generation
+              </p>
+            )}
+          </div>
         </div>
       </div>
+    </div>
+      </div >
 
       <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
         <div className="flex justify-between items-center mb-4">
@@ -1776,18 +1862,11 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
             : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-blue-500/25'
           }`}
       >
-        {isGenerating ? (
-          <>
-            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3" />
-            {mode === 'single' ? 'Generating Content...' : 'Processing Queue...'}
-          </>
-        ) : (
-          <>
-            {mode === 'single' ? 'Generate SEO Article' : ('Start Queue Processing (' + bulkInput.split('\n').filter(l => l.trim()).length + ')')}
-            <Wand2 className="w-5 h-5 ml-2" />
-          </>
-        )}
-      </button>
-    </form >
-  );
-}
+                  {mode === 'single' ? 'Generate SEO Article' : ('Start Queue Processing (' + bulkInput.split('\n').filter(l => l.trim()).length + ')')}
+                  <Wand2 className="w-5 h-5 ml-2" />
+                </>
+              )}
+            </button >
+          </form >
+        );
+      };

@@ -262,10 +262,9 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
     humanizeContent,
     targetCountry,
     deepSeekModel,
-    includeBulletPoints,
-    includeTables,
     includeItalics,
-    includeBold
+    includeBold,
+    personalResources
   } = config;
 
   // --- PURE DEEPSEEK EXECUTION ---
@@ -539,6 +538,20 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
         `;
   }
 
+  // Construct Personal Resources Instructions
+  let personalResourcesInstruction = "";
+  if (personalResources) {
+    personalResourcesInstruction = `
+      PERSONAL RESOURCES & SPECIFIC CONTEXT:
+      The user has provided the following personal resources/context to be used for this article.
+      YOU MUST prioritize facts, statistics, tone, or specific guidelines found in this text.
+      
+      --- PERSONAL RESOURCES START ---
+      ${personalResources}
+      --- PERSONAL RESOURCES END ---
+      `;
+  }
+
   let sectionOrderInstruction = `
       STRICT SECTION ORDERING:
       1. Introduction
@@ -566,6 +579,8 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       ${openingInstruction}
       ${readabilityInstruction}
       ${humanizeInstruction}
+      
+      ${personalResourcesInstruction}
       
       ${formattingInstruction}
       

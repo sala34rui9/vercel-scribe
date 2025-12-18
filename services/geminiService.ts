@@ -1,6 +1,6 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { ArticleConfig, InternalLink, ExternalLink, OpeningStyle, ReadabilityLevel, ContentOpportunity, TargetCountry, AIProvider, SearchProvider } from "../types";
+import { ArticleConfig, InternalLink, ExternalLink, OpeningStyle, ReadabilityLevel, ContentOpportunity, TargetCountry, AIProvider } from "../types";
 
 const LOCAL_STORAGE_KEY_KEY = 'user_gemini_api_key';
 
@@ -40,7 +40,7 @@ const isGeminiSelected = (): boolean => {
 const getGenAI = (): GoogleGenAI => {
   const apiKey = getApiKey();
   if (!apiKey) {
-    throw new Error("No Gemini API Key found. Please add your key in the API Settings (key icon in header).");
+    throw new Error("No API Key available. Please add your own API Key in the settings.");
   }
   return new GoogleGenAI({ apiKey });
 };
@@ -77,7 +77,10 @@ const generateContentWithRetry = async (model: string, params: any, retries = 3)
  * Identifies both single and multiple word keywords (short-tail and long-tail).
  */
 export const generatePrimaryKeywords = async (topic: string): Promise<string[]> => {
-  // Always use Gemini for keyword research (hybrid strategy)
+  if (!isGeminiSelected()) {
+    console.warn("generatePrimaryKeywords: Gemini not selected — skipping Gemini API call.");
+    return [];
+  }
   try {
     const response = await generateContentWithRetry("gemini-2.5-flash", {
       contents: `Act as a senior SEO Specialist. Analyze the article topic/heading: "${topic}". 
@@ -120,7 +123,10 @@ export const generatePrimaryKeywords = async (topic: string): Promise<string[]> 
  * Uses a faster model (Flash) for quick suggestions.
  */
 export const generateNLPKeywords = async (topic: string): Promise<string[]> => {
-  // Always use Gemini for NLP keyword research (hybrid strategy)
+  if (!isGeminiSelected()) {
+    console.warn("generateNLPKeywords: Gemini not selected — skipping Gemini API call.");
+    return [];
+  }
   try {
     const response = await generateContentWithRetry("gemini-2.5-flash", {
       contents: `Generate a list of 10-15 high-value NLP (Natural Language Processing) and LSI (Latent Semantic Indexing) keywords related to the topic: "${topic}". These should be semantically related terms that help search engines understand the context.`,
@@ -153,60 +159,14 @@ export const generateNLPKeywords = async (topic: string): Promise<string[]> => {
 };
 
 /**
- * Generates BOTH Primary and NLP keywords in a single API call.
- * optimize cost and speed (50% savings).
- */
-export const generateFullSEOStrategy = async (topic: string): Promise<{ primaryKeywords: string[], nlpKeywords: string[] }> => {
-  try {
-    const response = await generateContentWithRetry("gemini-2.5-flash", {
-      contents: `Act as a senior SEO Specialist. Analyze the article topic: "${topic}".
-      
-      TASK: Generate a complete SEO keyword strategy in one go.
-      1. Identify 5-7 high-potential "Primary Keywords" (mix of head terms and long-tail).
-      2. Identify 10-15 high-value "NLP/LSI Keywords" (semantically related context terms).
-      
-      Return a JSON object with two arrays: 'primaryKeywords' and 'nlpKeywords'.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            primaryKeywords: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "5-7 Primary SEO Keywords"
-            },
-            nlpKeywords: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "10-15 NLP/LSI Contextual Keywords"
-            }
-          },
-          required: ["primaryKeywords", "nlpKeywords"]
-        }
-      }
-    });
-
-    const text = response.text;
-    if (!text) return { primaryKeywords: [], nlpKeywords: [] };
-
-    const data = JSON.parse(text);
-    return {
-      primaryKeywords: data.primaryKeywords || [],
-      nlpKeywords: data.nlpKeywords || []
-    };
-  } catch (error) {
-    console.error("Error generating Full SEO Strategy (Gemini):", error);
-    return { primaryKeywords: [], nlpKeywords: [] };
-  }
-};
-
-/**
  * Fetches a broad list of verified URLs from a domain to build a "Site Architecture".
  * Used for deep research to prevent hallucinations.
  */
 export const fetchSiteArchitecture = async (domain: string): Promise<string[]> => {
-  // Always use Gemini for site architecture scan (hybrid strategy)
+  if (!isGeminiSelected()) {
+    console.warn("fetchSiteArchitecture: Gemini not selected — skipping Gemini API call.");
+    return [];
+  }
   const apiKey = getApiKey();
   if (!apiKey) return [];
 
@@ -258,7 +218,10 @@ export const fetchSiteArchitecture = async (domain: string): Promise<string[]> =
  * Supports deep research mode for broader scanning.
  */
 export const scanForInternalLinks = async (websiteUrl: string, topic: string, keywords: string[] = [], deepResearch = false): Promise<{ links: InternalLink[], opportunities: ContentOpportunity[] }> => {
-  // Always use Gemini for internal link scanning (hybrid strategy)
+  if (!isGeminiSelected()) {
+    console.warn("scanForInternalLinks: Gemini not selected — skipping Gemini API call.");
+    return { links: [], opportunities: [] };
+  }
   const apiKey = getApiKey();
   if (!apiKey) return { links: [], opportunities: [] };
 
@@ -380,64 +343,14 @@ export const scanForInternalLinks = async (websiteUrl: string, topic: string, ke
 };
 
 /**
- * Uses Gemini to intelligently select the most relevant internal links for a given topic
- * from a provided list of potential links.
- */
-export const selectBestInternalLinks = async (topic: string, links: InternalLink[]): Promise<string[]> => {
-  const apiKey = getApiKey();
-  if (!apiKey || links.length === 0) return [];
-
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    // Optimize payload: only send Title and URL
-    const candidates = links.map(l => `- Title: "${l.title}", URL: ${l.url}`).join('\n');
-
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `Act as a Senior SEO Specialist.
-      
-      TASK: Select the most relevant internal links for an article about: "${topic}".
-      
-      CANDIDATE LINKS:
-      ${candidates}
-      
-      INSTRUCTIONS:
-      1. Analyze the semantic relevance of each link to the topic.
-      2. Select the top 5-10 links that would add the most value / context to the article.
-      3. Return a JSON object with a single array "selectedUrls" containing the exact URLs of the chosen links.
-      `,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            selectedUrls: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING }
-            }
-          }
-        }
-      }
-    });
-
-    const text = response.text;
-    if (!text) return [];
-
-    const data = JSON.parse(text);
-    return data.selectedUrls || [];
-  } catch (e) {
-    console.error("Error identifying best links (Gemini):", e);
-    // Fallback: return top 5 original links if AI fails
-    return links.slice(0, 5).map(l => l.url);
-  }
-};
-
-/**
  * Scans the web for external linking opportunities related to the topic.
  * Uses gemini-2.5-flash for speed.
  */
 export const scanForExternalLinks = async (topic: string, excludeDomain?: string): Promise<ExternalLink[]> => {
-  // Always use Gemini for external link scanning (hybrid strategy)
+  if (!isGeminiSelected()) {
+    console.warn("scanForExternalLinks: Gemini not selected — skipping Gemini API call.");
+    return [];
+  }
   const apiKey = getApiKey();
   if (!apiKey) return [];
 
@@ -502,7 +415,10 @@ export const scanForExternalLinks = async (topic: string, excludeDomain?: string
  * Fetches real-time data and news using gemini-2.5-flash with Google Search grounding.
  */
 export const fetchRealTimeData = async (topic: string): Promise<{ content: string; sources: string[] }> => {
-  // Always use Gemini for real-time data fetching (hybrid strategy)
+  if (!isGeminiSelected()) {
+    console.warn("fetchRealTimeData: Gemini not selected — skipping Gemini API call.");
+    return { content: "", sources: [] };
+  }
   const apiKey = getApiKey();
   if (!apiKey) return { content: "", sources: [] };
 
@@ -549,7 +465,7 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
 
   try {
     if (!isGeminiSelected()) {
-      throw new Error("Google Gemini is not selected as your AI provider. Please select Gemini in settings or use DeepSeek.");
+      throw new Error("Gemini provider not selected. Aborting Gemini article generation.");
     }
     const ai = getGenAI();
     const {
@@ -570,45 +486,16 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
       readability,
       humanizeContent,
       targetCountry,
-      includeBulletPoints,
-      includeTables,
-      includeItalics,
-      includeBold
+      personalResources
     } = config;
 
     // --- REAL-TIME DATA FETCHING STEP ---
-    // If enabled, we first fetch latest data using selected search provider
+    // If enabled, we first fetch latest data using gemini-2.5-flash as per requirements
     let realTimeContext = "";
     let realTimeSources: string[] = [];
 
     if (realTimeData) {
-      let data: { content: string; sources: string[] };
-
-      // Use selected search provider
-      if (config.searchProvider === SearchProvider.TAVILY) {
-        // Use Tavily for real-time search
-        try {
-          const { fetchRealTimeDataTavily, getTavilyApiKey } = await import('./tavilyService');
-          if (getTavilyApiKey()) {
-            console.log('[Gemini] Using Tavily Search for real-time data');
-            data = await fetchRealTimeDataTavily(topic);
-          } else {
-            // Fallback to Gemini grounding if no Tavily key
-            data = await fetchRealTimeData(topic);
-          }
-        } catch (e) {
-          console.warn('[Gemini] Tavily Search failed, falling back to Gemini grounding', e);
-          data = await fetchRealTimeData(topic);
-        }
-      } else if (config.searchProvider === SearchProvider.SERPSTACK) {
-        // Use SERPStack for real-time search
-        const { fetchRealTimeDataSERPStack } = await import('./serpstackService');
-        data = await fetchRealTimeDataSERPStack(topic);
-      } else {
-        // Default to Gemini (with grounding)
-        data = await fetchRealTimeData(topic);
-      }
-
+      const data = await fetchRealTimeData(topic);
       realTimeContext = data.content;
       realTimeSources = data.sources;
     }
@@ -709,73 +596,22 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
       "HUMANIZE CONTENT" MODE ENABLED (ANTI-ROBOTIC WRITING):
       You MUST write in a natural, human-like manner. The user explicitly wants to avoid "AI-sounding" text.
       
-      STRICTLY BANNED WORDS/PHRASES (NEVER USE THESE - INSTANT PENALTY):
-      - "Delve", "Dive deep", "In the ever-evolving landscape", "Game-changer", "Unleash", "Unlock"
-      - "Elevate", "Realm", "Tapestry", "Symphony", "In conclusion", "It is important to note"
-      - "In today's world", "Cutting-edge", "Revolutionize", "Leverage", "Harness the power"
-      - "First and foremost", "Furthermore", "Moreover", "Additionally", "Navigate the complexities"
-      - "At the end of the day", "Moving forward", "In essence", "Ultimately", "As such", "Thus", "Therefore"
-      - "A myriad of", "Plethora", "Multitude", "Vast array", "Seamlessly", "Effortlessly", "Robust"
-      - "Streamline", "Empower", "Synergy", "Holistic", "Paradigm shift", "It goes without saying"
-      - "Needless to say", "It's worth noting", "Not only...but also", "Whether you're...or..."
-      - "From X to Y", "Journey", "Landscape", "Crucial", "Pivotal", "Comprehensive", "Beacon"
-      - "Testament", "Nestled", "Bustling", "Hidden gem", "Architect", "Masterpiece", "Underscore"
+      STRICT RULES:
+      1. BANNED AI PHRASES: Do NOT use the following words/phrases or their variations:
+         - "Delve", "Dive deep", "In the ever-evolving landscape", "Game-changer"
+         - "Unleash", "Unlock", "Elevate", "Realm", "Tapestry", "Symphony"
+         - "In conclusion", "It is important to note"
       
-      HUMAN WRITING GUIDELINES:
-      - Use short, punchy sentences. Fragment sentences are okay for effect.
-      - Start sentences with conjunctions (And, But, So, Or).
-      - REQUIRED: Use contractions everywhere (don't, won't, can't, it's, you'll).
-      - Use First and Second person (I, We, You) to build a connection.
-      - Ask rhetorical questions to engage the reader.
-      - Use simple, Anglo-Saxon words over Latinate complex ones.
-      - write like you are talking to a friend over a coffee. Casual but informative.
-      - ALLOW quirks and personal opinions.
+      2. SENTENCE VARIETY: 
+         - Mix very short, punchy sentences with longer, flowing ones.
+         - Avoid repetitive sentence structures (e.g., starting every paragraph with "Additionally").
+      
+      3. CONVERSATIONAL FLOW:
+         - Write as if speaking to a colleague or friend (depending on tone).
+         - Use contractions (e.g., "it's" instead of "it is") unless the tone is strictly academic.
+         - Use rhetorical questions sparingly but effectively.
+         - Focus on "showing" rather than "telling".
       `;
-    }
-
-    // Construct Formatting Instructions
-    let formattingInstruction = `
-      FORMATTING GUIDELINES (STRICT):
-      1. Use H2 (##) and H3 (###) for clear hierarchy.
-    `;
-
-    if (includeBulletPoints) {
-      formattingInstruction += `\n      2. USE BULLET POINTS: Break down complex lists or features into bullet points for readability.`;
-    } else {
-      formattingInstruction += `\n      2. DO NOT use bullet points. Use full paragraphs only.`;
-    }
-
-    if (includeTables) {
-      formattingInstruction += `
-      3. USE TABLES: For comparisons, data, or pros/cons, use proper Markdown tables.
-         CRITICAL: Tables MUST have:
-         - A header row with column names separated by |
-         - A separator row with dashes (e.g., | --- | --- |)
-         - Data rows with values separated by |
-         - EACH ROW ON A NEW LINE (not inline)
-         
-         CORRECT Markdown Table Example:
-         | Feature | Description | Rating |
-         | --- | --- | --- |
-         | Speed | Very fast | 9/10 |
-         | Price | Affordable | 8/10 |
-         
-         WRONG (do NOT do this): | Feature | Description | | --- | --- | | Speed | Very fast |
-      `;
-    } else {
-      formattingInstruction += `\n      3. DO NOT use Markdown tables. Present all data in paragraph or list format.`;
-    }
-
-    if (includeBold) {
-      formattingInstruction += `\n      4. USE BOLD TEXT (**text**): Highlight *specific* key terms, important stats, or "aha!" moments. DO NOT bold entire sentences.`;
-    } else {
-      formattingInstruction += `\n      4. DO NOT use bold text (**text**). Keep all text weight uniform.`;
-    }
-
-    if (includeItalics) {
-      formattingInstruction += `\n      5. USE ITALICS (*text*): Use for emphasis on spoken-word stress or foreign terms. Use sparingly.`;
-    } else {
-      formattingInstruction += `\n      5. DO NOT use italics (*text*). Keep all text style uniform.`;
     }
 
     // Construct Site Architect Instructions (for Hallucination Prevention)
@@ -812,6 +648,20 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
         `;
     }
 
+    // Construct Personal Resources Instructions
+    let personalResourcesInstruction = "";
+    if (personalResources) {
+      personalResourcesInstruction = `
+      PERSONAL RESOURCES & SPECIFIC CONTEXT:
+      The user has provided the following personal resources/context to be used for this article.
+      YOU MUST prioritize facts, statistics, tone, or specific guidelines found in this text.
+      
+      --- PERSONAL RESOURCES START ---
+      ${personalResources}
+      --- PERSONAL RESOURCES END ---
+      `;
+    }
+
     // Determine the section ordering dynamically
     let sectionOrderInstruction = `
       STRICT SECTION ORDERING (YOU MUST FOLLOW THIS EXACT SEQUENCE):
@@ -826,10 +676,9 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
 
     if (includeFaq) {
       sectionOrderInstruction += `\n      ${step++}. FAQ Section (Use header: ## Frequently Asked Questions)`;
-      sectionOrderInstruction += `\n      CRITICAL: You MUST include a FAQ section with 3-5 relevant questions and answers. It must appear AFTER the Conclusion.`;
-    } else {
-      sectionOrderInstruction += `\n      CRITICAL: DO NOT include a FAQ section.`;
     }
+
+    sectionOrderInstruction += `\n\n      CRITICAL: The FAQ section (if requested) MUST appear AFTER the Conclusion. Do not end the article with the Conclusion if FAQs are required.`;
 
     const prompt = `
       You are an expert SEO Content Writer with decades of experience in creating high-ranking content.
@@ -871,9 +720,13 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
 
       ${humanizeInstruction}
       
+      ${personalResourcesInstruction}
+      
       STRICT STRUCTURE & FORMATTING RULES:
       1. MAIN TITLE: Start with a clear H1 (#) title.
-      ${formattingInstruction}
+      2. SUBHEADINGS: Use H2 (##) for main sections and H3 (###) for detailed subsections. Ensure logical hierarchy.
+      3. BOLDING: Use **bold text** for key takeaways, important terms, and primary keywords to improve skimmability.
+      4. CONTENT BLOCKS: Use short paragraphs, bullet points, and numbered lists to break up text.
       
       CONTENT INTEGRATION REQUIREMENTS (CRITICAL):
       ${internalLinkingInstructions}

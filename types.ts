@@ -130,6 +130,7 @@ export interface ArticleConfig {
     content: string;
   };
   cachedInternalLinks?: InternalLink[]; // Pre-scanned internal links for reuse
+  personalResources?: string; // User-provided text resources for context
 }
 
 export interface GeneratedArticle {
