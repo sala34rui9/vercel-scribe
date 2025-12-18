@@ -124,7 +124,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               title="Manage API Keys"
             >
               <Key className="w-5 h-5" />
-              {(hasGeminiKey || hasDeepSeekKey || hasTavilyKey) && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border border-white"></span>}
+              {(hasGeminiKey || hasDeepSeekKey || hasTavilyKey) && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border border-white"></span>} 
             </button>
             <button className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
               <Layers className="w-5 h-5" />
@@ -231,6 +231,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     </div>
                     <p className="text-xs text-slate-400">Required for web research and real-time data</p>
                  </div>
+
 
                  <div className="flex justify-end pt-4">
                     <button

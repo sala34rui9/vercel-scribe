@@ -264,6 +264,8 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
     deepSeekModel,
     includeItalics,
     includeBold,
+    includeBulletPoints,
+    includeTables,
     personalResources
   } = config;
 
