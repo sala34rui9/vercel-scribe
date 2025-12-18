@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap } from 'lucide-react';
+import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap, Search } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,9 +11,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   
   const [geminiKey, setGeminiKey] = useState('');
   const [deepSeekKey, setDeepSeekKey] = useState('');
+  const [tavilyKey, setTavilyKey] = useState('');
   
   const [hasGeminiKey, setHasGeminiKey] = useState(false);
   const [hasDeepSeekKey, setHasDeepSeekKey] = useState(false);
+  const [hasTavilyKey, setHasTavilyKey] = useState(false);
   
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
 
@@ -30,6 +32,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       setHasDeepSeekKey(true);
       setDeepSeekKey(dKey);
     }
+    
+    const tKey = localStorage.getItem('user_tavily_api_key');
+    if (tKey) {
+      setHasTavilyKey(true);
+      setTavilyKey(tKey);
+    }
   }, []);
 
   const handleSaveKeys = () => {
@@ -44,6 +52,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     if (deepSeekKey.trim()) {
       localStorage.setItem('user_deepseek_api_key', deepSeekKey.trim());
       setHasDeepSeekKey(true);
+      saved = true;
+    }
+    
+    if (tavilyKey.trim()) {
+      localStorage.setItem('user_tavily_api_key', tavilyKey.trim());
+      setHasTavilyKey(true);
       saved = true;
     }
 
@@ -66,6 +80,12 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
     localStorage.removeItem('user_deepseek_api_key');
     setDeepSeekKey('');
     setHasDeepSeekKey(false);
+  };
+
+  const clearTavily = () => {
+    localStorage.removeItem('user_tavily_api_key');
+    setTavilyKey('');
+    setHasTavilyKey(false);
   };
 
   return (
@@ -91,6 +111,11 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                     <Cpu className="w-3 h-3 mr-1"/> DeepSeek Ready
                   </span>
                 )}
+                {hasTavilyKey && (
+                  <span className="text-xs font-medium px-2 py-1 rounded border flex items-center bg-emerald-50 text-emerald-700 border-emerald-200">
+                    <Search className="w-3 h-3 mr-1"/> Tavily Ready
+                  </span>
+                )}
              </div>
             
             <button 
@@ -99,7 +124,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
               title="Manage API Keys"
             >
               <Key className="w-5 h-5" />
-              {(hasGeminiKey || hasDeepSeekKey) && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border border-white"></span>}
+              {(hasGeminiKey || hasDeepSeekKey || hasTavilyKey) && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border border-white"></span>}
             </button>
             <button className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
               <Layers className="w-5 h-5" />
@@ -116,7 +141,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-4 mt-auto">
         <div className="max-w-[1600px] mx-auto px-4 text-center text-xs text-slate-500">
-          Powered by Google Gemini & DeepSeek AI
+          Powered by Google Gemini, DeepSeek AI & Tavily Search
         </div>
       </footer>
 
@@ -184,6 +209,27 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                       )}
                     </div>
                     <p className="text-xs text-slate-400">Required for DeepSeek-V3.2 & Speciale models</p>
+                 </div>
+
+                 {/* Tavily Section */}
+                 <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <label className="flex items-center text-sm font-semibold text-slate-700">
+                      <Search className="w-4 h-4 mr-1.5 text-emerald-500" />
+                      Tavily API Key
+                    </label>
+                    <div className="flex gap-2">
+                      <input 
+                        type="password" 
+                        value={tavilyKey}
+                        onChange={(e) => setTavilyKey(e.target.value)}
+                        placeholder="tvly-..."
+                        className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm font-mono"
+                      />
+                       {hasTavilyKey && (
+                        <button onClick={clearTavily} className="px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200">Clear</button>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400">Required for web research and real-time data</p>
                  </div>
 
                  <div className="flex justify-end pt-4">
