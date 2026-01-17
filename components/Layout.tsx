@@ -18,6 +18,30 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [hasTavilyKey, setHasTavilyKey] = useState(false);
   
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
+  const [showKeys, setShowKeys] = useState({
+    gemini: false,
+    deepSeek: false,
+    tavily: false
+  });
+
+  // Security: Mask API keys for display
+  const maskApiKey = (key: string) => {
+    if (!key) return '';
+    if (key.length <= 8) return '*'.repeat(key.length);
+    return key.substring(0, 4) + '*'.repeat(key.length - 8) + key.substring(key.length - 4);
+  };
+
+  // Security: Prevent copy/paste/select
+  const handleSecureInput = (e: React.KeyboardEvent) => {
+    // Prevent Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+    if (e.ctrlKey && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) {
+      e.preventDefault();
+    }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault(); // Disable right-click menu
+  };
 
   useEffect(() => {
     // Check for existing keys on mount

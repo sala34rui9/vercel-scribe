@@ -1,0 +1,10 @@
+# Supabase Edge Functions Configuration
+
+[functions.generate-article]
+verify_jwt = true
+
+[functions.extract-keywords]
+verify_jwt = true
+
+[functions.scan-links]
+verify_jwt = true

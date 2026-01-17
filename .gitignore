@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Environment variables (CRITICAL - Contains API keys)
+.env
+.env.local
+.env.production
+
+# Supabase
+supabase/.branches
+supabase/.temp
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

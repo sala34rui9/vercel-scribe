@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
+    "@supabase/supabase-js": "^2.39.0",
     "html-to-docx": "^1.5.0",
     "html2canvas": "^1.4.1",
     "html2pdf.js": "^0.10.1",
