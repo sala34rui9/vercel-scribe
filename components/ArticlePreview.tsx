@@ -446,6 +446,12 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
                       a: ({ node, ...props }) => <a className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-500 underline-offset-2 transition-all" {...props} />,
                       strong: ({ node, ...props }) => <strong className="font-bold text-slate-900" {...props} />,
                       code: ({ node, ...props }) => <code className="bg-slate-100 text-pink-600 px-1.5 py-0.5 rounded text-sm font-mono" {...props} />,
+                      table: ({ node, ...props }) => <table className="w-full border-collapse border border-slate-300 mb-4 rounded-lg overflow-hidden" {...props} />,
+                      thead: ({ node, ...props }) => <thead className="bg-slate-100 border-b-2 border-slate-300" {...props} />,
+                      tbody: ({ node, ...props }) => <tbody {...props} />,
+                      tr: ({ node, ...props }) => <tr className="border-b border-slate-200 hover:bg-slate-50 transition-colors" {...props} />,
+                      th: ({ node, ...props }) => <th className="px-4 py-2 text-left font-bold text-slate-800 border-r border-slate-300 last:border-r-0" {...props} />,
+                      td: ({ node, ...props }) => <td className="px-4 py-2 text-slate-600 border-r border-slate-300 last:border-r-0" {...props} />,
                     }}
                   >
                     {activeArticle.content}
