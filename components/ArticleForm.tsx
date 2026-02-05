@@ -745,25 +745,25 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
           Core Settings
         </h2>
 
-        {/* Mode Selector */}
-        <div className="flex p-1 bg-slate-100 rounded-lg mb-6">
+        {/* Mode Selection Tabs */}
+        <div className="flex space-x-1 bg-slate-100 p-1 rounded-xl mb-6">
           <button
             type="button"
             onClick={() => setMode('single')}
-            className={`flex-1 flex items-center justify-center py-2 text-sm font-medium rounded-md transition-all ${mode === 'single'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
+            className={`flex-1 flex items-center justify-center py-2.5 text-sm font-semibold rounded-lg transition-all ${mode === 'single'
+              ? 'bg-white text-blue-600 shadow-sm ring-1 ring-black/5'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
               }`}
           >
             <FileText className="w-4 h-4 mr-2" />
-            Single Article
+            1-Click Blog Post
           </button>
           <button
             type="button"
             onClick={() => setMode('bulk')}
-            className={`flex-1 flex items-center justify-center py-2 text-sm font-medium rounded-md transition-all ${mode === 'bulk'
-              ? 'bg-white text-blue-600 shadow-sm'
-              : 'text-slate-500 hover:text-slate-700'
+            className={`flex-1 flex items-center justify-center py-2.5 text-sm font-semibold rounded-lg transition-all ${mode === 'bulk'
+              ? 'bg-white text-blue-600 shadow-sm ring-1 ring-black/5'
+              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
               }`}
           >
             <ListOrdered className="w-4 h-4 mr-2" />
@@ -1142,51 +1142,57 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                     </button>
                   ) : (
                     <div className="space-y-4">
-                      {/* Action Buttons */}
-                      <div className="flex space-x-2">
-                        <button
-                          type="button"
-                          onClick={handleAutoLinkSelection}
-                          disabled={isAutoSelecting}
-                          className={`flex-1 py-1.5 px-3 rounded transition-colors flex items-center justify-center text-xs font-medium ${isAutoSelecting
-                            ? 'bg-indigo-100 text-indigo-400 cursor-wait'
-                            : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100'
-                            }`}
-                          title={`Use ${provider === AIProvider.DEEPSEEK ? 'DeepSeek' : 'Gemini'} to select best links`}
-                        >
-                          {isAutoSelecting ? (
-                            <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
-                          ) : (
-                            <Sparkles className="w-3.5 h-3.5 mr-1.5" />
-                          )}
-                          Auto-Select
-                        </button>
-                        <button
-                          type="button"
-                          onClick={selectMostComplimenting}
-                          disabled={foundLinks.length === 0}
-                          className="py-1.5 px-3 bg-blue-50 text-blue-700 text-xs font-medium rounded hover:bg-blue-100 transition-colors disabled:opacity-50"
-                        >
-                          Top 3
-                        </button>
-                        <button
-                          type="button"
-                          onClick={selectAllLinks}
-                          disabled={foundLinks.length === 0}
-                          className="py-1.5 px-3 bg-slate-100 text-slate-700 text-xs font-medium rounded hover:bg-slate-200 transition-colors disabled:opacity-50"
-                        >
-                          All
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleScanLinks(true)}
-                          disabled={isScanningLinks}
-                          title="Rescan Website"
-                          className="py-1.5 px-3 bg-slate-100 text-slate-600 text-xs font-medium rounded hover:bg-slate-200 transition-colors"
-                        >
-                          <RefreshCw className={`w-3.5 h-3.5 ${isScanningLinks ? 'animate-spin' : ''}`} />
-                        </button>
-                      </div>
+                      {/* Action Buttons - Only show Scan/Auto/Manual controls in SINGLE MODE */}
+                      {mode === 'single' ? (
+                        <div className="flex space-x-2">
+                          <button
+                            type="button"
+                            onClick={handleAutoLinkSelection}
+                            disabled={isAutoSelecting}
+                            className={`flex-1 py-1.5 px-3 rounded transition-colors flex items-center justify-center text-xs font-medium ${isAutoSelecting
+                              ? 'bg-indigo-100 text-indigo-400 cursor-wait'
+                              : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100'
+                              }`}
+                            title={`Use ${provider === AIProvider.DEEPSEEK ? 'DeepSeek' : 'Gemini'} to select best links`}
+                          >
+                            {isAutoSelecting ? (
+                              <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                            ) : (
+                              <Sparkles className="w-3.5 h-3.5 mr-1.5" />
+                            )}
+                            Auto-Select
+                          </button>
+                          <button
+                            type="button"
+                            onClick={selectMostComplimenting}
+                            disabled={foundLinks.length === 0}
+                            className="py-1.5 px-3 bg-blue-50 text-blue-700 text-xs font-medium rounded hover:bg-blue-100 transition-colors disabled:opacity-50"
+                          >
+                            Top 3
+                          </button>
+                          <button
+                            type="button"
+                            onClick={selectAllLinks}
+                            disabled={foundLinks.length === 0}
+                            className="py-1.5 px-3 bg-slate-100 text-slate-700 text-xs font-medium rounded hover:bg-slate-200 transition-colors disabled:opacity-50"
+                          >
+                            All
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleScanLinks(true)}
+                            disabled={isScanningLinks}
+                            title="Rescan Website"
+                            className="py-1.5 px-3 bg-slate-100 text-slate-600 text-xs font-medium rounded hover:bg-slate-200 transition-colors"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 ${isScanningLinks ? 'animate-spin' : ''}`} />
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-500 italic text-center py-2">
+                          Link selection is handled automatically in Bulk Mode.
+                        </p>
+                      )}
 
                       {/* Verified Links List */}
                       {foundLinks.length > 0 ? (
@@ -1286,8 +1292,8 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               </label>
             </div>
 
-            {/* Logic Branch: If Bulk + AutoOptimize + Enabled, hide manual search */}
-            {includeExternalLinks && mode === 'bulk' && autoOptimize ? (
+            {/* Logic Branch: If Bulk OR (enabled and auto-optimize), hide manual search */}
+            {includeExternalLinks && (mode === 'bulk' || (mode === 'bulk' && autoOptimize)) ? (
               <div className="p-4 bg-white text-sm text-slate-500 italic">
                 {provider === AIProvider.GEMINI ? (
                   <div className="flex items-center text-indigo-600">
@@ -1707,13 +1713,13 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
           </p>
         </div>
 
-        {/* Logic: If Bulk + AutoOptimize, show message instead of manual inputs */}
-        {mode === 'bulk' && autoOptimize ? (
-          <div className="p-4 bg-slate-50 border border-slate-100 rounded-lg text-center">
+        {/* Logic: If Bulk, show message instead of manual inputs for Keywords */}
+        {mode === 'bulk' ? (
+          <div className="p-6 bg-slate-50 border border-slate-100 rounded-lg text-center">
             <Sparkles className="w-8 h-8 text-blue-500 mx-auto mb-2" />
             <p className="text-sm font-semibold text-slate-700">Auto-Optimization Enabled</p>
-            <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-              Keywords will be generated automatically for each topic in the queue using {keywordAnalysisProvider === SearchProvider.TAVILY ? 'DeepSeek' : 'Gemini'} to ensure maximum relevance.
+            <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+              Primary & NLP Keywords will be automatically generated for each topic in the queue to ensure maximum relevance and SEO alignment.
             </p>
           </div>
         ) : (
