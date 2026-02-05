@@ -1,12 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap, Search } from 'lucide-react';
+import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap, Search, Home } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
+  onShowHome?: () => void;
+  onShowArticles?: () => void;
+  onShowEditor?: () => void;
+  savedCount?: number;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArticles, onShowEditor, savedCount = 0 }) => {
   const [showKeyModal, setShowKeyModal] = useState(false);
   
   const [geminiKey, setGeminiKey] = useState('');
@@ -18,30 +22,6 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [hasTavilyKey, setHasTavilyKey] = useState(false);
   
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
-  const [showKeys, setShowKeys] = useState({
-    gemini: false,
-    deepSeek: false,
-    tavily: false
-  });
-
-  // Security: Mask API keys for display
-  const maskApiKey = (key: string) => {
-    if (!key) return '';
-    if (key.length <= 8) return '*'.repeat(key.length);
-    return key.substring(0, 4) + '*'.repeat(key.length - 8) + key.substring(key.length - 4);
-  };
-
-  // Security: Prevent copy/paste/select
-  const handleSecureInput = (e: React.KeyboardEvent) => {
-    // Prevent Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-    if (e.ctrlKey && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) {
-      e.preventDefault();
-    }
-  };
-
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault(); // Disable right-click menu
-  };
 
   useEffect(() => {
     // Check for existing keys on mount
@@ -118,10 +98,10 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="bg-blue-600 p-2 rounded-lg">
+            <div className="bg-blue-600 p-2 rounded-lg cursor-pointer hover:bg-blue-700 transition-colors" onClick={onShowHome} title="Go to Home">
               <PenTool className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">SEO Scribe</h1>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight cursor-pointer hover:text-blue-600 transition-colors" onClick={onShowHome} title="Go to Home">SEO Scribe</h1>
           </div>
           <div className="flex items-center space-x-4">
              <div className="flex items-center space-x-2">
@@ -141,6 +121,24 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
                   </span>
                 )}
              </div>
+             {onShowHome && (
+               <button
+                 onClick={onShowHome}
+                 className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
+                 title="Go to Home"
+               >
+                 <Home className="w-5 h-5" />
+               </button>
+             )}
+             {savedCount > 0 && onShowArticles && (
+               <button
+                 onClick={onShowArticles}
+                 className="px-3 py-1.5 text-xs font-medium bg-green-50 text-green-700 border border-green-200 rounded-full hover:bg-green-100 transition-colors"
+                 title="View saved articles"
+               >
+                 {savedCount} Saved
+               </button>
+             )}
             
             <button 
               onClick={() => setShowKeyModal(true)}

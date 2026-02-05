@@ -2,12 +2,13 @@
 import React, { useState, useCallback, useRef, Suspense, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { ArticleForm } from './components/ArticleForm';
+import { Dashboard } from './components/Dashboard';
 const ArticlePreview = React.lazy(() => import('./components/ArticlePreview').then(m => ({ default: m.ArticlePreview })));
 import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel, SearchProvider } from './types';
 import { generateArticle, generatePrimaryKeywords, generateNLPKeywords, scanForInternalLinks, scanForExternalLinks } from './services/geminiService';
 import { generateArticleDeepSeek, generatePrimaryKeywordsDeepSeek, generateNLPKeywordsDeepSeek } from './services/deepseekService';
 import { scanForInternalLinksTavily, scanForExternalLinksTavily } from './services/tavilyService';
-import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, BrainCircuit, Activity, GripVertical } from 'lucide-react';
+import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, BrainCircuit, Activity, GripVertical, Home } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -24,7 +25,7 @@ const App: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [formKey, setFormKey] = useState(0);
-  const [activePage, setActivePage] = useState<'editor' | 'articles'>(() => {
+  const [activePage, setActivePage] = useState<'home' | 'editor' | 'articles'>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -32,7 +33,7 @@ const App: React.FC = () => {
         if (Array.isArray(arr) && arr.length > 0) return 'articles';
       }
     } catch { }
-    return 'editor';
+    return 'home';
   });
 
   // Progress & Status for queue generation
@@ -404,7 +405,7 @@ const App: React.FC = () => {
     setError(null);
     setFormKey(prev => prev + 1);
     try { localStorage.removeItem(STORAGE_KEY); } catch { }
-    setActivePage('editor');
+    setActivePage('home');
   };
 
   const showArticles = useCallback(() => {
@@ -415,6 +416,10 @@ const App: React.FC = () => {
     setActivePage('editor');
   }, []);
 
+  const showHome = useCallback(() => {
+    setActivePage('home');
+  }, []);
+
   const handleSaveArticles = useCallback(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(generatedArticles)); } catch { }
   }, [generatedArticles]);
@@ -423,8 +428,17 @@ const App: React.FC = () => {
     setGeneratedArticles(prev => prev.filter(a => a.id !== id));
   }, []);
 
+  // Show dashboard on home page
+  if (activePage === 'home') {
+    return (
+      <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} savedCount={generatedArticles.length}>
+        <Dashboard onNavigate={setActivePage} />
+      </Layout>
+    );
+  }
+
   return (
-    <Layout onShowArticles={showArticles} onShowEditor={showEditor} savedCount={generatedArticles.length}>
+    <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} savedCount={generatedArticles.length}>
       <div ref={containerRef} className="flex h-[calc(100vh-8rem)] gap-0">
         {/* Left Column: Configuration - Resizable */}
         <div
