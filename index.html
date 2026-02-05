@@ -25,6 +25,56 @@
       .prose::-webkit-scrollbar-thumb:hover {
         background: #94a3b8;
       }
+      
+      /* TABLE STYLES - Markdown Table Rendering */
+      table {
+        width: 100%;
+        border-collapse: collapse !important;
+        border: 1px solid #cbd5e1 !important;
+        margin-bottom: 1rem;
+        border-radius: 0.5rem;
+        overflow: hidden;
+      }
+      
+      thead {
+        background-color: #f1f5f9 !important;
+        border-bottom: 2px solid #cbd5e1 !important;
+      }
+      
+      tbody {
+        background-color: #ffffff !important;
+      }
+      
+      th {
+        padding: 0.5rem 1rem !important;
+        text-align: left !important;
+        font-weight: 700 !important;
+        color: #1e293b !important;
+        border-right: 1px solid #cbd5e1 !important;
+      }
+      
+      th:last-child {
+        border-right: none !important;
+      }
+      
+      td {
+        padding: 0.5rem 1rem !important;
+        color: #475569 !important;
+        border-right: 1px solid #cbd5e1 !important;
+        border-bottom: 1px solid #e2e8f0 !important;
+      }
+      
+      td:last-child {
+        border-right: none !important;
+      }
+      
+      tr {
+        transition: background-color 0.2s !important;
+      }
+      
+      tbody tr:hover {
+        background-color: #f8fafc !important;
+      }
     </style>
   <script type="importmap">
 {
