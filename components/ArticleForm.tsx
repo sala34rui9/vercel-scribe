@@ -739,37 +739,39 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
         </div>
       </div>
 
+      {/* Mode Selection Tabs */}
+      <div className="flex space-x-1 bg-slate-100 p-1 rounded-xl">
+        <button
+          type="button"
+          onClick={() => setMode('single')}
+          className={`flex-1 flex items-center justify-center py-2.5 text-sm font-semibold rounded-lg transition-all ${mode === 'single'
+            ? 'bg-white text-blue-600 shadow-sm ring-1 ring-black/5'
+            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+            }`}
+        >
+          <FileText className="w-4 h-4 mr-2" />
+          1-Click Blog Post
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('bulk')}
+          className={`flex-1 flex items-center justify-center py-2.5 text-sm font-semibold rounded-lg transition-all ${mode === 'bulk'
+            ? 'bg-white text-blue-600 shadow-sm ring-1 ring-black/5'
+            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+            }`}
+        >
+          <ListOrdered className="w-4 h-4 mr-2" />
+          Bulk Generation
+        </button>
+      </div>
+
       <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
         <h2 className="text-lg font-semibold text-slate-800 flex items-center mb-4">
           <Settings2 className="w-5 h-5 mr-2 text-blue-600" />
           Core Settings
         </h2>
 
-        {/* Mode Selection Tabs */}
-        <div className="flex space-x-1 bg-slate-100 p-1 rounded-xl mb-6">
-          <button
-            type="button"
-            onClick={() => setMode('single')}
-            className={`flex-1 flex items-center justify-center py-2.5 text-sm font-semibold rounded-lg transition-all ${mode === 'single'
-              ? 'bg-white text-blue-600 shadow-sm ring-1 ring-black/5'
-              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
-              }`}
-          >
-            <FileText className="w-4 h-4 mr-2" />
-            1-Click Blog Post
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('bulk')}
-            className={`flex-1 flex items-center justify-center py-2.5 text-sm font-semibold rounded-lg transition-all ${mode === 'bulk'
-              ? 'bg-white text-blue-600 shadow-sm ring-1 ring-black/5'
-              : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
-              }`}
-          >
-            <ListOrdered className="w-4 h-4 mr-2" />
-            Bulk Generation
-          </button>
-        </div>
+
 
         <div className="space-y-4">
           {mode === 'single' ? (
