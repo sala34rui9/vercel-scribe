@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { GeneratedArticle } from '../types';
 import { Copy, RefreshCw, CheckCircle, ExternalLink, Microscope, Code, ChevronRight, FileText, XCircle, Save, Trash2 } from 'lucide-react';
 import { marked } from 'marked';
@@ -434,6 +435,7 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
               <>
                 <div ref={contentRef} id="article-content">
                   <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
                     components={{
                       h1: ({ node, ...props }) => <h1 className="text-4xl font-extrabold text-slate-900 mb-6 mt-4 leading-tight border-b pb-4" {...props} />,
                       h2: ({ node, ...props }) => <h2 className="text-2xl font-bold text-slate-800 mt-10 mb-4 leading-snug" {...props} />,
