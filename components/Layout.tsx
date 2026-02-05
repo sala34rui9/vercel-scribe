@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap, Search, Home } from 'lucide-react';
+import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap, Search, Home, FileText, Grid, BookOpen, Mic, Cube, MapPin, HelpCircle } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -155,10 +155,66 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {children}
-      </main>
+      {/* Main Layout: Sidebar + Content */}
+      <div className="flex-1 flex">
+        {/* Left Sidebar (desktop) */}
+        <aside className="hidden md:flex flex-col items-center w-20 py-6 space-y-4 bg-white border-r border-slate-100">
+          <div className="mb-2">
+            <div className="bg-blue-600 p-2 rounded-lg">
+              <PenTool className="w-5 h-5 text-white" />
+            </div>
+          </div>
+
+          <nav className="flex flex-col items-center space-y-2 mt-4">
+            <button onClick={onShowEditor} title="Builder" className="flex flex-col items-center text-slate-500 hover:text-blue-600 transition-colors">
+              <Grid className="w-5 h-5" />
+              <span className="text-xs mt-1">Builder</span>
+            </button>
+
+            <button onClick={onShowArticles} title="Docs" className="flex flex-col items-center text-slate-500 hover:text-blue-600 transition-colors relative">
+              <FileText className="w-5 h-5" />
+              <span className="text-xs mt-1">Docs</span>
+              {savedCount && savedCount > 0 && <span className="absolute -right-1 -top-1 w-5 h-5 bg-green-50 text-green-700 text-[10px] rounded-full flex items-center justify-center border border-green-100">{savedCount}</span>}
+            </button>
+
+            <button title="Docs (alt)" className="flex flex-col items-center text-slate-500 hover:text-blue-600 transition-colors">
+              <BookOpen className="w-5 h-5" />
+              <span className="text-xs mt-1">Docs</span>
+            </button>
+
+            <button title="Voices" className="flex flex-col items-center text-slate-500 hover:text-blue-600 transition-colors">
+              <Mic className="w-5 h-5" />
+              <span className="text-xs mt-1">Voices</span>
+            </button>
+
+            <button title="News" className="flex flex-col items-center text-slate-500 hover:text-blue-600 transition-colors">
+              <Cube className="w-5 h-5" />
+              <span className="text-xs mt-1">News</span>
+            </button>
+
+            <button title="Roadmap" className="flex flex-col items-center text-slate-500 hover:text-blue-600 transition-colors">
+              <MapPin className="w-5 h-5" />
+              <span className="text-xs mt-1">Roadmap</span>
+            </button>
+
+            <button title="Help" className="flex flex-col items-center text-slate-500 hover:text-blue-600 transition-colors">
+              <HelpCircle className="w-5 h-5" />
+              <span className="text-xs mt-1">Help</span>
+            </button>
+          </nav>
+
+          <div className="mt-auto mb-4">
+            <button onClick={onShowHome} title="Home" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors">
+              <Home className="w-5 h-5" />
+            </button>
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {children}
+        </main>
+      </div>
 
       {/* Footer */}
       <footer className="border-t border-slate-200 bg-white py-4 mt-auto">
