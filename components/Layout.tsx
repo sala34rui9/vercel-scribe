@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap, Search, Home, FileText, Grid, BookOpen, Mic, Newspaper, MapPin, HelpCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap, Search, Home, FileText, Grid, BookOpen, Mic, Newspaper, MapPin, HelpCircle, ChevronLeft, ChevronRight, BarChart3, Globe, Target } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -17,10 +17,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
   const [geminiKey, setGeminiKey] = useState('');
   const [deepSeekKey, setDeepSeekKey] = useState('');
   const [tavilyKey, setTavilyKey] = useState('');
+  const [seRankingKey, setSeRankingKey] = useState('');
+  const [targetDomain, setTargetDomain] = useState('');
+  const [competitorDomain, setCompetitorDomain] = useState('');
 
   const [hasGeminiKey, setHasGeminiKey] = useState(false);
   const [hasDeepSeekKey, setHasDeepSeekKey] = useState(false);
   const [hasTavilyKey, setHasTavilyKey] = useState(false);
+  const [hasSeRankingKey, setHasSeRankingKey] = useState(false);
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
 
@@ -43,6 +47,18 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
       setHasTavilyKey(true);
       setTavilyKey(tKey);
     }
+
+    const srKey = localStorage.getItem('user_se_ranking_api_key');
+    if (srKey) {
+      setHasSeRankingKey(true);
+      setSeRankingKey(srKey);
+    }
+
+    const td = localStorage.getItem('seo_scribe_target_domain');
+    if (td) setTargetDomain(td);
+
+    const cd = localStorage.getItem('seo_scribe_competitor_domain');
+    if (cd) setCompetitorDomain(cd);
   }, []);
 
   const handleSaveKeys = () => {
@@ -65,6 +81,28 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
       setHasTavilyKey(true);
       saved = true;
     }
+
+    if (seRankingKey.trim()) {
+      localStorage.setItem('user_se_ranking_api_key', seRankingKey.trim());
+      setHasSeRankingKey(true);
+      saved = true;
+    }
+
+    // Save SEO Intelligence fields (always save, even if empty — user may clear them)
+    if (targetDomain.trim()) {
+      localStorage.setItem('seo_scribe_target_domain', targetDomain.trim());
+    } else {
+      localStorage.removeItem('seo_scribe_target_domain');
+    }
+
+    if (competitorDomain.trim()) {
+      localStorage.setItem('seo_scribe_competitor_domain', competitorDomain.trim());
+    } else {
+      localStorage.removeItem('seo_scribe_competitor_domain');
+    }
+
+    // Mark as saved if any key was set or any SEO field changed
+    saved = saved || targetDomain.trim().length > 0 || competitorDomain.trim().length > 0;
 
     if (saved) {
       setSaveStatus('saved');
@@ -93,6 +131,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
     setHasTavilyKey(false);
   };
 
+  const clearSeRanking = () => {
+    localStorage.removeItem('user_se_ranking_api_key');
+    setSeRankingKey('');
+    setHasSeRankingKey(false);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col relative">
       {/* Navbar */}
@@ -119,6 +163,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
               {hasTavilyKey && (
                 <span className="text-xs font-medium px-2 py-1 rounded border flex items-center bg-emerald-50 text-emerald-700 border-emerald-200">
                   <Search className="w-3 h-3 mr-1" /> Tavily Ready
+                </span>
+              )}
+              {hasSeRankingKey && targetDomain && (
+                <span className="text-xs font-medium px-2 py-1 rounded border flex items-center bg-amber-50 text-amber-700 border-amber-200">
+                  <BarChart3 className="w-3 h-3 mr-1" /> SEO Intel Active
                 </span>
               )}
             </div>
@@ -322,6 +371,71 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
                   )}
                 </div>
                 <p className="text-xs text-slate-400">Required for web research and real-time data</p>
+              </div>
+
+              {/* SE Ranking Section */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="flex items-center text-sm font-semibold text-slate-700">
+                  <BarChart3 className="w-4 h-4 mr-1.5 text-amber-500" />
+                  SE Ranking API Key
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={seRankingKey}
+                    onChange={(e) => setSeRankingKey(e.target.value)}
+                    placeholder="Your SE Ranking API key..."
+                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm font-mono"
+                  />
+                  {hasSeRankingKey && (
+                    <button onClick={clearSeRanking} className="px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200">Clear</button>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400">Powers keyword gap analysis and lost keyword recovery</p>
+              </div>
+
+              {/* SEO Intelligence Settings */}
+              <div className="space-y-4 pt-4 border-t-2 border-amber-100">
+                <h4 className="text-sm font-bold text-slate-800 flex items-center">
+                  <Target className="w-4 h-4 mr-1.5 text-amber-600" />
+                  SEO Intelligence Settings
+                </h4>
+                <p className="text-xs text-slate-500 -mt-2">
+                  Configure your domain targets for data-driven article generation. SE Ranking API key required.
+                </p>
+
+                {/* Target Domain */}
+                <div className="space-y-1">
+                  <label className="flex items-center text-xs font-semibold text-slate-600">
+                    <Globe className="w-3.5 h-3.5 mr-1 text-blue-500" />
+                    Target Domain
+                  </label>
+                  <input
+                    type="text"
+                    value={targetDomain}
+                    onChange={(e) => setTargetDomain(e.target.value)}
+                    placeholder="example.com"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm"
+                  />
+                  <p className="text-xs text-slate-400">Your website domain for keyword analysis</p>
+                </div>
+
+                {/* Competitor Domain */}
+                <div className="space-y-1">
+                  <label className="flex items-center text-xs font-semibold text-slate-600">
+                    <Target className="w-3.5 h-3.5 mr-1 text-red-500" />
+                    Primary Competitor Domain
+                    <span className="ml-1 text-xs font-normal text-slate-400">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={competitorDomain}
+                    onChange={(e) => setCompetitorDomain(e.target.value)}
+                    placeholder="competitor.com"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm"
+                  />
+                  <p className="text-xs text-slate-400">Enables competitor gap analysis (Channels B & C)</p>
+                </div>
               </div>
 
 

@@ -554,6 +554,31 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       `;
   }
 
+  // Construct SE Ranking Intelligence Instructions
+  let seoRankingInstruction = "";
+  if (config.seoRankingData) {
+    const { lostKeywords, competitorGaps, aiOverviewKeywords } = config.seoRankingData;
+    const parts: string[] = [];
+    if (lostKeywords && lostKeywords.length > 0) {
+      parts.push(`LOST KEYWORDS (Re-capture Opportunities):\nThese keywords previously ranked but were lost. Weave them naturally into the content:\n${lostKeywords.join(", ")}`);
+    }
+    if (competitorGaps && competitorGaps.length > 0) {
+      parts.push(`COMPETITOR GAP KEYWORDS (Untapped Opportunities):\nThese keywords your competitors rank for but you don't. Target them strategically:\n${competitorGaps.join(", ")}`);
+    }
+    if (aiOverviewKeywords && aiOverviewKeywords.length > 0) {
+      parts.push(`AI OVERVIEW KEYWORDS (Featured Snippet Targeting):\nThese keywords trigger AI Overviews. Structure sections with clear Q&A format for these:\n${aiOverviewKeywords.join(", ")}`);
+    }
+    if (parts.length > 0) {
+      seoRankingInstruction = `
+      SE RANKING INTELLIGENCE (DATA-DRIVEN OPTIMIZATION):
+      The following keyword intelligence was gathered from live search engine ranking data.
+      You MUST incorporate these strategically into the article.
+
+      ${parts.join("\n\n      ")}
+      `;
+    }
+  }
+
   let sectionOrderInstruction = `
       STRICT SECTION ORDERING:
       1. Introduction
@@ -583,6 +608,8 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       ${humanizeInstruction}
       
       ${personalResourcesInstruction}
+      
+      ${seoRankingInstruction}
       
       ${formattingInstruction}
       

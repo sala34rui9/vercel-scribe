@@ -57,7 +57,8 @@ serve(async (req) => {
       humanizeContent,
       targetCountry,
       aiProvider,
-      personalResources
+      personalResources,
+      seoRankingData
     } = config;
 
     // 3. YOUR SECRET AI LOGIC STARTS HERE
@@ -175,6 +176,24 @@ async function generateWithGemini(config: any, apiKey: string, tavilyKey?: strin
     `;
   }
 
+  let seoRankingInstruction = "";
+  if (config.seoRankingData) {
+    const { lostKeywords, competitorGaps, aiOverviewKeywords } = config.seoRankingData;
+    const parts = [];
+    if (lostKeywords && lostKeywords.length > 0) {
+      parts.push(`LOST KEYWORDS (Re-capture Opportunities):\nThese keywords previously ranked but were lost. Weave them naturally into the content:\n${lostKeywords.join(", ")}`);
+    }
+    if (competitorGaps && competitorGaps.length > 0) {
+      parts.push(`COMPETITOR GAP KEYWORDS (Untapped Opportunities):\nThese keywords your competitors rank for but you don't. Target them strategically:\n${competitorGaps.join(", ")}`);
+    }
+    if (aiOverviewKeywords && aiOverviewKeywords.length > 0) {
+      parts.push(`AI OVERVIEW KEYWORDS (Featured Snippet Targeting):\nThese keywords trigger AI Overviews. Structure sections with clear Q&A format for these:\n${aiOverviewKeywords.join(", ")}`);
+    }
+    if (parts.length > 0) {
+      seoRankingInstruction = `\n      SE RANKING INTELLIGENCE (DATA-DRIVEN OPTIMIZATION):\n      The following keyword intelligence was gathered from live search engine ranking data.\n      You MUST incorporate these strategically into the article.\n\n      ${parts.join("\n\n      ")}\n      `;
+    }
+  }
+
   const prompt = `
     You are an expert SEO Content Writer with decades of experience.
     
@@ -189,6 +208,7 @@ async function generateWithGemini(config: any, apiKey: string, tavilyKey?: strin
     ${humanizeInstruction}
     ${internalLinkingInstructions}
     ${externalLinkingInstructions}
+    ${seoRankingInstruction}
     
     ${personalResources ? `PERSONAL RESOURCES:\n${personalResources}` : ''}
     
@@ -260,6 +280,24 @@ async function generateWithDeepSeek(config: any, apiKey: string, tavilyKey?: str
     `;
   }
 
+  let seoRankingInstruction = "";
+  if (config.seoRankingData) {
+    const { lostKeywords, competitorGaps, aiOverviewKeywords } = config.seoRankingData;
+    const parts = [];
+    if (lostKeywords && lostKeywords.length > 0) {
+      parts.push(`LOST KEYWORDS (Re-capture): ${lostKeywords.join(", ")}`);
+    }
+    if (competitorGaps && competitorGaps.length > 0) {
+      parts.push(`COMPETITOR GAPS: ${competitorGaps.join(", ")}`);
+    }
+    if (aiOverviewKeywords && aiOverviewKeywords.length > 0) {
+      parts.push(`AI OVERVIEW TARGETS: ${aiOverviewKeywords.join(", ")}`);
+    }
+    if (parts.length > 0) {
+      seoRankingInstruction = `\n    SE RANKING INTELLIGENCE:\n    ${parts.join("\n    ")}\n    Integrate these keywords strategically into the article.\n    `;
+    }
+  }
+
   const prompt = `
     TASK: Write a comprehensive ${type} about "${topic}".
     
@@ -269,6 +307,7 @@ async function generateWithDeepSeek(config: any, apiKey: string, tavilyKey?: str
     - Primary Keywords: ${primaryKeywords.join(", ")}.
     
     ${humanizeInstruction}
+    ${seoRankingInstruction}
     ${personalResources ? `PERSONAL RESOURCES:\n${personalResources}` : ''}
     
     Output in pure Markdown.

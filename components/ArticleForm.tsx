@@ -1825,6 +1825,20 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
         )}
       </div>
 
+      {/* SEO Intelligence Active Indicator */}
+      {(() => {
+        const hasSeoIntel = typeof window !== 'undefined' && localStorage.getItem('seo_scribe_target_domain') && localStorage.getItem('user_se_ranking_api_key');
+        return hasSeoIntel ? (
+          <div className="flex items-center justify-center py-2 px-3 mb-2 bg-amber-50 border border-amber-200 rounded-lg">
+            <svg className="w-4 h-4 text-amber-600 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20V10" /><path d="M18 20V4" /><path d="M6 20v-4" />
+            </svg>
+            <span className="text-xs font-semibold text-amber-700">SEO Intelligence Active</span>
+            <span className="text-xs text-amber-500 ml-1">— Domain rankings will enrich generation</span>
+          </div>
+        ) : null;
+      })()}
+
       <button
         type="submit"
         disabled={isGenerating || !isFormValid}

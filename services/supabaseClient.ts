@@ -6,7 +6,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { ArticleConfig, InternalLink, ExternalLink } from '../types';
+import { ArticleConfig, InternalLink, ExternalLink, SEORankingData } from '../types';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -167,6 +167,39 @@ export const generateArticle = async (
     }
     console.error('Error generating article:', error);
     throw new Error('Failed to generate article. Please try again.');
+  }
+};
+
+/**
+ * Fetch SE Ranking Intelligence Data
+ * Calls protected backend function to get lost keywords, competitor gaps, and AI overview keywords.
+ * Gracefully returns empty data on failure — never blocks article generation.
+ */
+export const fetchSEORankingData = async (
+  targetDomain: string,
+  targetCountry?: string,
+  competitorDomain?: string
+): Promise<SEORankingData> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('fetch-seo-data', {
+      body: {
+        targetDomain,
+        targetCountry,
+        competitorDomain: competitorDomain || undefined
+      }
+    });
+
+    if (error) throw error;
+    return {
+      lostKeywords: data.lostKeywords || [],
+      competitorGaps: data.competitorGaps || [],
+      aiOverviewKeywords: data.aiOverviewKeywords || [],
+      dataFetchedAt: data.dataFetchedAt
+    };
+  } catch (error) {
+    console.error('Error fetching SE Ranking data:', error);
+    // Graceful degradation — return empty data, don't block generation
+    return { lostKeywords: [], competitorGaps: [], aiOverviewKeywords: [] };
   }
 };
 

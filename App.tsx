@@ -4,11 +4,12 @@ import { Layout } from './components/Layout';
 import { ArticleForm } from './components/ArticleForm';
 import { Dashboard } from './components/Dashboard';
 const ArticlePreview = React.lazy(() => import('./components/ArticlePreview').then(m => ({ default: m.ArticlePreview })));
-import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel, SearchProvider } from './types';
+import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel, SearchProvider, SEORankingData } from './types';
 import { generateArticle, generatePrimaryKeywords, generateNLPKeywords, scanForInternalLinks, scanForExternalLinks } from './services/geminiService';
 import { generateArticleDeepSeek, generatePrimaryKeywordsDeepSeek, generateNLPKeywordsDeepSeek } from './services/deepseekService';
 import { scanForInternalLinksTavily, scanForExternalLinksTavily } from './services/tavilyService';
-import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, BrainCircuit, Activity, GripVertical, Home } from 'lucide-react';
+import { fetchSEORankingData } from './services/supabaseClient';
+import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, BrainCircuit, Activity, GripVertical, Home, BarChart3 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -151,11 +152,47 @@ const App: React.FC = () => {
     try {
       if (config.mode === 'single') {
         setBulkProgress({ completed: 0, total: 1 });
-        setProcessingStatus('Generating Article...');
+        setProcessingStatus('Preparing generation...');
         setActiveTasks(1);
 
         try {
-          const result = await generateWithFallback(config, controller.signal);
+          // --- SE RANKING DATA ENRICHMENT ---
+          let enrichedConfig = { ...config };
+          const targetDomain = localStorage.getItem('seo_scribe_target_domain');
+          const competitorDomain = localStorage.getItem('seo_scribe_competitor_domain');
+
+          if (targetDomain) {
+            setProcessingStatus('Analyzing domain rankings...');
+            try {
+              const seoData = await fetchSEORankingData(
+                targetDomain,
+                config.targetCountry,
+                competitorDomain || undefined
+              );
+              enrichedConfig = {
+                ...enrichedConfig,
+                targetDomain,
+                competitorDomain: competitorDomain || undefined,
+                seoRankingData: seoData
+              };
+              const totalKeywords = seoData.lostKeywords.length + seoData.competitorGaps.length + seoData.aiOverviewKeywords.length;
+              if (totalKeywords > 0) {
+                setProcessingStatus(`Found ${totalKeywords} SEO keywords — Writing content...`);
+              } else {
+                setProcessingStatus('Writing content...');
+              }
+            } catch (e) {
+              console.warn('SE Ranking enrichment failed, proceeding without:', e);
+              setProcessingStatus('Writing content...');
+            }
+          } else {
+            setProcessingStatus('Writing content...');
+          }
+
+          // Check abort after SE Ranking fetch
+          if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+
+          const result = await generateWithFallback(enrichedConfig, controller.signal);
 
           setGeneratedArticles(prev => [...prev, {
             id: crypto.randomUUID(),
@@ -224,6 +261,27 @@ const App: React.FC = () => {
           }
         }
         // ========== END CACHING OPTIMIZATION ==========
+
+        // ========== SE RANKING DATA CACHE ==========
+        let cachedSeoRankingData: SEORankingData | undefined;
+        const targetDomain = localStorage.getItem('seo_scribe_target_domain');
+        const competitorDomain = localStorage.getItem('seo_scribe_competitor_domain');
+
+        if (targetDomain) {
+          try {
+            setProcessingStatus('Pre-fetching SE Ranking intelligence (will be reused for all articles)...');
+            cachedSeoRankingData = await fetchSEORankingData(
+              targetDomain,
+              config.targetCountry,
+              competitorDomain || undefined
+            );
+            const totalKeywords = (cachedSeoRankingData.lostKeywords.length || 0) + (cachedSeoRankingData.competitorGaps.length || 0) + (cachedSeoRankingData.aiOverviewKeywords.length || 0);
+            console.log(`[Bulk Optimization] Cached ${totalKeywords} SE Ranking keywords for all articles`);
+          } catch (e) {
+            console.warn('[Bulk Optimization] SE Ranking pre-fetch failed, will proceed without:', e);
+          }
+        }
+        // ========== END SE RANKING DATA CACHE ==========
 
         // Worker Function
         const worker = async (workerId: number) => {
@@ -327,7 +385,11 @@ const App: React.FC = () => {
                 externalLinks: topicExternalLinks,
                 // Pass cached data to avoid redundant API calls
                 cachedBrandResearch: cachedBrandResearch,
-                cachedInternalLinks: cachedInternalLinks.length > 0 ? cachedInternalLinks : undefined
+                cachedInternalLinks: cachedInternalLinks.length > 0 ? cachedInternalLinks : undefined,
+                // Pass cached SE Ranking data
+                targetDomain: targetDomain || undefined,
+                competitorDomain: competitorDomain || undefined,
+                seoRankingData: cachedSeoRankingData
               };
 
               const result = await generateWithFallback(singleConfig, controller.signal);

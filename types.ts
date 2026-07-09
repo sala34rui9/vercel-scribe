@@ -80,6 +80,17 @@ export interface ExternalLink {
   snippet?: string;
 }
 
+/**
+ * SE Ranking intelligence data injected into the generation pipeline.
+ * Populated by the fetch-seo-data Edge Function before article generation.
+ */
+export interface SEORankingData {
+  lostKeywords: string[];       // Channel A: Keywords previously ranked but lost
+  competitorGaps: string[];     // Channel B: Keywords competitors rank for but target doesn't
+  aiOverviewKeywords: string[]; // Channel C: Keywords that trigger AI Overviews
+  dataFetchedAt?: string;       // ISO timestamp for cache validation
+}
+
 export interface ArticleConfig {
   mode: 'single' | 'bulk';
   topic: string; // Used for single mode
@@ -131,6 +142,11 @@ export interface ArticleConfig {
   };
   cachedInternalLinks?: InternalLink[]; // Pre-scanned internal links for reuse
   personalResources?: string; // User-provided text resources for context
+
+  // SE Ranking Intelligence
+  targetDomain?: string;          // User's target domain for SE Ranking queries
+  competitorDomain?: string;      // Primary competitor domain for gap analysis
+  seoRankingData?: SEORankingData; // Populated by fetch-seo-data before generation
 }
 
 export interface GeneratedArticle {
