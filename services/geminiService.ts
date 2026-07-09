@@ -82,7 +82,7 @@ export const generatePrimaryKeywords = async (topic: string): Promise<string[]> 
     return [];
   }
   try {
-    const response = await generateContentWithRetry("gemini-2.5-flash", {
+    const response = await generateContentWithRetry("gemini-2.0-flash", {
       contents: `Act as a senior SEO Specialist. Analyze the article topic/heading: "${topic}". 
       Identify 5-7 high-potential Primary SEO Keywords that this article should target.
       
@@ -128,7 +128,7 @@ export const generateNLPKeywords = async (topic: string): Promise<string[]> => {
     return [];
   }
   try {
-    const response = await generateContentWithRetry("gemini-2.5-flash", {
+    const response = await generateContentWithRetry("gemini-2.0-flash", {
       contents: `Generate a list of 10-15 high-value NLP (Natural Language Processing) and LSI (Latent Semantic Indexing) keywords related to the topic: "${topic}". These should be semantically related terms that help search engines understand the context.`,
       config: {
         responseMimeType: "application/json",
@@ -173,7 +173,7 @@ export const fetchSiteArchitecture = async (domain: string): Promise<string[]> =
   try {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: `Perform a deep structural scan of the website: "${domain}".
       
       GOAL: Return a list of valid, existing URLs from this domain that can serve as an architectural reference for internal linking.
@@ -255,7 +255,7 @@ export const scanForInternalLinks = async (websiteUrl: string, topic: string, ke
       : `You are an expert SEO Auditor. Find specific relevant pages for linking.`;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: `${promptInstructions}
       
       Your task is to analyze search results for the domain "${domain}" to find content gaps.
@@ -344,7 +344,7 @@ export const scanForInternalLinks = async (websiteUrl: string, topic: string, ke
 
 /**
  * Scans the web for external linking opportunities related to the topic.
- * Uses gemini-2.5-flash for speed.
+ * Uses gemini-2.0-flash for speed.
  */
 export const scanForExternalLinks = async (topic: string, excludeDomain?: string): Promise<ExternalLink[]> => {
   if (!isGeminiSelected()) {
@@ -357,7 +357,7 @@ export const scanForExternalLinks = async (topic: string, excludeDomain?: string
   try {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash", // Using Flash for faster scanning
+      model: "gemini-2.0-flash", // Using Flash for faster scanning
       contents: `Research authoritative, high-quality external resources (articles, reports, statistics, news) related to the topic: "${topic}".
       
       Requirements:
@@ -412,7 +412,7 @@ export const scanForExternalLinks = async (topic: string, excludeDomain?: string
 };
 
 /**
- * Fetches real-time data and news using gemini-2.5-flash with Google Search grounding.
+ * Fetches real-time data and news using gemini-2.0-flash with Google Search grounding.
  */
 export const fetchRealTimeData = async (topic: string): Promise<{ content: string; sources: string[] }> => {
   if (!isGeminiSelected()) {
@@ -425,7 +425,7 @@ export const fetchRealTimeData = async (topic: string): Promise<{ content: strin
   try {
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: `Find the latest real-time data, news, statistics, and trends regarding: "${topic}".
       
       Requirements:
@@ -490,7 +490,7 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
     } = config;
 
     // --- REAL-TIME DATA FETCHING STEP ---
-    // If enabled, we first fetch latest data using gemini-2.5-flash as per requirements
+    // If enabled, we first fetch latest data using gemini-2.0-flash as per requirements
     let realTimeContext = "";
     let realTimeSources: string[] = [];
 
@@ -772,7 +772,7 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
         contents: prompt,
         config: {
           // If deep research is enabled, we enable tools to allow the model to verify facts if needed.
-          // gemini-2.5-flash handles tools well too.
+          // gemini-2.0-flash handles tools well too.
           tools: deepResearch ? [{ googleSearch: {} }] : [],
         }
       });
@@ -789,7 +789,7 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
 
     let response;
     try {
-      response = await executeGeneration('gemini-3-pro-preview');
+      response = await executeGeneration('gemini-1.5-pro');
     } catch (error: any) {
       if (signal?.aborted) throw error;
 
@@ -800,8 +800,8 @@ export const generateArticle = async (config: ArticleConfig, signal?: AbortSigna
         error.toString().includes('RESOURCE_EXHAUSTED');
 
       if (isQuotaError) {
-        console.warn("Primary model (Pro) quota exceeded. Falling back to gemini-2.5-flash.");
-        response = await executeGeneration('gemini-2.5-flash');
+        console.warn("Primary model (Pro) quota exceeded. Falling back to gemini-2.0-flash.");
+        response = await executeGeneration('gemini-2.0-flash');
       } else {
         throw error;
       }
@@ -845,7 +845,7 @@ export const generateFullSEOStrategy = async (topic: string): Promise<{ primaryK
   try {
     const ai = getGenAI();
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: `Analyze the topic: "${topic}".
       Generate a comprehensive SEO Strategy containing:
       1. 5-7 Primary Keywords (Head & Long-tail)
@@ -892,7 +892,7 @@ export const selectBestInternalLinks = async (topic: string, links: InternalLink
     const candidates = links.map(l => `- Title: "${l.title}", URL: ${l.url}`).join('\n');
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: `Analyze the topic: "${topic}".
       Evaluate these candidate internal links:
       ${candidates.substring(0, 10000)}
