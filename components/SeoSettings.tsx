@@ -83,7 +83,20 @@ export const SeoSettings: React.FC = () => {
       });
       
       if (error) {
-        setScanError(`Edge Function error: ${error.message}`);
+        let errorMsg = error.message;
+        // Supabase FunctionsHttpError contains a context object with the status
+        if (typeof error === 'object' && error !== null && 'context' in error) {
+          const ctx = (error as any).context;
+          if (ctx && ctx.status) {
+            errorMsg += ` (HTTP ${ctx.status})`;
+            if (ctx.status === 401) {
+              errorMsg = "Unauthorized: Please make sure you are signed into the app.";
+            } else if (ctx.status === 404) {
+              errorMsg = "Not Found: The Edge Function might not be deployed yet.";
+            }
+          }
+        }
+        setScanError(`Edge Function error: ${errorMsg}`);
         console.error('Scan error:', error);
         return;
       }
