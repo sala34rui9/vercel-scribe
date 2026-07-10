@@ -48,52 +48,7 @@ const App: React.FC = () => {
   // Ref to hold the current AbortController
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Resizable panel state
-  const [leftPanelWidth, setLeftPanelWidth] = useState(() => {
-    const saved = localStorage.getItem('seo_scribe_panel_width');
-    return saved ? parseInt(saved) : 25; // Default 25%
-  });
-  const isDraggingRef = useRef(false);
-  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Handle resize drag
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    isDraggingRef.current = true;
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  }, []);
-
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDraggingRef.current || !containerRef.current) return;
-
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const newWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
-
-      // Clamp between 20% and 50%
-      const clampedWidth = Math.min(50, Math.max(20, newWidth));
-      setLeftPanelWidth(clampedWidth);
-    };
-
-    const handleMouseUp = () => {
-      if (isDraggingRef.current) {
-        isDraggingRef.current = false;
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        // Save preference
-        localStorage.setItem('seo_scribe_panel_width', leftPanelWidth.toString());
-      }
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [leftPanelWidth]);
 
   useEffect(() => {
     try {
@@ -501,29 +456,16 @@ const App: React.FC = () => {
 
   return (
     <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} savedCount={generatedArticles.length}>
-      <div ref={containerRef} className="flex h-[calc(100vh-8rem)] gap-0">
-        {/* Left Column: Configuration - Resizable */}
-        <div
-          className="h-full overflow-y-auto pr-2 flex-shrink-0"
-          style={{ width: `${leftPanelWidth}%` }}
-        >
-          <ArticleForm key={formKey} onGenerate={handleGenerate} isGenerating={isGenerating} />
-        </div>
-
-        {/* Resize Handle */}
-        <div
-          onMouseDown={handleMouseDown}
-          className="w-2 h-full flex-shrink-0 cursor-col-resize flex items-center justify-center group hover:bg-blue-50 transition-colors"
-          title="Drag to resize"
-        >
-          <div className="w-1 h-16 bg-slate-200 rounded-full group-hover:bg-blue-400 transition-colors flex items-center justify-center">
-            <GripVertical className="w-3 h-3 text-slate-400 group-hover:text-blue-600" />
+      <div className="h-[calc(100vh-8rem)] w-full overflow-y-auto pb-8">
+        {activePage === 'editor' && (
+          <div className="max-w-5xl mx-auto">
+            <ArticleForm key={formKey} onGenerate={handleGenerate} isGenerating={isGenerating} />
           </div>
-        </div>
+        )}
 
-        {/* Right Column: Output - Takes remaining space */}
-        <div className="flex-1 h-full flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative min-w-0">
-          {error && (
+        {activePage === 'articles' && (
+          <div className="max-w-6xl mx-auto h-[calc(100vh-9rem)] flex flex-col bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative">
+            {error && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 backdrop-blur-sm p-6">
               <div className="text-center max-w-md">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -624,11 +566,12 @@ const App: React.FC = () => {
               </div>
               <h3 className="text-lg font-medium text-slate-600">No content generated yet</h3>
               <p className="text-slate-400 max-w-sm mt-2">
-                Configure your requirements on the left and hit "Generate" to start writing.
+                Go to the Builder tab to configure your requirements and start writing.
               </p>
             </div>
           )}
-        </div>
+          </div>
+        )}
       </div>
     </Layout>
   );
