@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { GeneratedArticle } from '../types';
-import { Copy, RefreshCw, CheckCircle, ExternalLink, Microscope, Code, ChevronRight, FileText, XCircle, Save, Trash2 } from 'lucide-react';
+import { Copy, RefreshCw, CheckCircle, ExternalLink, Microscope, Code, ChevronRight, FileText, XCircle, Save, Trash2, Target } from 'lucide-react';
 import { marked } from 'marked';
 
 interface ArticlePreviewProps {
@@ -24,6 +24,9 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
   // HTML Preview Modal State
   const [showHtmlPreview, setShowHtmlPreview] = React.useState(false);
   const [htmlContent, setHtmlContent] = React.useState('');
+  
+  // SEO Highlighting
+  const [highlightSeo, setHighlightSeo] = useState(false);
 
   const activeArticle = articles.find(a => a.id === selectedArticleId) || articles[0];
 
@@ -433,6 +436,36 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
           <div className="max-w-3xl mx-auto">
             {activeArticle ? (
               <>
+                {activeArticle.seoRankingData && (
+                  <div className="mb-8 p-5 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border border-amber-200/60 shadow-sm">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-bold text-amber-900 flex items-center text-sm">
+                        <Target className="w-4 h-4 mr-2 text-amber-600" />
+                        SEO Intelligence Impact
+                      </h4>
+                      <button 
+                        onClick={() => setHighlightSeo(!highlightSeo)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-md border transition-all ${highlightSeo ? 'bg-amber-500 text-white border-amber-600 shadow-inner' : 'bg-white text-amber-700 border-amber-300 hover:bg-amber-100 shadow-sm'}`}
+                      >
+                        {highlightSeo ? 'Hide Highlights' : 'Highlight SEO Keywords'}
+                      </button>
+                    </div>
+                    <div className="flex space-x-6 text-sm">
+                      <div className="flex flex-col">
+                        <span className="text-amber-700/70 text-xs font-semibold uppercase tracking-wider">Lost Keywords</span>
+                        <span className="font-bold text-amber-900">{activeArticle.seoRankingData.lostKeywords?.length || 0} Injected</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-amber-700/70 text-xs font-semibold uppercase tracking-wider">Competitor Gaps</span>
+                        <span className="font-bold text-amber-900">{activeArticle.seoRankingData.competitorGaps?.length || 0} Targeted</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-amber-700/70 text-xs font-semibold uppercase tracking-wider">AI Overviews</span>
+                        <span className="font-bold text-amber-900">{activeArticle.seoRankingData.aiOverviewKeywords?.length || 0} Optimized</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div ref={contentRef} id="article-content">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
@@ -445,7 +478,12 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
                       ol: ({ node, ...props }) => <ol className="list-decimal pl-6 mb-4 text-slate-600 space-y-2" {...props} />,
                       li: ({ node, ...props }) => <li className="pl-1" {...props} />,
                       blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-blue-500 pl-4 py-2 my-6 bg-slate-50 italic text-slate-700 rounded-r" {...props} />,
-                      a: ({ node, ...props }) => <a className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-500 underline-offset-2 transition-all" {...props} />,
+                      a: ({ node, ...props }) => {
+                        if (props.href === '#seo-highlight') {
+                          return <span className="bg-yellow-300/60 text-yellow-900 px-1 py-0.5 rounded font-semibold border-b border-yellow-400">{props.children}</span>;
+                        }
+                        return <a className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-500 underline-offset-2 transition-all" {...props} />
+                      },
                       strong: ({ node, ...props }) => <strong className="font-bold text-slate-900" {...props} />,
                       code: ({ node, ...props }) => <code className="bg-slate-100 text-pink-600 px-1.5 py-0.5 rounded text-sm font-mono" {...props} />,
                       table: ({ node, ...props }) => <table className="w-full border-collapse border border-slate-300 mb-4 rounded-lg overflow-hidden" {...props} />,
@@ -456,7 +494,25 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
                       td: ({ node, ...props }) => <td className="px-4 py-2 text-slate-600 border-r border-slate-300 last:border-r-0" {...props} />,
                     }}
                   >
-                    {activeArticle.content}
+                    {(() => {
+                      let content = activeArticle.content;
+                      if (highlightSeo && activeArticle.seoRankingData) {
+                        const keywords = [
+                          ...(activeArticle.seoRankingData.lostKeywords || []),
+                          ...(activeArticle.seoRankingData.competitorGaps || []),
+                          ...(activeArticle.seoRankingData.aiOverviewKeywords || [])
+                        ];
+                        // Sort by length descending to match longest phrases first
+                        keywords.sort((a, b) => b.length - a.length);
+                        keywords.forEach(kw => {
+                          if (kw.trim().length < 3) return;
+                          // Simple replace all, avoid replacing inside already highlighted links
+                          const regex = new RegExp(`(?<!\\[)\\b(${kw.replace(/[.*+?^$\\{\\}()|[\\]\\\\]/g, '\\$&')})\\b(?!\\]\\(#seo-highlight\\))`, 'gi');
+                          content = content.replace(regex, `[$1](#seo-highlight)`);
+                        });
+                      }
+                      return content;
+                    })()}
                   </ReactMarkdown>
 
                   {/* Sources Section - Included in captured region for exports */}

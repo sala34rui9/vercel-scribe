@@ -31,12 +31,15 @@ const App: React.FC = () => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
-        const arr = JSON.parse(saved);
-        if (Array.isArray(arr) && arr.length > 0) return 'articles';
+        const parsed = JSON.parse(saved);
+        if (parsed.generatedArticles?.length > 0) return 'articles';
       }
-    } catch { }
-    return 'home';
+    } catch (e) {
+      // ignore
+    }
+    return 'editor';
   });
+  const [terminalLogs, setTerminalLogs] = useState<string[]>([]);
 
   // Progress & Status for queue generation
   const [bulkProgress, setBulkProgress] = useState({ completed: 0, total: 0 });
@@ -117,7 +120,10 @@ const App: React.FC = () => {
           const targetDomain = localStorage.getItem('seo_scribe_target_domain');
           const competitorDomain = localStorage.getItem('seo_scribe_competitor_domain');
 
+          setTerminalLogs(['> Initializing writing engine...']);
+          
           if (targetDomain) {
+            setTerminalLogs(prev => [...prev, `> Connecting to SE Ranking API for ${targetDomain}...`]);
             setProcessingStatus('Analyzing domain rankings...');
             try {
               const seoData = await fetchSEORankingData(
@@ -133,30 +139,40 @@ const App: React.FC = () => {
               };
               const totalKeywords = seoData.lostKeywords.length + seoData.competitorGaps.length + seoData.aiOverviewKeywords.length;
               if (totalKeywords > 0) {
+                setTerminalLogs(prev => [...prev, `> Discovered ${seoData.lostKeywords.length} Lost Keywords, ${seoData.competitorGaps.length} Gaps, ${seoData.aiOverviewKeywords.length} AI Overview targets.`]);
+                setTerminalLogs(prev => [...prev, `> Injecting SEO intelligence into AI instructions...`]);
                 setProcessingStatus(`Found ${totalKeywords} SEO keywords — Writing content...`);
               } else {
+                setTerminalLogs(prev => [...prev, `> No specific gaps found. Proceeding with standard optimization.`]);
                 setProcessingStatus('Writing content...');
               }
             } catch (e) {
+              setTerminalLogs(prev => [...prev, `> SE Ranking fetch failed. Proceeding without specific gap data.`]);
               console.warn('SE Ranking enrichment failed, proceeding without:', e);
               setProcessingStatus('Writing content...');
             }
           } else {
+            setTerminalLogs(prev => [...prev, `> Target domain not configured. Skipping SE Ranking fetch.`]);
             setProcessingStatus('Writing content...');
           }
+          
+          setTerminalLogs(prev => [...prev, `> Generating comprehensive content (Target: ${config.wordCount || 1000} words)...`]);
 
           // Check abort after SE Ranking fetch
           if (controller.signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
           const result = await generateWithFallback(enrichedConfig, controller.signal);
 
+          setTerminalLogs(prev => [...prev, `> Content generated successfully! Rendering Markdown...`]);
+          
           setGeneratedArticles(prev => [...prev, {
             id: crypto.randomUUID(),
             content: result.content,
             title: config.topic,
             date: new Date().toISOString(),
             sources: result.sources,
-            status: 'completed'
+            status: 'completed',
+            seoRankingData: enrichedConfig.seoRankingData
           }]);
         } finally {
           setActiveTasks(0);
@@ -493,72 +509,56 @@ const App: React.FC = () => {
           )}
 
           {isGenerating ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-6">
-              <div className="relative">
-                <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-75"></div>
-                <div className="relative bg-white p-4 rounded-full shadow-lg border border-blue-100">
-                  <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+            <div className="flex-1 flex flex-col p-8 bg-slate-900 text-green-400 font-mono text-sm overflow-hidden">
+              <div className="flex items-center justify-between mb-4 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800 pb-2">
+                <div className="flex items-center">
+                  <div className="flex space-x-2 mr-4">
+                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                  </div>
+                  SEO Scribe Terminal
+                </div>
+                <div className="text-indigo-400 font-semibold">{activeProviderName}</div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto space-y-2 py-4 flex flex-col justify-end">
+                {terminalLogs.map((log, i) => (
+                  <div key={i} className="animate-in fade-in slide-in-from-bottom-2">{log}</div>
+                ))}
+                <div className="flex items-center mt-2 animate-pulse">
+                  <span className="mr-2">&gt;</span>
+                  <div className="w-2 h-4 bg-green-400"></div>
                 </div>
               </div>
-              <div>
-                <h3 className="text-lg font-medium text-slate-900">
-                  {processingStatus || (activeProviderName.includes("Reasoning") ? "Reasoning & Writing..." : "Processing Queue...")}
-                </h3>
-                <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wide mt-1">
-                  Powered by {activeProviderName}
-                </p>
-                {bulkProgress.total > 0 ? (
-                  <div className="mt-4 space-y-3 bg-slate-50 p-4 rounded-lg max-w-md border border-slate-100 w-full">
-                    <div className="flex justify-between text-sm text-slate-600 font-medium">
-                      <span className="flex items-center">
-                        <Activity className="w-4 h-4 mr-2 text-blue-500 animate-pulse" />
-                        Active Workers: {activeTasks}
-                      </span>
-                      <span>{bulkProgress.completed} / {bulkProgress.total} Completed</span>
-                    </div>
 
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${(bulkProgress.completed / bulkProgress.total) * 100}%` }}
-                      ></div>
-                    </div>
-
-                    <div className="pt-2 text-left">
-                      <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500">
-                        <div className="flex items-center text-blue-600">
-                          <Search className="w-3 h-3 mr-1" /> Analyzing Topics (Unique)
-                        </div>
-                        {activeProviderName.includes('Gemini') && (
-                          <div className="flex items-center text-blue-600">
-                            <LinkIcon className="w-3 h-3 mr-1" /> Scanning Links
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {generatedArticles.length > 0 && (
-                      <p className="text-xs text-green-600 pt-2 border-t border-slate-200 mt-2">
-                        {generatedArticles.length} articles ready to view
-                      </p>
-                    )}
+              {bulkProgress.total > 0 && (
+                <div className="mt-4 mb-4 space-y-3 bg-slate-800/50 p-4 rounded-lg max-w-md border border-slate-700 w-full">
+                  <div className="flex justify-between text-xs text-slate-400 font-medium">
+                    <span className="flex items-center">
+                      <Activity className="w-3 h-3 mr-2 text-blue-400 animate-pulse" />
+                      Active Workers: {activeTasks}
+                    </span>
+                    <span>{bulkProgress.completed} / {bulkProgress.total} Completed</span>
                   </div>
-                ) : (
-                  <p className="text-slate-500 max-w-sm mt-2">
-                    {activeProviderName.includes("Reasoning")
-                      ? "DeepSeek is performing advanced reasoning to structure your article..."
-                      : "The AI engine is researching and writing your optimized article..."}
-                  </p>
-                )}
-              </div>
+                  <div className="w-full bg-slate-700 rounded-full h-1.5">
+                    <div
+                      className="bg-blue-500 h-1.5 rounded-full transition-all duration-300"
+                      style={{ width: `${(bulkProgress.completed / bulkProgress.total) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+              )}
 
-              <button
-                onClick={handleStopGeneration}
-                className="flex items-center px-4 py-2 bg-red-50 text-red-600 rounded-full hover:bg-red-100 border border-red-200 transition-colors text-sm font-medium"
-              >
-                <XCircle className="w-4 h-4 mr-2" />
-                Stop Generating
-              </button>
+              <div className="mt-4 pt-4 border-t border-slate-800 flex justify-between items-center">
+                 <p className="text-slate-500 text-xs">Press Stop Generating to abort the process.</p>
+                 <button
+                  onClick={handleStopGeneration}
+                  className="px-4 py-2 bg-red-900/30 text-red-400 rounded hover:bg-red-900/50 border border-red-900/50 transition-colors"
+                >
+                  Stop Generating
+                </button>
+              </div>
             </div>
           ) : (activePage === 'articles' && generatedArticles.length > 0) ? (
             <Suspense fallback={

@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Target, BarChart3, Globe, Save, ShieldCheck, Key } from 'lucide-react';
+import { Target, BarChart3, Globe, Save, ShieldCheck, Key, Activity, RefreshCw } from 'lucide-react';
+import { fetchSEORankingData } from '../services/supabaseClient';
+import { SEORankingData } from '../types';
 
 export const SeoSettings: React.FC = () => {
   const [seRankingKey, setSeRankingKey] = useState('');
@@ -7,6 +9,8 @@ export const SeoSettings: React.FC = () => {
   const [competitorDomain, setCompetitorDomain] = useState('');
   const [hasSeRankingKey, setHasSeRankingKey] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanResults, setScanResults] = useState<SEORankingData | null>(null);
 
   useEffect(() => {
     const srKey = localStorage.getItem('user_se_ranking_api_key');
@@ -55,6 +59,20 @@ export const SeoSettings: React.FC = () => {
       setTimeout(() => {
         setSaveStatus('idle');
       }, 1500);
+    }
+  };
+
+  const handleRunScan = async () => {
+    if (!targetDomain) return;
+    setIsScanning(true);
+    try {
+      handleSaveSettings(); // Save before scanning to ensure API keys are current
+      const data = await fetchSEORankingData(targetDomain, undefined, competitorDomain || undefined);
+      setScanResults(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -154,6 +172,50 @@ export const SeoSettings: React.FC = () => {
                 <p className="text-xs text-slate-500">Enables competitor gap analysis</p>
               </div>
             </div>
+          </div>
+
+          {/* Intelligence Radar Section */}
+          <div className="space-y-4 pt-6 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center">
+                <Activity className="w-4 h-4 mr-2 text-indigo-500" />
+                Live Intelligence Radar
+              </h3>
+              <button
+                onClick={handleRunScan}
+                disabled={!targetDomain || isScanning || !hasSeRankingKey}
+                className="flex items-center px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-4 h-4 mr-2 ${isScanning ? 'animate-spin' : ''}`} />
+                {isScanning ? 'Scanning Domains...' : 'Run Intelligence Scan'}
+              </button>
+            </div>
+
+            {scanResults && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 animate-in slide-in-from-bottom-2">
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 shadow-sm">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Lost Keywords</div>
+                  <div className="text-2xl font-bold text-slate-800">{scanResults.lostKeywords.length}</div>
+                  <div className="text-xs text-slate-400 mt-2 truncate" title={scanResults.lostKeywords.join(', ')}>
+                    {scanResults.lostKeywords.length > 0 ? scanResults.lostKeywords.slice(0, 3).join(', ') : 'None found'}
+                  </div>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 shadow-sm">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Competitor Gaps</div>
+                  <div className="text-2xl font-bold text-slate-800">{scanResults.competitorGaps.length}</div>
+                  <div className="text-xs text-slate-400 mt-2 truncate" title={scanResults.competitorGaps.join(', ')}>
+                    {scanResults.competitorGaps.length > 0 ? scanResults.competitorGaps.slice(0, 3).join(', ') : 'None found'}
+                  </div>
+                </div>
+                <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 shadow-sm">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">AI Overview Targets</div>
+                  <div className="text-2xl font-bold text-slate-800">{scanResults.aiOverviewKeywords.length}</div>
+                  <div className="text-xs text-slate-400 mt-2 truncate" title={scanResults.aiOverviewKeywords.join(', ')}>
+                    {scanResults.aiOverviewKeywords.length > 0 ? scanResults.aiOverviewKeywords.slice(0, 3).join(', ') : 'None found'}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Action Footer */}

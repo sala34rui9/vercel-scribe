@@ -155,7 +155,9 @@ export interface GeneratedArticle {
   content: string;
   date: string;
   sources?: string[];
-  status?: 'completed' | 'failed';
+  status?: 'completed' | 'failed' | 'pending';
+  error?: string;
+  seoRankingData?: SEORankingData;
   strategy?: {
     primaryKeywords: string[];
     nlpKeywords: string[];
