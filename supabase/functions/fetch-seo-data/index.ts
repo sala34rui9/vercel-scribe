@@ -82,7 +82,7 @@ serve(async (req) => {
     }
 
     // 2. PARSE REQUEST
-    const { targetDomain, searchRegion, competitorDomain, targetCountry } = await req.json();
+    const { targetDomain, searchRegion, competitorDomain, targetCountry, seRankingKey } = await req.json();
 
     if (!targetDomain) {
       return new Response(
@@ -108,7 +108,7 @@ serve(async (req) => {
     console.log(`[SE Ranking] Cache MISS for ${cacheKey} — fetching from API`);
 
     // 4. GET SE RANKING API KEY
-    const seRankingApiKey = Deno.env.get('SE_RANKING_API_KEY');
+    const seRankingApiKey = seRankingKey || Deno.env.get('SE_RANKING_API_KEY');
     if (!seRankingApiKey) {
       console.warn('[SE Ranking] API key not configured in Supabase secrets');
       // Graceful degradation: return empty data

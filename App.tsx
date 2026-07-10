@@ -3,6 +3,7 @@ import React, { useState, useCallback, useRef, Suspense, useEffect } from 'react
 import { Layout } from './components/Layout';
 import { ArticleForm } from './components/ArticleForm';
 import { Dashboard } from './components/Dashboard';
+import { SeoSettings } from './components/SeoSettings';
 const ArticlePreview = React.lazy(() => import('./components/ArticlePreview').then(m => ({ default: m.ArticlePreview })));
 import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel, SearchProvider, SEORankingData } from './types';
 import { generateArticle, generatePrimaryKeywords, generateNLPKeywords, scanForInternalLinks, scanForExternalLinks } from './services/geminiService';
@@ -26,7 +27,7 @@ const App: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [formKey, setFormKey] = useState(0);
-  const [activePage, setActivePage] = useState<'home' | 'editor' | 'articles'>(() => {
+  const [activePage, setActivePage] = useState<'home' | 'editor' | 'articles' | 'seo'>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -433,6 +434,10 @@ const App: React.FC = () => {
     setActivePage('editor');
   }, []);
 
+  const showSeo = useCallback(() => {
+    setActivePage('seo');
+  }, []);
+
   const showHome = useCallback(() => {
     setActivePage('home');
   }, []);
@@ -448,19 +453,23 @@ const App: React.FC = () => {
   // Show dashboard on home page
   if (activePage === 'home') {
     return (
-      <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} savedCount={generatedArticles.length}>
+      <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} onShowSeo={showSeo} savedCount={generatedArticles.length}>
         <Dashboard onNavigate={setActivePage} />
       </Layout>
     );
   }
 
   return (
-    <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} savedCount={generatedArticles.length}>
+    <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} onShowSeo={showSeo} savedCount={generatedArticles.length}>
       <div className="h-[calc(100vh-8rem)] w-full overflow-y-auto pb-8">
         {activePage === 'editor' && (
           <div className="max-w-5xl mx-auto">
             <ArticleForm key={formKey} onGenerate={handleGenerate} isGenerating={isGenerating} />
           </div>
+        )}
+
+        {activePage === 'seo' && (
+          <SeoSettings />
         )}
 
         {activePage === 'articles' && (

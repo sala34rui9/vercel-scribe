@@ -181,11 +181,14 @@ export const fetchSEORankingData = async (
   competitorDomain?: string
 ): Promise<SEORankingData> => {
   try {
+    const seRankingKey = typeof window !== 'undefined' ? localStorage.getItem('user_se_ranking_api_key') : '';
+
     const { data, error } = await supabase.functions.invoke('fetch-seo-data', {
       body: {
         targetDomain,
         targetCountry,
-        competitorDomain: competitorDomain || undefined
+        competitorDomain: competitorDomain || undefined,
+        seRankingKey
       }
     });
 
