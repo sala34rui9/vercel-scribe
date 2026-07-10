@@ -51,6 +51,27 @@ function mapCountryToRegion(targetCountry?: string): string {
   return mapping[targetCountry || ''] || 'us';
 }
 
+/**
+ * Sanitize domain input (removes http://, https://, www., paths, and trailing slashes)
+ * SE Ranking expects just the core domain (e.g., greeninmay.com)
+ */
+function sanitizeDomain(input: string): string {
+  try {
+    let clean = input.trim();
+    if (clean.startsWith('http://') || clean.startsWith('https://')) {
+      const url = new URL(clean);
+      clean = url.hostname;
+    }
+    if (clean.startsWith('www.')) {
+      clean = clean.substring(4);
+    }
+    clean = clean.split('/')[0];
+    return clean;
+  } catch {
+    return input.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -82,13 +103,18 @@ serve(async (req) => {
     }
 
     // 2. PARSE REQUEST
-    const { targetDomain, searchRegion, competitorDomain, targetCountry, seRankingKey } = await req.json();
+    let { targetDomain, searchRegion, competitorDomain, targetCountry, seRankingKey } = await req.json();
 
     if (!targetDomain) {
       return new Response(
         JSON.stringify({ error: 'targetDomain is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    targetDomain = sanitizeDomain(targetDomain);
+    if (competitorDomain) {
+      competitorDomain = sanitizeDomain(competitorDomain);
     }
 
     // Resolve region: prefer explicit searchRegion, fallback to mapping targetCountry
