@@ -11,6 +11,7 @@ export const SeoSettings: React.FC = () => {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
   const [isScanning, setIsScanning] = useState(false);
   const [scanResults, setScanResults] = useState<SEORankingData | null>(null);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   useEffect(() => {
     const srKey = localStorage.getItem('user_se_ranking_api_key');
@@ -65,11 +66,43 @@ export const SeoSettings: React.FC = () => {
   const handleRunScan = async () => {
     if (!targetDomain) return;
     setIsScanning(true);
+    setScanError(null);
     try {
       handleSaveSettings(); // Save before scanning to ensure API keys are current
-      const data = await fetchSEORankingData(targetDomain, undefined, competitorDomain || undefined);
-      setScanResults(data);
-    } catch (e) {
+      
+      // Call the Supabase Edge Function directly so we can see the raw response
+      const { supabase } = await import('../services/supabaseClient');
+      const seRankingKey = localStorage.getItem('user_se_ranking_api_key');
+      
+      const { data, error } = await supabase.functions.invoke('fetch-seo-data', {
+        body: {
+          targetDomain,
+          competitorDomain: competitorDomain || undefined,
+          seRankingKey
+        }
+      });
+      
+      if (error) {
+        setScanError(`Edge Function error: ${error.message}`);
+        console.error('Scan error:', error);
+        return;
+      }
+      
+      if (data?.error) {
+        setScanError(`API error: ${data.error}`);
+        console.error('API error:', data.error);
+      }
+      
+      console.log('[SEO Scan] Raw response:', JSON.stringify(data, null, 2));
+      
+      setScanResults({
+        lostKeywords: data?.lostKeywords || [],
+        competitorGaps: data?.competitorGaps || [],
+        aiOverviewKeywords: data?.aiOverviewKeywords || [],
+        dataFetchedAt: data?.dataFetchedAt
+      });
+    } catch (e: any) {
+      setScanError(e.message || 'Unknown error during scan');
       console.error(e);
     } finally {
       setIsScanning(false);
@@ -190,6 +223,13 @@ export const SeoSettings: React.FC = () => {
                 {isScanning ? 'Scanning Domains...' : 'Run Intelligence Scan'}
               </button>
             </div>
+
+            {scanError && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+                <p className="font-semibold mb-1">⚠️ Scan Failed</p>
+                <p className="font-mono text-xs break-all">{scanError}</p>
+              </div>
+            )}
 
             {scanResults && (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 animate-in slide-in-from-bottom-2">
