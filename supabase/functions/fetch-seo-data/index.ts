@@ -163,15 +163,15 @@ serve(async (req) => {
     };
 
     // Channel A: Lost Keywords
-    const channelAUrl = `${SE_RANKING_API_BASE}/v3/ranking/lost-keywords?domain=${encodeURIComponent(targetDomain)}&region=${region}&limit=20&sort=search_volume`;
+    const channelAUrl = `${SE_RANKING_API_BASE}/v1/domain/keywords?source=${region}&domain=${encodeURIComponent(targetDomain)}&type=organic&pos_change=lost&order_field=volume&order_type=desc`;
 
     // Channel B: Competitor Overlap (only if competitor provided)
     const channelBUrl = competitorDomain
-      ? `${SE_RANKING_API_BASE}/v3/ranking/competitor-overlap?domain=${encodeURIComponent(targetDomain)}&competitor=${encodeURIComponent(competitorDomain)}&region=${region}&limit=20`
+      ? `${SE_RANKING_API_BASE}/v1/domain/keywords/comparison?source=${region}&domain=${encodeURIComponent(competitorDomain)}&compare=${encodeURIComponent(targetDomain)}&type=organic&diff=1&order_type=desc&order_field=volume&cols=keyword%2Cvolume`
       : null;
 
     // Channel C: AI Overview Keywords
-    const channelCUrl = `${SE_RANKING_API_BASE}/v3/ranking/ai-overview?domain=${encodeURIComponent(targetDomain)}&region=${region}&limit=10`;
+    const channelCUrl = `${SE_RANKING_API_BASE}/v1/ai-search/prompts-by-target?target=${encodeURIComponent(targetDomain)}&scope=domain&source=${region}&engine=ai-overview&limit=10`;
 
     // Execute all channels concurrently
     const channelPromises = [
