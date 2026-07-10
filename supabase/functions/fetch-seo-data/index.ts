@@ -15,8 +15,8 @@ const CACHE_DURATION_MS = 24 * 60 * 60 * 1000;
 // In-memory cache (persists within Edge Function cold start window)
 const cache: Map<string, { data: any; timestamp: number }> = new Map();
 
-function getCacheKey(targetDomain: string, searchRegion: string, competitorDomain?: string): string {
-  return `${targetDomain}:${searchRegion}:${competitorDomain || 'none'}`;
+function getCacheKey(action: string, targetDomain: string, searchRegion: string, keyword?: string): string {
+  return `${action}:${targetDomain}:${searchRegion}:${keyword || 'none'}`;
 }
 
 function getCachedData(key: string): any | null {
@@ -33,10 +33,6 @@ function setCachedData(key: string, data: any): void {
   cache.set(key, { data, timestamp: Date.now() });
 }
 
-/**
- * Map TargetCountry enum values to SE Ranking region codes.
- * SE Ranking uses ISO-style region identifiers.
- */
 function mapCountryToRegion(targetCountry?: string): string {
   const mapping: Record<string, string> = {
     'United States': 'us',
@@ -46,15 +42,11 @@ function mapCountryToRegion(targetCountry?: string): string {
     'India': 'in',
     'Germany (English)': 'de',
     'France (English)': 'fr',
-    'Global (International English)': 'us', // Default to US for global
+    'Global (International English)': 'us',
   };
   return mapping[targetCountry || ''] || 'us';
 }
 
-/**
- * Sanitize domain input (removes http://, https://, www., paths, and trailing slashes)
- * SE Ranking expects just the core domain (e.g., greeninmay.com)
- */
 function sanitizeDomain(input: string): string {
   try {
     let clean = input.trim();
@@ -73,184 +65,153 @@ function sanitizeDomain(input: string): string {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // 1. AUTHENTICATION CHECK
-    // Bypassed: The frontend passes the user's SE Ranking API key directly in the payload.
+    let { action, targetDomain, searchRegion, competitorDomain, targetCountry, seRankingKey, keyword } = await req.json();
 
-    // 2. PARSE REQUEST
-    let { targetDomain, searchRegion, competitorDomain, targetCountry, seRankingKey } = await req.json();
-
-    if (!targetDomain) {
+    if (!targetDomain && !keyword) {
       return new Response(
-        JSON.stringify({ error: 'targetDomain is required' }),
+        JSON.stringify({ error: 'targetDomain or keyword is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    targetDomain = sanitizeDomain(targetDomain);
-    if (competitorDomain) {
-      competitorDomain = sanitizeDomain(competitorDomain);
-    }
+    if (targetDomain) targetDomain = sanitizeDomain(targetDomain);
+    if (competitorDomain) competitorDomain = sanitizeDomain(competitorDomain);
 
-    // Resolve region: prefer explicit searchRegion, fallback to mapping targetCountry
     const region = searchRegion || mapCountryToRegion(targetCountry);
-
-    // 3. CHECK CACHE
-    const cacheKey = getCacheKey(targetDomain, region, competitorDomain);
+    const resolvedAction = action || 'orchestrate';
+    const cacheKey = getCacheKey(resolvedAction, targetDomain || '', region, keyword);
     const cachedResult = getCachedData(cacheKey);
+
     if (cachedResult) {
       console.log(`[SE Ranking] Cache HIT for ${cacheKey}`);
-      return new Response(
-        JSON.stringify(cachedResult),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify(cachedResult), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
-    console.log(`[SE Ranking] Cache MISS for ${cacheKey} — fetching from API`);
-
-    // 4. GET SE RANKING API KEY
     const seRankingApiKey = seRankingKey || Deno.env.get('SE_RANKING_API_KEY');
     if (!seRankingApiKey) {
-      console.warn('[SE Ranking] API key not configured in Supabase secrets');
-      // Graceful degradation: return empty data
-      return new Response(
-        JSON.stringify({
-          lostKeywords: [],
-          competitorGaps: [],
-          aiOverviewKeywords: [],
-          dataFetchedAt: new Date().toISOString()
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new Error('API key not configured in Supabase secrets');
     }
-
-    // 5. FETCH DATA FROM SE RANKING (Concurrent with allSettled)
-    const CHANNEL_TIMEOUT_MS = 8000;
 
     const fetchWithTimeout = async (url: string, label: string): Promise<any> => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), CHANNEL_TIMEOUT_MS);
-
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       try {
-        console.log(`[SE Ranking] ${label}: Fetching ${url}`);
         const response = await fetch(url, {
-          headers: {
-            'Authorization': `Token ${seRankingApiKey}`,
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Authorization': `Token ${seRankingApiKey}`, 'Content-Type': 'application/json' },
           signal: controller.signal
         });
-
         clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          const errorBody = await response.text().catch(() => '');
-          console.error(`[SE Ranking] ${label}: HTTP ${response.status} — ${errorBody}`);
-          return null;
-        }
-
-        const data = await response.json();
-        console.log(`[SE Ranking] ${label}: Success — ${Array.isArray(data) ? data.length : 'object'} results`);
-        return data;
-      } catch (error: any) {
+        if (!response.ok) return null;
+        return await response.json();
+      } catch (error) {
         clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-          console.warn(`[SE Ranking] ${label}: Timed out after ${CHANNEL_TIMEOUT_MS}ms`);
-        } else {
-          console.error(`[SE Ranking] ${label}: Error —`, error.message);
-        }
         return null;
       }
     };
 
-    // Channel A: Lost Keywords
-    const channelAUrl = `${SE_RANKING_API_BASE}/v1/domain/keywords?source=${region}&domain=${encodeURIComponent(targetDomain)}&type=organic&pos_change=lost&order_field=volume&order_type=desc`;
+    let responseData: any = {};
 
-    // Channel B: Competitor Overlap (only if competitor provided)
-    const channelBUrl = competitorDomain
-      ? `${SE_RANKING_API_BASE}/v1/domain/keywords/comparison?source=${region}&domain=${encodeURIComponent(competitorDomain)}&compare=${encodeURIComponent(targetDomain)}&type=organic&diff=1&order_type=desc&order_field=volume&cols=keyword%2Cvolume`
-      : null;
-
-    // Channel C: AI Overview Keywords
-    const channelCUrl = `${SE_RANKING_API_BASE}/v1/ai-search/prompts-by-target?target=${encodeURIComponent(targetDomain)}&scope=domain&source=${region}&engine=ai-overview&limit=10`;
-
-    // Execute all channels concurrently
-    const channelPromises = [
-      fetchWithTimeout(channelAUrl, 'Channel A (Lost Keywords)'),
-      channelBUrl ? fetchWithTimeout(channelBUrl, 'Channel B (Competitor Gaps)') : Promise.resolve(null),
-      fetchWithTimeout(channelCUrl, 'Channel C (AI Overview)'),
-    ];
-
-    const [channelAResult, channelBResult, channelCResult] = await Promise.allSettled(channelPromises);
-
-    // 6. NORMALIZE & CAP RESULTS
-    const extractKeywords = (result: PromiseSettledResult<any>, keyField: string = 'keyword', limit: number): string[] => {
-      if (result.status !== 'fulfilled' || !result.value) return [];
-
-      const data = result.value;
-
-      // Handle different response shapes from SE Ranking API
-      let items: any[] = [];
-      if (Array.isArray(data)) {
-        items = data;
-      } else if (data.data && Array.isArray(data.data)) {
-        items = data.data;
-      } else if (data.rows && Array.isArray(data.rows)) {
-        items = data.rows;
-      } else if (data.keywords && Array.isArray(data.keywords)) {
-        items = data.keywords;
+    if (resolvedAction === 'domain_overview') {
+      const url = `${SE_RANKING_API_BASE}/v1/domain/overview/worldwide?domain=${encodeURIComponent(targetDomain)}&currency=USD`;
+      const result = await fetchWithTimeout(url, 'Domain Overview');
+      if (result) {
+        responseData = {
+          totalKeywords: result.total_keywords || 0,
+          organicTraffic: result.organic_traffic || 0,
+          paidTraffic: result.paid_traffic || 0,
+          trafficValue: result.traffic_value || 0,
+          currency: 'USD'
+        };
       }
+    } else if (resolvedAction === 'top_competitors') {
+      const url = `${SE_RANKING_API_BASE}/v1/domain/competitors?domain=${encodeURIComponent(targetDomain)}&type=organic&source=${region}`;
+      const result = await fetchWithTimeout(url, 'Top Competitors');
+      
+      let items: any[] = [];
+      if (Array.isArray(result)) items = result;
+      else if (result?.data) items = result.data;
+      else if (result?.rows) items = result.rows;
 
-      // Extract keyword strings, sort by search_volume if available, and cap
-      const keywords = items
-        .sort((a: any, b: any) => (b.search_volume || 0) - (a.search_volume || 0))
-        .slice(0, limit)
-        .map((item: any) => {
-          if (typeof item === 'string') return item;
-          return item[keyField] || item.keyword || item.name || '';
-        })
-        .filter((k: string) => k.length > 0);
+      responseData = {
+        competitors: items.slice(0, 10).map((c: any) => ({
+          domain: c.domain || c.name || '',
+          overlappingKeywords: c.common_keywords || 0
+        })).filter((c: any) => c.domain)
+      };
+    } else if (resolvedAction === 'similar_keywords') {
+      const url = `${SE_RANKING_API_BASE}/v1/keywords/similar?source=${region}&keyword=${encodeURIComponent(keyword)}&limit=10`;
+      const result = await fetchWithTimeout(url, 'Similar Keywords');
+      
+      let items: any[] = [];
+      if (Array.isArray(result)) items = result;
+      else if (result?.data) items = result.data;
+      else if (result?.rows) items = result.rows;
 
-      return [...new Set(keywords)]; // Deduplicate
-    };
+      responseData = { keywords: items.map((k: any) => k.keyword || k.name).filter(Boolean) };
+    } else if (resolvedAction === 'related_keywords') {
+      const url = `${SE_RANKING_API_BASE}/v1/keywords/related?source=${region}&keyword=${encodeURIComponent(keyword)}&limit=10`;
+      const result = await fetchWithTimeout(url, 'Related Keywords');
+      
+      let items: any[] = [];
+      if (Array.isArray(result)) items = result;
+      else if (result?.data) items = result.data;
+      else if (result?.rows) items = result.rows;
 
-    const lostKeywords = extractKeywords(channelAResult, 'keyword', 15);
-    const competitorGaps = extractKeywords(channelBResult, 'keyword', 15);
-    const aiOverviewKeywords = extractKeywords(channelCResult, 'keyword', 10);
+      responseData = { keywords: items.map((k: any) => k.keyword || k.name).filter(Boolean) };
+    } else {
+      // Legacy orchestration (orchestrate)
+      const channelAUrl = `${SE_RANKING_API_BASE}/v1/domain/keywords?source=${region}&domain=${encodeURIComponent(targetDomain)}&type=organic&pos_change=lost&order_field=volume&order_type=desc`;
+      const channelBUrl = competitorDomain
+        ? `${SE_RANKING_API_BASE}/v1/domain/keywords/comparison?source=${region}&domain=${encodeURIComponent(competitorDomain)}&compare=${encodeURIComponent(targetDomain)}&type=organic&diff=1&order_type=desc&order_field=volume&cols=keyword%2Cvolume`
+        : null;
+      const channelCUrl = `${SE_RANKING_API_BASE}/v1/ai-search/prompts-by-target?target=${encodeURIComponent(targetDomain)}&scope=domain&source=${region}&engine=ai-overview&limit=10`;
 
-    console.log(`[SE Ranking] Results — Lost: ${lostKeywords.length}, Gaps: ${competitorGaps.length}, AIO: ${aiOverviewKeywords.length}`);
+      const channelPromises = [
+        fetchWithTimeout(channelAUrl, 'Channel A (Lost Keywords)'),
+        channelBUrl ? fetchWithTimeout(channelBUrl, 'Channel B (Competitor Gaps)') : Promise.resolve(null),
+        fetchWithTimeout(channelCUrl, 'Channel C (AI Overview)'),
+      ];
 
-    const responseData = {
-      lostKeywords,
-      competitorGaps,
-      aiOverviewKeywords,
-      dataFetchedAt: new Date().toISOString()
-    };
+      const [channelAResult, channelBResult, channelCResult] = await Promise.allSettled(channelPromises);
 
-    // 7. CACHE RESULTS
+      const extractKeywords = (result: PromiseSettledResult<any>, keyField: string = 'keyword', limit: number): string[] => {
+        if (result.status !== 'fulfilled' || !result.value) return [];
+        const data = result.value;
+        let items: any[] = [];
+        if (Array.isArray(data)) items = data;
+        else if (data.data) items = data.data;
+        else if (data.rows) items = data.rows;
+        else if (data.keywords) items = data.keywords;
+
+        const keywords = items
+          .sort((a: any, b: any) => (b.search_volume || 0) - (a.search_volume || 0))
+          .slice(0, limit)
+          .map((item: any) => typeof item === 'string' ? item : item[keyField] || item.keyword || item.name || '')
+          .filter(Boolean);
+
+        return [...new Set(keywords)];
+      };
+
+      responseData = {
+        lostKeywords: extractKeywords(channelAResult, 'keyword', 15),
+        competitorGaps: extractKeywords(channelBResult, 'keyword', 15),
+        aiOverviewKeywords: extractKeywords(channelCResult, 'keyword', 10),
+        dataFetchedAt: new Date().toISOString()
+      };
+    }
+
     setCachedData(cacheKey, responseData);
 
-    return new Response(
-      JSON.stringify(responseData),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
+    return new Response(JSON.stringify(responseData), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (error: any) {
-    console.error('[SE Ranking] Orchestration error:', error);
-    // Graceful degradation — return empty data instead of error
+    console.error('[SE Ranking] Error:', error);
     return new Response(
-      JSON.stringify({
-        lostKeywords: [],
-        competitorGaps: [],
-        aiOverviewKeywords: [],
-        dataFetchedAt: new Date().toISOString(),
-        error: error.message
-      }),
+      JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

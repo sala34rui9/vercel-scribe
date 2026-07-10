@@ -169,3 +169,27 @@ export interface GeneratedArticle {
 export interface NLPKeywordResponse {
   keywords: string[];
 }
+
+export interface DomainOverview {
+  totalKeywords: number;
+  organicTraffic: number;
+  paidTraffic: number;
+  trafficValue: number;
+  currency: string;
+}
+
+export interface CompetitorEntry {
+  domain: string;
+  overlappingKeywords: number;
+  commonKeywords?: string[];
+}
+
+export interface KeywordExplorerData {
+  domainOverview?: DomainOverview;
+  topCompetitors?: CompetitorEntry[];
+  lostKeywords: string[];
+  competitorGaps: string[];
+  similarKeywords: string[];
+  relatedKeywords: string[];
+  aiOverviewKeywords: string[];
+}

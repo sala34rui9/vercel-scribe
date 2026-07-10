@@ -6,7 +6,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
-import { ArticleConfig, InternalLink, ExternalLink, SEORankingData } from '../types';
+import { ArticleConfig, InternalLink, ExternalLink, SEORankingData, DomainOverview, CompetitorEntry } from '../types';
 
 // Initialize Supabase client
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
@@ -224,4 +224,64 @@ export const signOut = async () => {
 export const getCurrentUser = async () => {
   const { data: { user } } = await supabase.auth.getUser();
   return user;
+};
+
+/**
+ * Keyword Explorer methods
+ */
+
+export const fetchDomainOverview = async (domain: string): Promise<DomainOverview | null> => {
+  try {
+    const seRankingKey = typeof window !== 'undefined' ? localStorage.getItem('user_se_ranking_api_key') : '';
+    const { data, error } = await supabase.functions.invoke('fetch-seo-data', {
+      body: { action: 'domain_overview', targetDomain: domain, seRankingKey }
+    });
+    if (error) throw error;
+    return data as DomainOverview;
+  } catch (err) {
+    console.error('Error fetching domain overview:', err);
+    return null;
+  }
+};
+
+export const fetchTopCompetitors = async (domain: string, region: string): Promise<CompetitorEntry[]> => {
+  try {
+    const seRankingKey = typeof window !== 'undefined' ? localStorage.getItem('user_se_ranking_api_key') : '';
+    const { data, error } = await supabase.functions.invoke('fetch-seo-data', {
+      body: { action: 'top_competitors', targetDomain: domain, searchRegion: region, seRankingKey }
+    });
+    if (error) throw error;
+    return data.competitors || [];
+  } catch (err) {
+    console.error('Error fetching top competitors:', err);
+    return [];
+  }
+};
+
+export const fetchSimilarKeywords = async (keyword: string, region: string): Promise<string[]> => {
+  try {
+    const seRankingKey = typeof window !== 'undefined' ? localStorage.getItem('user_se_ranking_api_key') : '';
+    const { data, error } = await supabase.functions.invoke('fetch-seo-data', {
+      body: { action: 'similar_keywords', keyword, searchRegion: region, seRankingKey }
+    });
+    if (error) throw error;
+    return data.keywords || [];
+  } catch (err) {
+    console.error('Error fetching similar keywords:', err);
+    return [];
+  }
+};
+
+export const fetchRelatedKeywords = async (keyword: string, region: string): Promise<string[]> => {
+  try {
+    const seRankingKey = typeof window !== 'undefined' ? localStorage.getItem('user_se_ranking_api_key') : '';
+    const { data, error } = await supabase.functions.invoke('fetch-seo-data', {
+      body: { action: 'related_keywords', keyword, searchRegion: region, seRankingKey }
+    });
+    if (error) throw error;
+    return data.keywords || [];
+  } catch (err) {
+    console.error('Error fetching related keywords:', err);
+    return [];
+  }
 };
