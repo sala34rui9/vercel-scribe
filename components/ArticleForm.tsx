@@ -1612,6 +1612,18 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               />
               <span className="text-sm text-slate-700">Include Key Takeaways/Conclusion</span>
             </label>
+            <label className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors">
+              <input
+                type="checkbox"
+                checked={generateFeaturedImage}
+                onChange={(e) => setGenerateFeaturedImage(e.target.checked)}
+                className="w-4 h-4 text-orange-500 border-slate-300 rounded focus:ring-orange-500"
+              />
+              <div className="flex flex-col">
+                <span className="text-sm text-slate-700">Generate Featured Image</span>
+                <span className="text-[11px] text-slate-400">Uses Cloudflare Workers AI — configure in SEO → Settings</span>
+              </div>
+            </label>
           </div>
 
           {/* Personal Resources Section */}
