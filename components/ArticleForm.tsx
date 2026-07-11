@@ -39,7 +39,8 @@ import {
 
   ListOrdered,
   Upload,
-  ClipboardList
+  ClipboardList,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface ArticleFormProps {
@@ -744,6 +745,38 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Featured Image Generation Box */}
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-orange-400 to-orange-600"></div>
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-slate-800 flex items-center">
+            <ImageIcon className="w-5 h-5 mr-2 text-orange-500" />
+            Image Generation
+          </h2>
+          <label className="flex items-center cursor-pointer">
+            <div className="relative">
+              <input 
+                type="checkbox" 
+                className="sr-only" 
+                checked={generateFeaturedImage}
+                onChange={(e) => setGenerateFeaturedImage(e.target.checked)}
+              />
+              <div className={`block w-10 h-6 rounded-full transition-colors duration-200 ${generateFeaturedImage ? 'bg-orange-500' : 'bg-slate-300'}`}></div>
+              <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ${generateFeaturedImage ? 'transform translate-x-4' : ''}`}></div>
+            </div>
+          </label>
+        </div>
+        <div className="mt-4">
+          <p className="text-sm text-slate-600">
+            Automatically generate and embed a featured image at the top of your article using Cloudflare Workers AI.
+          </p>
+          <p className="text-xs text-slate-400 mt-2 flex items-center bg-slate-50 p-2 rounded border border-slate-100">
+            <Settings2 className="w-3 h-3 mr-1.5 text-slate-400" />
+            Requires Cloudflare URL and Token to be configured in SEO → Settings
+          </p>
         </div>
       </div>
 
@@ -1611,18 +1644,6 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
               />
               <span className="text-sm text-slate-700">Include Key Takeaways/Conclusion</span>
-            </label>
-            <label className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-slate-50 rounded-lg transition-colors">
-              <input
-                type="checkbox"
-                checked={generateFeaturedImage}
-                onChange={(e) => setGenerateFeaturedImage(e.target.checked)}
-                className="w-4 h-4 text-orange-500 border-slate-300 rounded focus:ring-orange-500"
-              />
-              <div className="flex flex-col">
-                <span className="text-sm text-slate-700">Generate Featured Image</span>
-                <span className="text-[11px] text-slate-400">Uses Cloudflare Workers AI — configure in SEO → Settings</span>
-              </div>
             </label>
           </div>
 
