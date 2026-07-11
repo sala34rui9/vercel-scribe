@@ -11,6 +11,10 @@ export const SeoSettings: React.FC = () => {
   const [targetDomain, setTargetDomain] = useState('');
   const [competitorDomain, setCompetitorDomain] = useState('');
   const [hasSeRankingKey, setHasSeRankingKey] = useState(false);
+  
+  const [cloudflareApiUrl, setCloudflareApiUrl] = useState('');
+  const [cloudflareApiToken, setCloudflareApiToken] = useState('');
+
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
   const [isScanning, setIsScanning] = useState(false);
   const [scanResults, setScanResults] = useState<SEORankingData | null>(null);
@@ -28,6 +32,12 @@ export const SeoSettings: React.FC = () => {
 
     const cd = localStorage.getItem('seo_scribe_competitor_domain');
     if (cd) setCompetitorDomain(cd);
+
+    const cfUrl = localStorage.getItem('user_cloudflare_api_url');
+    if (cfUrl) setCloudflareApiUrl(cfUrl);
+
+    const cfToken = localStorage.getItem('user_cloudflare_api_token');
+    if (cfToken) setCloudflareApiToken(cfToken);
   }, []);
 
   const handleSaveSettings = () => {
@@ -55,6 +65,20 @@ export const SeoSettings: React.FC = () => {
     }
 
     saved = saved || targetDomain.trim().length > 0 || competitorDomain.trim().length > 0;
+
+    if (cloudflareApiUrl.trim()) {
+      localStorage.setItem('user_cloudflare_api_url', cloudflareApiUrl.trim());
+      saved = true;
+    } else {
+      localStorage.removeItem('user_cloudflare_api_url');
+    }
+
+    if (cloudflareApiToken.trim()) {
+      localStorage.setItem('user_cloudflare_api_token', cloudflareApiToken.trim());
+      saved = true;
+    } else {
+      localStorage.removeItem('user_cloudflare_api_token');
+    }
 
     if (saved || seRankingKey.trim() === '') {
       setSaveStatus('saved');
@@ -206,6 +230,45 @@ export const SeoSettings: React.FC = () => {
               </div>
               <p className="text-xs text-slate-500">
                 Powers keyword gap analysis and lost keyword recovery. Required for SEO Intelligence features.
+              </p>
+            </div>
+
+            {/* Cloudflare Image API Section */}
+            <div className="space-y-3 pt-4">
+              <h3 className="text-sm font-bold text-slate-800 flex items-center border-b border-slate-100 pb-2">
+                <Globe className="w-4 h-4 mr-2 text-slate-500" />
+                Featured Image Generation
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div className="space-y-2">
+                  <label className="flex items-center text-sm font-semibold text-slate-700">
+                    Cloudflare Worker URL
+                  </label>
+                  <input
+                    type="text"
+                    value={cloudflareApiUrl}
+                    onChange={(e) => setCloudflareApiUrl(e.target.value)}
+                    placeholder="https://your-worker.workers.dev"
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm transition-shadow"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="flex items-center text-sm font-semibold text-slate-700">
+                    API Token (Bearer)
+                  </label>
+                  <input
+                    type="password"
+                    value={cloudflareApiToken}
+                    onChange={(e) => setCloudflareApiToken(e.target.value)}
+                    placeholder="Your secret API token..."
+                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm font-mono transition-shadow"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">
+                Used to automatically generate featured images for your articles via Cloudflare Workers AI.
               </p>
             </div>
 

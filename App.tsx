@@ -9,6 +9,7 @@ import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel, SearchProvi
 import { generateArticle, generatePrimaryKeywords, generateNLPKeywords, scanForInternalLinks, scanForExternalLinks } from './services/geminiService';
 import { generateArticleDeepSeek, generatePrimaryKeywordsDeepSeek, generateNLPKeywordsDeepSeek } from './services/deepseekService';
 import { scanForInternalLinksTavily, scanForExternalLinksTavily } from './services/tavilyService';
+import { generateCloudflareImage } from './services/cloudflareImageService';
 import { fetchSEORankingData } from './services/supabaseClient';
 import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, BrainCircuit, Activity, GripVertical, Home, BarChart3 } from 'lucide-react';
 
@@ -165,9 +166,23 @@ const App: React.FC = () => {
 
           setTerminalLogs(prev => [...prev, `> Content generated successfully! Rendering Markdown...`]);
           
+          let finalContent = result.content;
+          if (config.generateFeaturedImage) {
+            try {
+              setProcessingStatus('Generating featured image...');
+              setTerminalLogs(prev => [...prev, `> Generating featured image via Cloudflare AI...`]);
+              const base64Image = await generateCloudflareImage(config.imagePrompt || config.topic);
+              finalContent = `![Featured Image](${base64Image})\n\n${finalContent}`;
+              setTerminalLogs(prev => [...prev, `> Featured image generated and embedded.`]);
+            } catch (imgError) {
+              console.error('Image generation failed', imgError);
+              setTerminalLogs(prev => [...prev, `> Warning: Featured image generation failed.`]);
+            }
+          }
+
           setGeneratedArticles(prev => [...prev, {
             id: crypto.randomUUID(),
-            content: result.content,
+            content: finalContent,
             title: config.topic,
             date: new Date().toISOString(),
             sources: result.sources,
@@ -366,9 +381,20 @@ const App: React.FC = () => {
 
               const result = await generateWithFallback(singleConfig, controller.signal);
 
+              let finalContent = result.content;
+              if (config.generateFeaturedImage) {
+                try {
+                  setProcessingStatus(`Generating featured image for "${topic}"...`);
+                  const base64Image = await generateCloudflareImage(config.imagePrompt || topic);
+                  finalContent = `![Featured Image](${base64Image})\n\n${finalContent}`;
+                } catch (imgError) {
+                  console.error(`Image generation failed for ${topic}`, imgError);
+                }
+              }
+
               setGeneratedArticles(prev => [...prev, {
                 id: crypto.randomUUID(),
-                content: result.content,
+                content: finalContent,
                 title: topic,
                 date: new Date().toISOString(),
                 sources: result.sources,

@@ -62,6 +62,9 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   const [topic, setTopic] = useState('');
   const [bulkInput, setBulkInput] = useState('');
   const [autoOptimize, setAutoOptimize] = useState(true);
+  const [generateFeaturedImage, setGenerateFeaturedImage] = useState(() => {
+    return localStorage.getItem('seo_scribe_generate_image') === 'true';
+  });
 
   // Initialize from local storage if available
   const [websiteUrl, setWebsiteUrl] = useState(() => {
@@ -157,6 +160,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       setResearchProvider(SearchProvider.TAVILY);
     }
   }, [provider, researchProvider]);
+
+  useEffect(() => {
+    localStorage.setItem('seo_scribe_generate_image', generateFeaturedImage.toString());
+  }, [generateFeaturedImage]);
 
   const [isGeneratingFullStrategy, setIsGeneratingFullStrategy] = useState(false);
 
@@ -619,6 +626,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       topic,
       queueTopics,
       autoOptimize,
+      generateFeaturedImage,
       wordCount,
       type,
       tone,
