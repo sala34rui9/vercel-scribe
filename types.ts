@@ -96,7 +96,9 @@ export interface ArticleConfig {
   topic: string; // Used for single mode
   queueTopics?: string[]; // Used for queue/bulk mode
   autoOptimize: boolean; // Enables the Auto-SEO pipeline
-  generateFeaturedImage: boolean; // Enables Cloudflare Image Generation
+  imageCount: number; // Number of Cloudflare images to generate (0 for none)
+  imageStyle?: string; // Style of the generated image
+  imageRatio?: string; // Aspect ratio of the generated image
   imagePrompt?: string; // Optional custom prompt for the image
 
   wordCount: number;

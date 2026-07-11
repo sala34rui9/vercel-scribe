@@ -467,33 +467,35 @@ export const ArticlePreview: React.FC<ArticlePreviewProps> = ({ articles, onRese
                   </div>
                 )}
                 <div ref={contentRef} id="article-content">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      h1: ({ node, ...props }) => <h1 className="text-4xl font-extrabold text-slate-900 mb-6 mt-4 leading-tight border-b pb-4" {...props} />,
-                      h2: ({ node, ...props }) => <h2 className="text-2xl font-bold text-slate-800 mt-10 mb-4 leading-snug" {...props} />,
-                      h3: ({ node, ...props }) => <h3 className="text-xl font-bold text-slate-800 mt-6 mb-3" {...props} />,
-                      p: ({ node, ...props }) => <p className="mb-4 text-slate-600 leading-7" {...props} />,
-                      ul: ({ node, ...props }) => <ul className="list-disc pl-6 mb-4 text-slate-600 space-y-2" {...props} />,
-                      ol: ({ node, ...props }) => <ol className="list-decimal pl-6 mb-4 text-slate-600 space-y-2" {...props} />,
-                      li: ({ node, ...props }) => <li className="pl-1" {...props} />,
-                      blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-blue-500 pl-4 py-2 my-6 bg-slate-50 italic text-slate-700 rounded-r" {...props} />,
-                      a: ({ node, ...props }) => {
-                        if (props.href === '#seo-highlight') {
-                          return <span className="bg-yellow-300/60 text-yellow-900 px-1 py-0.5 rounded font-semibold border-b border-yellow-400">{props.children}</span>;
-                        }
-                        return <a className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-500 underline-offset-2 transition-all" {...props} />
-                      },
-                      strong: ({ node, ...props }) => <strong className="font-bold text-slate-900" {...props} />,
-                      code: ({ node, ...props }) => <code className="bg-slate-100 text-pink-600 px-1.5 py-0.5 rounded text-sm font-mono" {...props} />,
-                      table: ({ node, ...props }) => <table className="w-full border-collapse border border-slate-300 mb-4 rounded-lg overflow-hidden" {...props} />,
-                      thead: ({ node, ...props }) => <thead className="bg-slate-100 border-b-2 border-slate-300" {...props} />,
-                      tbody: ({ node, ...props }) => <tbody {...props} />,
-                      tr: ({ node, ...props }) => <tr className="border-b border-slate-200 hover:bg-slate-50 transition-colors" {...props} />,
-                      th: ({ node, ...props }) => <th className="px-4 py-2 text-left font-bold text-slate-800 border-r border-slate-300 last:border-r-0" {...props} />,
-                      td: ({ node, ...props }) => <td className="px-4 py-2 text-slate-600 border-r border-slate-300 last:border-r-0" {...props} />,
-                    }}
-                  >
+                    <ReactMarkdown
+                      urlTransform={(value: string) => value}
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        h1: ({ node, ...props }) => <h1 className="text-4xl font-extrabold text-slate-900 mb-6 mt-4 leading-tight border-b pb-4" {...props} />,
+                        h2: ({ node, ...props }) => <h2 className="text-2xl font-bold text-slate-800 mt-10 mb-4 leading-snug" {...props} />,
+                        h3: ({ node, ...props }) => <h3 className="text-xl font-bold text-slate-800 mt-6 mb-3" {...props} />,
+                        p: ({ node, ...props }) => <p className="mb-4 text-slate-600 leading-7" {...props} />,
+                        ul: ({ node, ...props }) => <ul className="list-disc pl-6 mb-4 text-slate-600 space-y-2" {...props} />,
+                        ol: ({ node, ...props }) => <ol className="list-decimal pl-6 mb-4 text-slate-600 space-y-2" {...props} />,
+                        li: ({ node, ...props }) => <li className="pl-1" {...props} />,
+                        blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-blue-500 pl-4 py-2 my-6 bg-slate-50 italic text-slate-700 rounded-r" {...props} />,
+                        a: ({ node, ...props }) => {
+                          if (props.href === '#seo-highlight') {
+                            return <span className="bg-yellow-300/60 text-yellow-900 px-1 py-0.5 rounded font-semibold border-b border-yellow-400">{props.children}</span>;
+                          }
+                          return <a className="text-blue-600 hover:text-blue-800 underline decoration-blue-300 hover:decoration-blue-500 underline-offset-2 transition-all" {...props} />
+                        },
+                        strong: ({ node, ...props }) => <strong className="font-bold text-slate-900" {...props} />,
+                        code: ({ node, ...props }) => <code className="bg-slate-100 text-pink-600 px-1.5 py-0.5 rounded text-sm font-mono" {...props} />,
+                        table: ({ node, ...props }) => <table className="w-full border-collapse border border-slate-300 mb-4 rounded-lg overflow-hidden" {...props} />,
+                        thead: ({ node, ...props }) => <thead className="bg-slate-100 border-b-2 border-slate-300" {...props} />,
+                        tbody: ({ node, ...props }) => <tbody {...props} />,
+                        tr: ({ node, ...props }) => <tr className="border-b border-slate-200 hover:bg-slate-50 transition-colors" {...props} />,
+                        th: ({ node, ...props }) => <th className="px-4 py-2 text-left font-bold text-slate-800 border-r border-slate-300 last:border-r-0" {...props} />,
+                        td: ({ node, ...props }) => <td className="px-4 py-2 text-slate-600 border-r border-slate-300 last:border-r-0" {...props} />,
+                        img: ({ node, ...props }) => <img className="w-full h-auto rounded-xl shadow-md my-6 object-cover aspect-video" {...props} />,
+                      }}
+                    >
                     {(() => {
                       let content = activeArticle.content;
                       if (highlightSeo && activeArticle.seoRankingData) {

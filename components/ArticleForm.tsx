@@ -63,8 +63,14 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   const [topic, setTopic] = useState('');
   const [bulkInput, setBulkInput] = useState('');
   const [autoOptimize, setAutoOptimize] = useState(true);
-  const [generateFeaturedImage, setGenerateFeaturedImage] = useState(() => {
-    return localStorage.getItem('seo_scribe_generate_image') === 'true';
+  const [imageCount, setImageCount] = useState<number>(() => {
+    return parseInt(localStorage.getItem('seo_scribe_image_count') || '0', 10);
+  });
+  const [imageStyle, setImageStyle] = useState(() => {
+    return localStorage.getItem('seo_scribe_image_style') || 'Realistic';
+  });
+  const [imageRatio, setImageRatio] = useState(() => {
+    return localStorage.getItem('seo_scribe_image_ratio') || '16:9';
   });
 
   // Initialize from local storage if available
@@ -163,8 +169,16 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   }, [provider, researchProvider]);
 
   useEffect(() => {
-    localStorage.setItem('seo_scribe_generate_image', generateFeaturedImage.toString());
-  }, [generateFeaturedImage]);
+    localStorage.setItem('seo_scribe_image_count', imageCount.toString());
+  }, [imageCount]);
+
+  useEffect(() => {
+    localStorage.setItem('seo_scribe_image_style', imageStyle);
+  }, [imageStyle]);
+
+  useEffect(() => {
+    localStorage.setItem('seo_scribe_image_ratio', imageRatio);
+  }, [imageRatio]);
 
   const [isGeneratingFullStrategy, setIsGeneratingFullStrategy] = useState(false);
 
@@ -627,7 +641,9 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       topic,
       queueTopics,
       autoOptimize,
-      generateFeaturedImage,
+      imageCount,
+      imageStyle,
+      imageRatio,
       wordCount,
       type,
       tone,
@@ -751,32 +767,73 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       {/* Featured Image Generation Box */}
       <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 relative overflow-hidden">
         <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-orange-400 to-orange-600"></div>
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-800 flex items-center">
-            <ImageIcon className="w-5 h-5 mr-2 text-orange-500" />
-            Image Generation
-          </h2>
-          <label className="flex items-center cursor-pointer">
-            <div className="relative">
-              <input 
-                type="checkbox" 
-                className="sr-only" 
-                checked={generateFeaturedImage}
-                onChange={(e) => setGenerateFeaturedImage(e.target.checked)}
-              />
-              <div className={`block w-10 h-6 rounded-full transition-colors duration-200 ${generateFeaturedImage ? 'bg-orange-500' : 'bg-slate-300'}`}></div>
-              <div className={`absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform duration-200 ${generateFeaturedImage ? 'transform translate-x-4' : ''}`}></div>
+        <div className="flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-slate-800 flex items-center">
+              <ImageIcon className="w-5 h-5 mr-2 text-orange-500" />
+              Image Generation
+            </h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">Number of Images</label>
+              <select
+                value={imageCount}
+                onChange={(e) => setImageCount(parseInt(e.target.value, 10))}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm bg-white"
+              >
+                <option value="0">None</option>
+                <option value="1">1 (Featured Image)</option>
+                <option value="2">2 Images</option>
+                <option value="3">3 Images</option>
+                <option value="4">4 Images</option>
+                <option value="5">5 Images</option>
+              </select>
             </div>
-          </label>
-        </div>
-        <div className="mt-4">
-          <p className="text-sm text-slate-600">
-            Automatically generate and embed a featured image at the top of your article using Cloudflare Workers AI.
-          </p>
-          <p className="text-xs text-slate-400 mt-2 flex items-center bg-slate-50 p-2 rounded border border-slate-100">
-            <Settings2 className="w-3 h-3 mr-1.5 text-slate-400" />
-            Requires Cloudflare URL and Token to be configured in SEO → Settings
-          </p>
+
+            {imageCount > 0 && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">Style</label>
+                  <select
+                    value={imageStyle}
+                    onChange={(e) => setImageStyle(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm bg-white"
+                  >
+                    <option value="Realistic">Realistic / Photographic</option>
+                    <option value="Digital Art">Digital Art</option>
+                    <option value="Cartoon">Cartoon / Illustration</option>
+                    <option value="Minimalist">Minimalist</option>
+                    <option value="Watercolor">Watercolor</option>
+                    <option value="3D Render">3D Render</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">Aspect Ratio</label>
+                  <select
+                    value={imageRatio}
+                    onChange={(e) => setImageRatio(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm bg-white"
+                  >
+                    <option value="16:9">16:9 (Landscape)</option>
+                    <option value="1:1">1:1 (Square)</option>
+                    <option value="9:16">9:16 (Portrait)</option>
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-slate-100">
+            <p className="text-sm text-slate-600">
+              Automatically generate and embed {imageCount === 1 ? 'a featured image' : 'images'} in your article using Cloudflare Workers AI.
+            </p>
+            <p className="text-xs text-slate-400 mt-2 flex items-center bg-slate-50 p-2 rounded border border-slate-100">
+              <Settings2 className="w-3 h-3 mr-1.5 text-slate-400" />
+              Requires Cloudflare URL and Token to be configured in SEO → Settings
+            </p>
+          </div>
         </div>
       </div>
 

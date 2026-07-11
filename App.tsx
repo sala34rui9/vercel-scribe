@@ -13,6 +13,53 @@ import { generateCloudflareImage } from './services/cloudflareImageService';
 import { fetchSEORankingData } from './services/supabaseClient';
 import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, BrainCircuit, Activity, GripVertical, Home, BarChart3 } from 'lucide-react';
 
+const injectImages = async (
+  content: string, 
+  topic: string, 
+  config: ArticleConfig, 
+  setLogs: (updater: (prev: string[]) => string[]) => void, 
+  setProcessingStatus: (status: string) => void
+): Promise<string> => {
+  if (!config.imageCount || config.imageCount <= 0) return content;
+  
+  let finalContent = content;
+  const h2Regex = /^## (.*$)/gim;
+  const matches = [...finalContent.matchAll(h2Regex)];
+  
+  for (let i = 0; i < config.imageCount; i++) {
+    try {
+      setProcessingStatus(`Generating image ${i + 1}/${config.imageCount}...`);
+      setLogs(prev => [...prev, `> Generating image ${i + 1} of ${config.imageCount} via Cloudflare AI...`]);
+      
+      let prompt = config.imagePrompt || topic;
+      if (i > 0 && matches[i - 1]) {
+        prompt = `${topic}, specifically focusing on: ${matches[i - 1][1]}`;
+      }
+      
+      const base64Image = await generateCloudflareImage(prompt, config.imageStyle, config.imageRatio);
+      
+      if (i === 0) {
+        finalContent = `![Featured Image](${base64Image})\n\n${finalContent}`;
+      } else {
+        let h2Count = 0;
+        finalContent = finalContent.replace(/^## (.*$)/gim, (match) => {
+          if (h2Count === (i - 1)) {
+            h2Count++;
+            return `${match}\n\n![Article Image ${i}](${base64Image})\n`;
+          }
+          h2Count++;
+          return match;
+        });
+      }
+      setLogs(prev => [...prev, `> Image ${i + 1} embedded successfully.`]);
+    } catch (imgError) {
+      console.error(`Image ${i + 1} generation failed`, imgError);
+      setLogs(prev => [...prev, `> Warning: Image ${i + 1} generation failed.`]);
+    }
+  }
+  return finalContent;
+};
+
 const App: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const STORAGE_KEY = 'seo_scribe_saved_articles_v1';
@@ -167,18 +214,7 @@ const App: React.FC = () => {
           setTerminalLogs(prev => [...prev, `> Content generated successfully! Rendering Markdown...`]);
           
           let finalContent = result.content;
-          if (config.generateFeaturedImage) {
-            try {
-              setProcessingStatus('Generating featured image...');
-              setTerminalLogs(prev => [...prev, `> Generating featured image via Cloudflare AI...`]);
-              const base64Image = await generateCloudflareImage(config.imagePrompt || config.topic);
-              finalContent = `![Featured Image](${base64Image})\n\n${finalContent}`;
-              setTerminalLogs(prev => [...prev, `> Featured image generated and embedded.`]);
-            } catch (imgError) {
-              console.error('Image generation failed', imgError);
-              setTerminalLogs(prev => [...prev, `> Warning: Featured image generation failed.`]);
-            }
-          }
+          finalContent = await injectImages(finalContent, config.topic, config, setTerminalLogs, setProcessingStatus);
 
           setGeneratedArticles(prev => [...prev, {
             id: crypto.randomUUID(),
@@ -382,15 +418,13 @@ const App: React.FC = () => {
               const result = await generateWithFallback(singleConfig, controller.signal);
 
               let finalContent = result.content;
-              if (config.generateFeaturedImage) {
-                try {
-                  setProcessingStatus(`Generating featured image for "${topic}"...`);
-                  const base64Image = await generateCloudflareImage(config.imagePrompt || topic);
-                  finalContent = `![Featured Image](${base64Image})\n\n${finalContent}`;
-                } catch (imgError) {
-                  console.error(`Image generation failed for ${topic}`, imgError);
-                }
-              }
+              finalContent = await injectImages(
+                finalContent, 
+                topic, 
+                config, 
+                (updater) => {}, // No-op logger for bulk mode
+                setProcessingStatus
+              );
 
               setGeneratedArticles(prev => [...prev, {
                 id: crypto.randomUUID(),

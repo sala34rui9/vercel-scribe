@@ -1,4 +1,4 @@
-export const generateCloudflareImage = async (prompt: string): Promise<string> => {
+export const generateCloudflareImage = async (prompt: string, style?: string, ratio?: string): Promise<string> => {
   const url = localStorage.getItem('user_cloudflare_api_url');
   const token = localStorage.getItem('user_cloudflare_api_token');
   
@@ -7,13 +7,17 @@ export const generateCloudflareImage = async (prompt: string): Promise<string> =
   }
 
   try {
+    let finalPrompt = prompt;
+    if (style) finalPrompt += `, ${style} style`;
+    if (ratio) finalPrompt += `, ${ratio} aspect ratio`;
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ prompt })
+      body: JSON.stringify({ prompt: finalPrompt })
     });
 
     if (!response.ok) {
