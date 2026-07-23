@@ -55,11 +55,19 @@ export const getTinyFishFetchApiKey = (): string => {
 };
 
 const handleHttpError = (status: number, body: any) => {
-  const msg = body?.error || body?.message || '';
+  let msg = body?.error || body?.message || body?.detail || '';
+  if (typeof msg === 'object') {
+    try {
+      msg = JSON.stringify(msg);
+    } catch {
+      msg = '[object Object]';
+    }
+  }
   switch (status) {
     case 400: throw new Error(`TinyFish Fetch Bad Request: ${msg}`);
     case 401: throw new Error('TinyFish Fetch API Key is invalid.');
     case 403: throw new Error('TinyFish Fetch API Key lacks permission.');
+    case 422: throw new Error(`TinyFish Fetch Validation Error: ${msg}`);
     case 429: throw new Error('TinyFish Fetch API rate limit exceeded.');
     case 500: throw new Error(`TinyFish Fetch server error: ${msg}`);
     case 503: throw new Error('TinyFish Fetch service unavailable.');
@@ -76,8 +84,17 @@ export const fetchWebPages = async (
     return { results: [], total_success: 0, total_failed: 0 };
   }
 
-  // Maximum recommended is 10
-  const targetUrls = urls.slice(0, 10);
+  // Normalize URLs and limit to 10
+  const targetUrls = urls
+    .slice(0, 10)
+    .map(url => {
+      let trimmed = url.trim();
+      if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+        return `https://${trimmed}`;
+      }
+      return trimmed;
+    });
+
   const apiKey = getTinyFishFetchApiKey();
   
   if (!apiKey) {

@@ -16,7 +16,6 @@ import { fetchWebPages, getTinyFishFetchApiKey, FetchedDocument } from './tinyfi
 
 export interface SearchWebParams {
   query: string;
-  purpose?: string;
   location?: string;
   language?: string;
   domain_type?: string;
@@ -25,7 +24,6 @@ export interface SearchWebParams {
   recency_minutes?: number;
   page?: number;
   include_thumbnail?: boolean;
-  fetch?: boolean;
 }
 
 export interface ListSearchUsageParams {
@@ -66,12 +64,20 @@ export const getTinyFishApiKey = (): string => {
 };
 
 const handleHttpError = (status: number, body: any) => {
-  const msg = body?.error || body?.message || '';
+  let msg = body?.error || body?.message || body?.detail || '';
+  if (typeof msg === 'object') {
+    try {
+      msg = JSON.stringify(msg);
+    } catch {
+      msg = '[object Object]';
+    }
+  }
   switch (status) {
     case 400: throw new Error(`TinyFish Bad Request: ${msg}`);
     case 401: throw new Error('TinyFish API Key is invalid. Check your API key.');
     case 403: throw new Error('TinyFish API Key lacks permission for this operation.');
     case 404: throw new Error('TinyFish API endpoint not found.');
+    case 422: throw new Error(`TinyFish Validation Error: ${msg}`);
     case 429: throw new Error('TinyFish API rate limit exceeded. Try again later.');
     case 500: throw new Error(`TinyFish server error: ${msg}`);
     case 503: throw new Error('TinyFish service unavailable. Try again later.');
@@ -199,7 +205,7 @@ const formatFetchedDocsToContext = (topic: string, docs: FetchedDocument[]): str
 };
 
 export const fetchRealTimeDataTinyFish = async (topic: string): Promise<{ content: string; sources: string[] }> => {
-  const result = await searchWeb(topic, { purpose: 'research' });
+  const result = await searchWeb(topic);
   const allUrls = result.results.map(r => r.url).filter(Boolean);
   const sources = allUrls;
 
@@ -225,7 +231,6 @@ export const scanForExternalLinksTinyFish = async (
   excludeDomain?: string
 ): Promise<Array<{ title: string; url: string; snippet?: string }>> => {
   const result = await searchWeb(`${topic} authoritative sources research`, {
-    purpose: 'research',
     domain_type: excludeDomain ? 'exclude' : undefined
   });
   return result.results.map(r => ({
@@ -247,7 +252,7 @@ export const scanForInternalLinksTinyFish = async (
     console.warn('[TinyFish] Invalid URL for internal link scan, using as-is:', websiteUrl);
   }
 
-  const result = await searchWeb(`site:${domain} ${topic}`, { purpose: 'research' });
+  const result = await searchWeb(`site:${domain} ${topic}`);
   const cleanDomain = domain.replace(/^www\./, '');
   const links = result.results
     .filter(r => r.url.includes(cleanDomain))
@@ -259,10 +264,7 @@ export const scanForInternalLinksTinyFish = async (
 export const analyzeBrandWebsiteTinyFish = async (
   websiteUrl: string
 ): Promise<{ brandVoice: string; siteArchitecture: string[]; content: string }> => {
-  const result = await searchWeb(websiteUrl, {
-    purpose: 'brand_analysis',
-    fetch: true
-  });
+  const result = await searchWeb(websiteUrl);
 
   if (!result.results.length) {
     return { brandVoice: '', siteArchitecture: [], content: '' };
@@ -294,10 +296,19 @@ export const extractManualReferencesTinyFish = async (
   let urlsToFetch = [query];
   let sources = [query];
   let isDirectUrl = false;
+  let normalizedQuery = query.trim();
+
+  if (!normalizedQuery.startsWith('http://') && !normalizedQuery.startsWith('https://')) {
+    if (/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(?:\/.*)?$/.test(normalizedQuery)) {
+      normalizedQuery = `https://${normalizedQuery}`;
+    }
+  }
 
   try {
-    new URL(query);
+    new URL(normalizedQuery);
     isDirectUrl = true;
+    urlsToFetch = [normalizedQuery];
+    sources = [normalizedQuery];
   } catch (e) {}
 
   if (!isDirectUrl) {
@@ -321,7 +332,7 @@ export const extractManualReferencesTinyFish = async (
     return { content: `Could not fetch content for ${query}`, sources };
   }
 
-  const result = await searchWeb(query, { purpose: 'research' });
+  const result = await searchWeb(query);
   const content = result.results.map(r =>
     `### Reference: ${r.url}\n${r.snippet?.substring(0, 1000) || 'Content not available'}...`
   ).join('\n\n');
