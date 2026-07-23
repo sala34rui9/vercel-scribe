@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { SearchProvider, AIProvider, SerpSearchResult, FetchedPage, SerpIntelligenceReport, UserSelections } from '../types';
 import { searchWeb, getTinyFishApiKey } from '../services/tinyfishService';
+import { getTinyFishFetchApiKey, fetchWebPages } from '../services/tinyfishFetchService';
 import { getTavilyApiKey, tavilySearch } from '../services/tavilyService';
 import { generateSerpIntelligenceReport, buildResearchPackage } from '../services/serpAnalysisService';
 
@@ -192,7 +193,24 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
       const batch = urls.slice(i, i + concurrency);
       const batchResults = await Promise.all(batch.map(async (url) => {
         try {
-          const result = await searchWeb(url, { purpose: 'research', fetch: true }, 60000);
+          if (getTinyFishFetchApiKey()) {
+            const fetchResult = await fetchWebPages([url], { purpose: 'research' });
+            const doc = fetchResult.results[0];
+            if (doc) {
+              return {
+                url,
+                finalUrl: doc.url || url,
+                domain: new URL(doc.url || url).hostname,
+                title: doc.title || 'Untitled',
+                content: doc.markdown || 'Content could not be extracted',
+                language: doc.language || 'en',
+                fetchStatus: 'success' as const,
+              } as FetchedPage;
+            }
+          }
+          
+          // Fallback to Search API if Fetch API key is not available or if fetch returns no doc
+          const result = await searchWeb(url, {}, 60000);
           const firstResult = result.results?.[0];
           return {
             url,
