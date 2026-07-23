@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap, Search, Home, FileText, Grid, BookOpen, Mic, Newspaper, MapPin, HelpCircle, ChevronLeft, ChevronRight, BarChart3, Globe, Target } from 'lucide-react';
+import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap, Search, Home, FileText, Grid, BookOpen, Mic, Newspaper, MapPin, HelpCircle, ChevronLeft, ChevronRight, BarChart3, Globe, Target, Fish } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,6 +18,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
   const [geminiKey, setGeminiKey] = useState('');
   const [deepSeekKey, setDeepSeekKey] = useState('');
   const [tavilyKey, setTavilyKey] = useState('');
+  const [tinyfishKey, setTinyfishKey] = useState('');
   const [seRankingKey, setSeRankingKey] = useState('');
   const [targetDomain, setTargetDomain] = useState('');
   const [competitorDomain, setCompetitorDomain] = useState('');
@@ -25,6 +26,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
   const [hasGeminiKey, setHasGeminiKey] = useState(false);
   const [hasDeepSeekKey, setHasDeepSeekKey] = useState(false);
   const [hasTavilyKey, setHasTavilyKey] = useState(false);
+  const [hasTinyfishKey, setHasTinyfishKey] = useState(false);
   const [hasSeRankingKey, setHasSeRankingKey] = useState(false);
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
@@ -47,6 +49,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
     if (tKey) {
       setHasTavilyKey(true);
       setTavilyKey(tKey);
+    }
+
+    const tfKey = localStorage.getItem('user_tinyfish_api_key');
+    if (tfKey) {
+      setHasTinyfishKey(true);
+      setTinyfishKey(tfKey);
     }
 
     const checkSeoSettings = () => {
@@ -90,6 +98,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
       saved = true;
     }
 
+    if (tinyfishKey.trim()) {
+      localStorage.setItem('user_tinyfish_api_key', tinyfishKey.trim());
+      setHasTinyfishKey(true);
+      saved = true;
+    }
+
     // Mark as saved if any key was set
     saved = saved;
 
@@ -118,6 +132,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
     localStorage.removeItem('user_tavily_api_key');
     setTavilyKey('');
     setHasTavilyKey(false);
+  };
+
+  const clearTinyfish = () => {
+    localStorage.removeItem('user_tinyfish_api_key');
+    setTinyfishKey('');
+    setHasTinyfishKey(false);
   };
 
   const clearSeRanking = () => {
@@ -152,6 +172,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
               {hasTavilyKey && (
                 <span className="text-xs font-medium px-2 py-1 rounded border flex items-center bg-emerald-50 text-emerald-700 border-emerald-200">
                   <Search className="w-3 h-3 mr-1" /> Tavily Ready
+                </span>
+              )}
+              {hasTinyfishKey && (
+                <span className="text-xs font-medium px-2 py-1 rounded border flex items-center bg-cyan-50 text-cyan-700 border-cyan-200">
+                  <Fish className="w-3 h-3 mr-1" /> TinyFish Ready
                 </span>
               )}
               {hasSeRankingKey && targetDomain && (
@@ -364,6 +389,27 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
 
 
 
+
+              {/* TinyFish Section */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="flex items-center text-sm font-semibold text-slate-700">
+                  <Fish className="w-4 h-4 mr-1.5 text-cyan-500" />
+                  TinyFish API Key
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={tinyfishKey}
+                    onChange={(e) => setTinyfishKey(e.target.value)}
+                    placeholder="tfk-..."
+                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none text-sm font-mono"
+                  />
+                  {hasTinyfishKey && (
+                    <button onClick={clearTinyfish} className="px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200">Clear</button>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400">Required for TinyFish web research provider</p>
+              </div>
 
               <div className="flex justify-end pt-4">
                 <button

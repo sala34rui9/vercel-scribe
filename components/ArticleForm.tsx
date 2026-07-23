@@ -4,6 +4,8 @@ import { ArticleConfig, ArticleType, ToneVoice, InternalLink, ExternalLink, Open
 import { generateNLPKeywords, generatePrimaryKeywords, scanForInternalLinks, scanForExternalLinks, generateFullSEOStrategy, selectBestInternalLinks } from '../services/geminiService';
 import { generateNLPKeywordsDeepSeek, generatePrimaryKeywordsDeepSeek } from '../services/deepseekService';
 import { scanForInternalLinksTavily, scanForExternalLinksTavily } from '../services/tavilyService';
+import { scanForInternalLinksTinyFish, scanForExternalLinksTinyFish } from '../services/tinyfishService';
+import { isWebScanProvider, resolveAutoProvider } from '../services/researchProviderUtils';
 import {
   Wand2,
   Settings2,
@@ -40,7 +42,8 @@ import {
   ListOrdered,
   Upload,
   ClipboardList,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Fish
 } from 'lucide-react';
 
 interface ArticleFormProps {
@@ -161,9 +164,9 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     localStorage.setItem('seo_scribe_keyword_analysis_provider', keywordAnalysisProvider);
   }, [keywordAnalysisProvider]);
 
-  // Force Tavily when DeepSeek is selected
+  // Force a web-scan-capable provider when DeepSeek is selected
   useEffect(() => {
-    if (provider === AIProvider.DEEPSEEK && researchProvider !== SearchProvider.TAVILY) {
+    if (provider === AIProvider.DEEPSEEK && !isWebScanProvider(researchProvider)) {
       setResearchProvider(SearchProvider.TAVILY);
     }
   }, [provider, researchProvider]);
@@ -322,9 +325,9 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     const currentTopic = mode === 'single' ? topic : bulkInput.split('\n')[0];
     if (!websiteUrl || !currentTopic) return;
 
-    // DeepSeek requires Tavily (enforced by UI, but keep check as safety)
-    if (provider === AIProvider.DEEPSEEK && researchProvider !== SearchProvider.TAVILY) {
-      alert("⚠️ Web Scan Disabled\n\nDeepSeek requires Tavily for web scanning. Please ensure Tavily is selected as the Research Provider.");
+    // DeepSeek requires a web scanning provider (Tavily, TinyFish, or Auto)
+    if (provider === AIProvider.DEEPSEEK && !isWebScanProvider(researchProvider)) {
+      alert("⚠️ Web Scan Disabled\n\nDeepSeek requires a web scanning provider. Please select Tavily, TinyFish, or Auto as the Research Provider.");
       return;
     }
 
@@ -353,11 +356,21 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     setSelectedLinkUrls(new Set());
 
     try {
-      if (provider === AIProvider.DEEPSEEK && researchProvider === SearchProvider.TAVILY) {
+      const resolvedProvider = resolveAutoProvider(researchProvider);
+      if (provider === AIProvider.DEEPSEEK && resolvedProvider === SearchProvider.TINYFISH) {
+        // Use TinyFish for scanning
+        const result = await scanForInternalLinksTinyFish(websiteUrl, currentTopic);
+        setFoundLinks(result.links);
+        setContentOpportunities(result.opportunities);
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(result));
+        } catch (e) {
+          console.warn("Failed to cache internal links", e);
+        }
+      } else if (provider === AIProvider.DEEPSEEK && resolvedProvider === SearchProvider.TAVILY) {
         // Use Tavily for scanning
         const result = await scanForInternalLinksTavily(websiteUrl, currentTopic);
         setFoundLinks(result.links);
-        // Tavily scan currently returns empty opportunities usually
         setContentOpportunities(result.opportunities);
         try {
           localStorage.setItem(cacheKey, JSON.stringify(result));
@@ -579,9 +592,9 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     const currentTopic = mode === 'single' ? topic : bulkInput.split('\n')[0];
     if (!currentTopic) return;
 
-    // DeepSeek requires Tavily (enforced by UI, but keep check as safety)
-    if (provider === AIProvider.DEEPSEEK && researchProvider !== SearchProvider.TAVILY) {
-      alert("⚠️ Web Scan Disabled\n\nDeepSeek requires Tavily for web scanning. Please ensure Tavily is selected as the Research Provider.");
+    // DeepSeek requires a web scanning provider
+    if (provider === AIProvider.DEEPSEEK && !isWebScanProvider(researchProvider)) {
+      alert("⚠️ Web Scan Disabled\n\nDeepSeek requires a web scanning provider. Please select Tavily, TinyFish, or Auto as the Research Provider.");
       return;
     }
 
@@ -599,7 +612,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
       // Logic to choose provider
       let links: any[] = [];
-      if (provider === AIProvider.DEEPSEEK && researchProvider === SearchProvider.TAVILY) {
+      const resolvedProvider = resolveAutoProvider(researchProvider);
+      if (provider === AIProvider.DEEPSEEK && resolvedProvider === SearchProvider.TINYFISH) {
+        links = await scanForExternalLinksTinyFish(currentTopic, domainToExclude);
+      } else if (provider === AIProvider.DEEPSEEK && resolvedProvider === SearchProvider.TAVILY) {
         links = await scanForExternalLinksTavily(currentTopic, domainToExclude);
       } else {
         links = await scanForExternalLinks(currentTopic, domainToExclude);
@@ -742,21 +758,51 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 Note: Web scanning/research options below depend on your "Research Provider" setting.
               </p>
 
-              {/* Research Provider Selector for DeepSeek - Tavily Only */}
+              {/* Research Provider Selector for DeepSeek */}
               <div className="mt-3 pt-3 border-t border-indigo-200">
                 <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">Research/Scanning Provider</label>
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
-                    disabled
-                    className="text-xs py-2 px-2 rounded border flex items-center justify-center bg-emerald-50 border-emerald-300 text-emerald-700 font-bold cursor-not-allowed"
+                    onClick={() => setResearchProvider(SearchProvider.TAVILY)}
+                    className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${
+                      researchProvider === SearchProvider.TAVILY
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-bold'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
                   >
                     <Search className="w-3 h-3 mr-1.5" />
-                    Tavily (Required for DeepSeek)
+                    Tavily
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResearchProvider(SearchProvider.TINYFISH)}
+                    className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${
+                      researchProvider === SearchProvider.TINYFISH
+                        ? 'bg-cyan-50 border-cyan-300 text-cyan-700 font-bold'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Fish className="w-3 h-3 mr-1.5" />
+                    TinyFish
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResearchProvider(SearchProvider.AUTO)}
+                    className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${
+                      researchProvider === SearchProvider.AUTO
+                        ? 'bg-violet-50 border-violet-300 text-violet-700 font-bold'
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Zap className="w-3 h-3 mr-1.5" />
+                    Auto
                   </button>
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">
-                  *DeepSeek requires Tavily for web scanning. Gemini option is disabled.
+                  {researchProvider === SearchProvider.AUTO
+                    ? '*Auto: Uses the best available provider with automatic fallback.'
+                    : '*DeepSeek requires a web scanning provider. Choose Tavily, TinyFish, or Auto.'}
                 </p>
               </div>
             </div>
@@ -1046,6 +1092,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                       <option value={SearchProvider.GEMINI}>Google Gemini (with grounding)</option>
                       <option value={SearchProvider.SERPSTACK}>SERPStack API</option>
                       <option value={SearchProvider.TAVILY}>Tavily Search API</option>
+                      <option value={SearchProvider.TINYFISH}>TinyFish Search API</option>
                     </select>
                     <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-500">
                       <Search className="w-4 h-4" />
@@ -1055,6 +1102,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                     {realTimeSearchProvider === SearchProvider.GEMINI && "Best for general knowledge & latest Google data."}
                     {realTimeSearchProvider === SearchProvider.SERPSTACK && "Good for scraping specific SERP features."}
                     {realTimeSearchProvider === SearchProvider.TAVILY && "Optimized for AI research & accurate citations."}
+                    {realTimeSearchProvider === SearchProvider.TINYFISH && "AI-powered search with smart query understanding."}
                   </p>
                 </div>
               )}
@@ -1145,18 +1193,18 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                         </div>
                       </div>
                     ) : (
-                      provider === AIProvider.DEEPSEEK && researchProvider === SearchProvider.TAVILY ? (
+                      provider === AIProvider.DEEPSEEK && isWebScanProvider(researchProvider) ? (
                         <div className="flex items-start">
                           <Sparkles className="w-4 h-4 mr-2 mt-0.5 text-emerald-600 flex-shrink-0" />
                           <div>
-                            System will scan <strong>{websiteUrl}</strong> via Tavily.
+                            System will scan <strong>{websiteUrl}</strong> via {researchProvider === SearchProvider.AUTO ? 'Auto (best available)' : researchProvider}.
                             <br /><span className="text-xs opacity-75">Manual links below will be prioritized.</span>
                           </div>
                         </div>
                       ) : (
                         <div className="flex items-start">
                           <AlertTriangle className="w-4 h-4 mr-2 mt-0.5 text-amber-500 flex-shrink-0" />
-                          Link scanning disabled. Switch to Tavily or upload links manually below.
+                          Link scanning disabled. Switch to Tavily, TinyFish, or Auto, or upload links manually below.
                         </div>
                       )
                     )
@@ -1403,7 +1451,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 ) : (
                   <div className="flex items-center text-blue-600">
                     <Sparkles className="w-4 h-4 mr-2" />
-                    System will find external sources via Tavily for each topic (runs sequentially for stability).
+                    System will find external sources via {researchProvider === SearchProvider.AUTO ? 'Auto (best available)' : researchProvider} for each topic (runs sequentially for stability).
                   </div>
                 )}
               </div>

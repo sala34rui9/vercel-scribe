@@ -9,6 +9,8 @@ import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel, SearchProvi
 import { generateArticle, generatePrimaryKeywords, generateNLPKeywords, scanForInternalLinks, scanForExternalLinks } from './services/geminiService';
 import { generateArticleDeepSeek, generatePrimaryKeywordsDeepSeek, generateNLPKeywordsDeepSeek } from './services/deepseekService';
 import { scanForInternalLinksTavily, scanForExternalLinksTavily } from './services/tavilyService';
+import { scanForInternalLinksTinyFish, scanForExternalLinksTinyFish } from './services/tinyfishService';
+import { resolveAutoProvider } from './services/researchProviderUtils';
 import { generateCloudflareImage } from './services/cloudflareImageService';
 import { fetchSEORankingData } from './services/supabaseClient';
 import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, BrainCircuit, Activity, GripVertical, Home, BarChart3 } from 'lucide-react';
@@ -255,10 +257,19 @@ const App: React.FC = () => {
         if (config.deepResearch && config.websiteUrl && config.provider === AIProvider.DEEPSEEK) {
           try {
             setProcessingStatus("Pre-fetching Brand Research (will be reused for all articles)...");
-            const { analyzeBrandWebsite, getTavilyApiKey } = await import('./services/tavilyService');
-            if (getTavilyApiKey()) {
-              console.log('[Bulk Optimization] Fetching brand research ONCE for all articles');
-              cachedBrandResearch = await analyzeBrandWebsite(config.websiteUrl);
+            const resolvedResearch = resolveAutoProvider(config.researchProvider);
+            if (resolvedResearch === SearchProvider.TINYFISH) {
+              const { analyzeBrandWebsiteTinyFish, getTinyFishApiKey } = await import('./services/tinyfishService');
+              if (getTinyFishApiKey()) {
+                console.log('[Bulk Optimization] Fetching brand research ONCE for all articles (TinyFish)');
+                cachedBrandResearch = await analyzeBrandWebsiteTinyFish(config.websiteUrl);
+              }
+            } else {
+              const { analyzeBrandWebsite, getTavilyApiKey } = await import('./services/tavilyService');
+              if (getTavilyApiKey()) {
+                console.log('[Bulk Optimization] Fetching brand research ONCE for all articles (Tavily)');
+                cachedBrandResearch = await analyzeBrandWebsite(config.websiteUrl);
+              }
             }
           } catch (e) {
             console.warn('[Bulk Optimization] Brand research pre-fetch failed, will use fallback per article', e);
@@ -270,11 +281,16 @@ const App: React.FC = () => {
         if (config.websiteUrl && config.autoOptimize) {
           try {
             setProcessingStatus("Pre-scanning Internal Links (will be reused for all articles)...");
-            if (config.provider === AIProvider.DEEPSEEK && config.researchProvider === SearchProvider.TAVILY) {
+            const resolvedResearch = resolveAutoProvider(config.researchProvider);
+            if (config.provider === AIProvider.DEEPSEEK && resolvedResearch === SearchProvider.TAVILY) {
               const tavilyResult = await scanForInternalLinksTavily(config.websiteUrl, config.queueTopics?.[0] || 'general');
               cachedInternalLinks = tavilyResult.links;
               console.log(`[Bulk Optimization] Cached ${cachedInternalLinks.length} internal links from Tavily`);
-            } else if (config.provider === AIProvider.GEMINI || config.researchProvider === SearchProvider.GEMINI) {
+            } else if (config.provider === AIProvider.DEEPSEEK && resolvedResearch === SearchProvider.TINYFISH) {
+              const tinyfishResult = await scanForInternalLinksTinyFish(config.websiteUrl, config.queueTopics?.[0] || 'general');
+              cachedInternalLinks = tinyfishResult.links;
+              console.log(`[Bulk Optimization] Cached ${cachedInternalLinks.length} internal links from TinyFish`);
+            } else if (config.provider === AIProvider.GEMINI || resolvedResearch === SearchProvider.GEMINI) {
               const scanResult = await scanForInternalLinks(config.websiteUrl, config.queueTopics?.[0] || 'general', config.primaryKeywords || [], config.deepResearch);
               cachedInternalLinks = scanResult.links;
               console.log(`[Bulk Optimization] Cached ${cachedInternalLinks.length} internal links from Gemini`);
@@ -358,10 +374,14 @@ const App: React.FC = () => {
                   } else {
                     // Fallback: Scan per article (should rarely happen)
                     try {
-                      if (config.provider === AIProvider.DEEPSEEK && config.researchProvider === SearchProvider.TAVILY) {
+                      const resolvedPerTopic = resolveAutoProvider(config.researchProvider);
+                      if (config.provider === AIProvider.DEEPSEEK && resolvedPerTopic === SearchProvider.TAVILY) {
                         const tavilyResult = await scanForInternalLinksTavily(config.websiteUrl, topic);
                         topicInternalLinks = tavilyResult.links.slice(0, 3);
-                      } else if (config.provider === AIProvider.GEMINI || config.researchProvider === SearchProvider.GEMINI) {
+                      } else if (config.provider === AIProvider.DEEPSEEK && resolvedPerTopic === SearchProvider.TINYFISH) {
+                        const tinyfishResult = await scanForInternalLinksTinyFish(config.websiteUrl, topic);
+                        topicInternalLinks = tinyfishResult.links.slice(0, 3);
+                      } else if (config.provider === AIProvider.GEMINI || resolvedPerTopic === SearchProvider.GEMINI) {
                         const scanResult = await scanForInternalLinks(config.websiteUrl, topic, topicPrimaryKeywords, config.deepResearch);
                         topicInternalLinks = scanResult.links.slice(0, 3);
                       } else {
@@ -383,8 +403,12 @@ const App: React.FC = () => {
                       }
                     } catch (e) { }
 
-                    if (config.provider === AIProvider.DEEPSEEK && (config.externalLinkSearchProvider === SearchProvider.TAVILY || config.researchProvider === SearchProvider.TAVILY)) {
+                    const resolvedExt = resolveAutoProvider(config.externalLinkSearchProvider || config.researchProvider);
+                    if (config.provider === AIProvider.DEEPSEEK && resolvedExt === SearchProvider.TAVILY) {
                       const extLinks = await scanForExternalLinksTavily(topic, domainToExclude);
+                      topicExternalLinks = extLinks.slice(0, 5);
+                    } else if (config.provider === AIProvider.DEEPSEEK && resolvedExt === SearchProvider.TINYFISH) {
+                      const extLinks = await scanForExternalLinksTinyFish(topic, domainToExclude);
                       topicExternalLinks = extLinks.slice(0, 5);
                     } else {
                       const extLinks = await scanForExternalLinks(topic, domainToExclude);

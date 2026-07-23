@@ -60,7 +60,9 @@ export enum DeepSeekModel {
 export enum SearchProvider {
   GEMINI = "Google Gemini",
   SERPSTACK = "SERPStack",
-  TAVILY = "Tavily"
+  TAVILY = "Tavily",
+  TINYFISH = "TinyFish",
+  AUTO = "Auto"
 }
 
 export interface InternalLink {

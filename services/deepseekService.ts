@@ -1,4 +1,5 @@
 import { ArticleConfig, DeepSeekModel, OpeningStyle, ReadabilityLevel, TargetCountry, SearchProvider, InternalLink } from "../types";
+import { resolveAutoProvider } from './researchProviderUtils';
 
 const DEEPSEEK_API_URL = "https://deepseek-proxy.ubantuplx.workers.dev";
 const LOCAL_STORAGE_KEY_KEY = 'user_deepseek_api_key';
@@ -421,16 +422,38 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       Please adapt your writing tone to align with this brand presence.
           `;
     }
-    // Only use Tavily if specified as the Research Provider (or if default) AND no cache
-    else if (config.researchProvider === SearchProvider.TAVILY || !config.researchProvider) {
+    // Use the configured research provider (or resolve Auto) for brand analysis
+    else {
+      const resolvedProvider = resolveAutoProvider(config.researchProvider);
       try {
-        const { analyzeBrandWebsite, getTavilyApiKey } = await import('./tavilyService');
-        if (getTavilyApiKey()) {
-          console.log('[DeepSeek] Using Tavily Crawl for deep brand research');
-          const brandAnalysis = await analyzeBrandWebsite(websiteUrl);
-          if (brandAnalysis.content) {
-            deepResearchContext = brandAnalysis.content;
-            deepResearchInstruction = `
+        if (resolvedProvider === SearchProvider.TINYFISH) {
+          const { analyzeBrandWebsiteTinyFish, getTinyFishApiKey } = await import('./tinyfishService');
+          if (getTinyFishApiKey()) {
+            console.log('[DeepSeek] Using TinyFish for deep brand research');
+            const brandAnalysis = await analyzeBrandWebsiteTinyFish(websiteUrl);
+            if (brandAnalysis.content) {
+              deepResearchContext = brandAnalysis.content;
+              deepResearchInstruction = `
+      BRAND ANALYSIS (via TinyFish):
+      The following brand/site analysis was gathered:
+      ${deepResearchContext.substring(0, 3000)}
+      
+      Site Architecture discovered:
+      ${brandAnalysis.siteArchitecture.slice(0, 10).join('\n')}
+      
+      Please adapt your writing tone to align with this brand presence.
+          `;
+            }
+          }
+        } else {
+          // Default: Tavily
+          const { analyzeBrandWebsite, getTavilyApiKey } = await import('./tavilyService');
+          if (getTavilyApiKey()) {
+            console.log('[DeepSeek] Using Tavily Crawl for deep brand research');
+            const brandAnalysis = await analyzeBrandWebsite(websiteUrl);
+            if (brandAnalysis.content) {
+              deepResearchContext = brandAnalysis.content;
+              deepResearchInstruction = `
       BRAND ANALYSIS (via Tavily Crawl):
       The following brand/site analysis was gathered:
       ${deepResearchContext.substring(0, 3000)}
@@ -440,10 +463,11 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       
       Please adapt your writing tone to align with this brand presence.
           `;
+            }
           }
         }
       } catch (e) {
-        console.warn('[DeepSeek] Tavily Crawl failed, using fallback', e);
+        console.warn('[DeepSeek] Brand research failed, using fallback', e);
       }
     }
 
@@ -463,9 +487,14 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
   let realTimeSources: string[] = [];
 
   if (realTimeData) {
+    // Resolve Auto provider for real-time search
+    const resolvedSearchProvider = config.searchProvider === SearchProvider.AUTO
+      ? resolveAutoProvider(config.searchProvider)
+      : config.searchProvider;
+
     // Fetch real-time data using selected search provider
-    if (config.searchProvider === SearchProvider.TAVILY) {
-      // Use Tavily for real-time search (recommended for DeepSeek)
+    if (resolvedSearchProvider === SearchProvider.TAVILY) {
+      // Use Tavily for real-time search
       try {
         const { fetchRealTimeDataTavily, getTavilyApiKey } = await import('./tavilyService');
         if (getTavilyApiKey()) {
@@ -484,7 +513,27 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
       } catch (e) {
         console.warn('[DeepSeek] Tavily Search failed', e);
       }
-    } else if (config.searchProvider === SearchProvider.SERPSTACK) {
+    } else if (resolvedSearchProvider === SearchProvider.TINYFISH) {
+      // Use TinyFish for real-time search
+      try {
+        const { fetchRealTimeDataTinyFish, getTinyFishApiKey } = await import('./tinyfishService');
+        if (getTinyFishApiKey()) {
+          console.log('[DeepSeek] Using TinyFish for real-time data');
+          const data = await fetchRealTimeDataTinyFish(config.topic);
+          realTimeContext = data.content;
+          realTimeSources = data.sources;
+          realTimeDataInstruction = `
+      DATA FRESHNESS INSTRUCTION:
+      The following real-time search data was retrieved via TinyFish:
+      ${realTimeContext}
+      
+      Please incorporate this information into your article to ensure it's current and relevant.
+          `;
+        }
+      } catch (e) {
+        console.warn('[DeepSeek] TinyFish Search failed', e);
+      }
+    } else if (resolvedSearchProvider === SearchProvider.SERPSTACK) {
       // Use SERPStack for real-time search
       const { fetchRealTimeDataSERPStack } = await import('./serpstackService');
       const data = await fetchRealTimeDataSERPStack(config.topic);
@@ -512,18 +561,42 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
   // Process manual reference URLs if provided
   let manualReferencesInstruction = "";
   if (config.manualReferenceUrls && config.manualReferenceUrls.length > 0) {
+    const resolvedRefProvider = resolveAutoProvider(config.researchProvider);
     try {
-      const { extractManualReferences, getTavilyApiKey } = await import('./tavilyService');
-      if (getTavilyApiKey()) {
-        console.log('[DeepSeek] Extracting manual reference URLs via Tavily');
-        const extracted = await extractManualReferences(config.manualReferenceUrls);
-        if (extracted.content) {
-          realTimeSources = [...realTimeSources, ...extracted.sources];
-          manualReferencesInstruction = `
+      if (resolvedRefProvider === SearchProvider.TINYFISH) {
+        const { extractManualReferencesTinyFish, getTinyFishApiKey } = await import('./tinyfishService');
+        if (getTinyFishApiKey()) {
+          console.log('[DeepSeek] Extracting manual references via TinyFish');
+          // TinyFish uses query-based search; search for each URL
+          for (const refUrl of config.manualReferenceUrls.slice(0, 5)) {
+            const extracted = await extractManualReferencesTinyFish(refUrl);
+            if (extracted.content) {
+              realTimeSources = [...realTimeSources, ...extracted.sources];
+              manualReferencesInstruction += `\n${extracted.content.substring(0, 600)}`;
+            }
+          }
+          if (manualReferencesInstruction) {
+            manualReferencesInstruction = `
+      MANUAL REFERENCE MATERIALS:
+      The user provided the following URLs for reference. Use this information:
+      ${manualReferencesInstruction.substring(0, 3000)}
+            `;
+          }
+        }
+      } else {
+        // Default: Tavily extract
+        const { extractManualReferences, getTavilyApiKey } = await import('./tavilyService');
+        if (getTavilyApiKey()) {
+          console.log('[DeepSeek] Extracting manual reference URLs via Tavily');
+          const extracted = await extractManualReferences(config.manualReferenceUrls);
+          if (extracted.content) {
+            realTimeSources = [...realTimeSources, ...extracted.sources];
+            manualReferencesInstruction = `
       MANUAL REFERENCE MATERIALS:
       The user provided the following URLs for reference. Use this information:
       ${extracted.content.substring(0, 3000)}
-          `;
+            `;
+          }
         }
       }
     } catch (e) {
