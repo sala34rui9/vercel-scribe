@@ -273,6 +273,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
               <span className={`${sidebarCollapsed ? 'hidden' : 'text-sm'}`}>SEO</span>
             </button>
 
+            <button onClick={onShowSerp} title="SERP Intel" className="flex items-center gap-3 w-full text-slate-600 hover:text-blue-600 transition-colors rounded-md px-2 py-2">
+              <TrendingUp className="w-5 h-5" />
+              <span className={`${sidebarCollapsed ? 'hidden' : 'text-sm'}`}>SERP Intel</span>
+            </button>
+
             <button title="Voices" className="flex items-center gap-3 w-full text-slate-600 hover:text-blue-600 transition-colors rounded-md px-2 py-2">
               <Mic className="w-5 h-5" />
               <span className={`${sidebarCollapsed ? 'hidden' : 'text-sm'}`}>Voices</span>

@@ -674,7 +674,32 @@ const App: React.FC = () => {
 
       {activePage === 'serp' && (
         <Suspense fallback={<div className="flex-1 flex items-center justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-cyan-600" /></div>}>
-          <SerpIntelligence />
+          <SerpIntelligence onGenerateWithResearch={(researchPackage, topic) => {
+            setActivePage('articles');
+            handleGenerate({
+              mode: 'single',
+              topic,
+              autoOptimize: true,
+              imageCount: 0,
+              wordCount: 2000,
+              type: 'Blog Post' as any,
+              tone: 'Professional' as any,
+              targetCountry: 'United States' as any,
+              humanizeContent: false,
+              includeBulletPoints: true,
+              includeTables: true,
+              includeItalics: true,
+              includeBold: true,
+              primaryKeywords: [],
+              nlpKeywords: [],
+              includeFaq: true,
+              includeConclusion: true,
+              provider: AIProvider.DEEPSEEK,
+              deepResearch: true,
+              realTimeData: true,
+              personalResources: researchPackage,
+            });
+          }} />
         </Suspense>
       )}
 
