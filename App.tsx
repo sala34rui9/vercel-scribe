@@ -543,6 +543,10 @@ const App: React.FC = () => {
     setActivePage('home');
   }, []);
 
+  const showSerp = useCallback(() => {
+    setActivePage('serp');
+  }, []);
+
   const handleSaveArticles = useCallback(() => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(generatedArticles)); } catch { }
   }, [generatedArticles]);
@@ -667,6 +671,12 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
+
+      {activePage === 'serp' && (
+        <Suspense fallback={<div className="flex-1 flex items-center justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-cyan-600" /></div>}>
+          <SerpIntelligence />
+        </Suspense>
+      )}
 
       {activePage === 'admin' && (
         <div className="animate-in fade-in duration-300 h-full w-full">
