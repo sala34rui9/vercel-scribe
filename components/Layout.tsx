@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap, Search, Home, FileText, Grid, BookOpen, Mic, Newspaper, MapPin, HelpCircle, ChevronLeft, ChevronRight, BarChart3, Globe, Target, Fish } from 'lucide-react';
+import { PenTool, Layers, Key, X, Save, ShieldCheck, AlertCircle, Cpu, Zap, Search, Home, FileText, Grid, BookOpen, Mic, Newspaper, MapPin, HelpCircle, ChevronLeft, ChevronRight, BarChart3, Globe, Target, Fish, TrendingUp, Settings } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -8,10 +7,12 @@ interface LayoutProps {
   onShowArticles?: () => void;
   onShowEditor?: () => void;
   onShowSeo?: () => void;
+  onShowSerp?: () => void;
+  onShowAdmin?: () => void;
   savedCount?: number;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArticles, onShowEditor, onShowSeo, savedCount = 0 }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArticles, onShowEditor, onShowSeo, onShowSerp, onShowAdmin, savedCount = 0 }) => {
   const [showKeyModal, setShowKeyModal] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
@@ -19,6 +20,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
   const [deepSeekKey, setDeepSeekKey] = useState('');
   const [tavilyKey, setTavilyKey] = useState('');
   const [tinyfishKey, setTinyfishKey] = useState('');
+  const [tinyfishFetchKey, setTinyfishFetchKey] = useState('');
   const [seRankingKey, setSeRankingKey] = useState('');
   const [targetDomain, setTargetDomain] = useState('');
   const [competitorDomain, setCompetitorDomain] = useState('');
@@ -27,6 +29,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
   const [hasDeepSeekKey, setHasDeepSeekKey] = useState(false);
   const [hasTavilyKey, setHasTavilyKey] = useState(false);
   const [hasTinyfishKey, setHasTinyfishKey] = useState(false);
+  const [hasTinyfishFetchKey, setHasTinyfishFetchKey] = useState(false);
   const [hasSeRankingKey, setHasSeRankingKey] = useState(false);
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
@@ -55,6 +58,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
     if (tfKey) {
       setHasTinyfishKey(true);
       setTinyfishKey(tfKey);
+    }
+
+    const tfFetchKey = localStorage.getItem('user_tinyfish_fetch_api_key');
+    if (tfFetchKey) {
+      setHasTinyfishFetchKey(true);
+      setTinyfishFetchKey(tfFetchKey);
     }
 
     const checkSeoSettings = () => {
@@ -104,6 +113,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
       saved = true;
     }
 
+    if (tinyfishFetchKey.trim()) {
+      localStorage.setItem('user_tinyfish_fetch_api_key', tinyfishFetchKey.trim());
+      setHasTinyfishFetchKey(true);
+      saved = true;
+    }
+
     // Mark as saved if any key was set
     saved = saved;
 
@@ -138,6 +153,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
     localStorage.removeItem('user_tinyfish_api_key');
     setTinyfishKey('');
     setHasTinyfishKey(false);
+  };
+
+  const clearTinyfishFetch = () => {
+    localStorage.removeItem('user_tinyfish_fetch_api_key');
+    setTinyfishFetchKey('');
+    setHasTinyfishFetchKey(false);
   };
 
   const clearSeRanking = () => {
@@ -271,6 +292,13 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
               <HelpCircle className="w-5 h-5" />
               <span className={`${sidebarCollapsed ? 'hidden' : 'text-sm'}`}>Help</span>
             </button>
+
+            {onShowAdmin && (
+              <button onClick={onShowAdmin} title="Admin" className="flex items-center gap-3 w-full text-slate-600 hover:text-blue-600 transition-colors rounded-md px-2 py-2 mt-4 pt-4 border-t border-slate-100">
+                <Settings className="w-5 h-5" />
+                <span className={`${sidebarCollapsed ? 'hidden' : 'text-sm'}`}>Admin</span>
+              </button>
+            )}
           </nav>
 
           <div className="mt-auto mb-4 w-full flex flex-col items-center">
@@ -409,6 +437,27 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
                   )}
                 </div>
                 <p className="text-xs text-slate-400">Required for TinyFish web research provider</p>
+              </div>
+
+              {/* TinyFish Fetch Section */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="flex items-center text-sm font-semibold text-slate-700">
+                  <Fish className="w-4 h-4 mr-1.5 text-cyan-600" />
+                  TinyFish Fetch API Key
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={tinyfishFetchKey}
+                    onChange={(e) => setTinyfishFetchKey(e.target.value)}
+                    placeholder="tff-..."
+                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none text-sm font-mono"
+                  />
+                  {hasTinyfishFetchKey && (
+                    <button onClick={clearTinyfishFetch} className="px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200">Clear</button>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400">Required for advanced RAG integration</p>
               </div>
 
               <div className="flex justify-end pt-4">

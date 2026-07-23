@@ -436,7 +436,7 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
               deepResearchInstruction = `
       BRAND ANALYSIS (via TinyFish):
       The following brand/site analysis was gathered:
-      ${deepResearchContext.substring(0, 3000)}
+      ${deepResearchContext.substring(0, 12000)}
       
       Site Architecture discovered:
       ${brandAnalysis.siteArchitecture.slice(0, 10).join('\n')}
@@ -572,14 +572,14 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
             const extracted = await extractManualReferencesTinyFish(refUrl);
             if (extracted.content) {
               realTimeSources = [...realTimeSources, ...extracted.sources];
-              manualReferencesInstruction += `\n${extracted.content.substring(0, 600)}`;
+              manualReferencesInstruction += `\n${extracted.content.substring(0, 3000)}`;
             }
           }
           if (manualReferencesInstruction) {
             manualReferencesInstruction = `
       MANUAL REFERENCE MATERIALS:
       The user provided the following URLs for reference. Use this information:
-      ${manualReferencesInstruction.substring(0, 3000)}
+      ${manualReferencesInstruction.substring(0, 12000)}
             `;
           }
         }

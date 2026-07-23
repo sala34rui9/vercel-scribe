@@ -199,3 +199,182 @@ export interface KeywordExplorerData {
   relatedKeywords: string[];
   aiOverviewKeywords: string[];
 }
+
+// ============================================================
+// SERP Intelligence Types
+// ============================================================
+
+export interface SerpSearchResult {
+  rank: number;
+  title: string;
+  url: string;
+  domain: string;
+  snippet: string;
+  publishedDate?: string;
+  authorityScore?: number;
+}
+
+export interface FetchedPage {
+  url: string;
+  finalUrl: string;
+  domain: string;
+  title: string;
+  author?: string;
+  publicationDate?: string;
+  content: string;
+  language: string;
+  fetchStatus: 'success' | 'failed';
+  errorMessage?: string;
+}
+
+export interface ContentSimilarityResult {
+  commonTopics: string[];
+  commonQuestions: string[];
+  repeatedAdvice: string[];
+  repeatedStatistics: string[];
+  commonH2s: string[];
+  commonH3s: string[];
+  commonExamples: string[];
+  frequentlyLinkedResources: string[];
+}
+
+export interface ContentGapResult {
+  missingTopics: string[];
+  missingSubtopics: string[];
+  missingFAQs: string[];
+  missingComparisons: string[];
+  missingExamples: string[];
+  missingCaseStudies: string[];
+  missingStatistics: string[];
+  missingExpertOpinions: string[];
+  contentOpportunities: Array<{ topic: string; reason: string; enabled: boolean }>;
+}
+
+export interface SeoStructureResult {
+  averageH2s: number;
+  averageH3s: number;
+  averageParagraphLength: number;
+  bulletUsagePercent: number;
+  tableUsagePercent: number;
+  imageUsagePercent: number;
+  faqUsagePercent: number;
+  calloutUsagePercent: number;
+  listUsagePercent: number;
+  recommendations: string[];
+}
+
+export interface HookAnalysisResult {
+  topHookPattern: string;
+  averageIntroLength: number;
+  commonFirstSentenceStructure: string;
+  hookStyles: Array<{ style: string; count: number }>;
+  recommendation: string;
+}
+
+export interface WritingStyleResult {
+  tone: string[];
+  readingLevel: string;
+  sentenceComplexity: string;
+  vocabulary: string;
+  paragraphSize: string;
+  formality: string;
+  voice: string;
+  persuasiveness: string;
+  storytelling: string;
+  educationalDepth: string;
+  actionability: string;
+}
+
+export interface ReadabilityResult {
+  fleschReadingEase: number;
+  gradeLevel: string;
+  averageSentenceLength: number;
+  averageWordLength: number;
+  averageParagraphLength: number;
+  passiveVoicePercent: number;
+  transitionWordPercent: number;
+  recommendedLevel: string;
+  reason: string;
+}
+
+export interface ContentPatternResult {
+  averageArticleLength: number;
+  averageImages: number;
+  averageTables: number;
+  averageBulletLists: number;
+  averageFAQs: number;
+  averageLinks: number;
+  averageCitations: number;
+  averageExamples: number;
+}
+
+export interface SearchIntentResult {
+  primaryIntent: 'informational' | 'commercial' | 'transactional' | 'navigational' | 'mixed';
+  confidence: number;
+  explanation: string;
+}
+
+export interface TopicCoverageMap {
+  coreTopics: string[];
+  supportingTopics: string[];
+  advancedTopics: string[];
+  missingTopics: string[];
+  optionalTopics: string[];
+}
+
+export interface FaqAnalysisResult {
+  questions: Array<{ question: string; frequency: number; enabled: boolean }>;
+}
+
+export interface StatisticsAnalysisResult {
+  statistics: Array<{ value: string; context: string; enabled: boolean }>;
+}
+
+export interface ExpertAnalysisResult {
+  expertQuotes: string[];
+  referencedOrganizations: string[];
+  researchPapers: string[];
+  governmentSources: string[];
+}
+
+export interface SerpIntelligenceReport {
+  similarity: ContentSimilarityResult;
+  gaps: ContentGapResult;
+  seoStructure: SeoStructureResult;
+  hook: HookAnalysisResult;
+  writingStyle: WritingStyleResult;
+  readability: ReadabilityResult;
+  contentPatterns: ContentPatternResult;
+  searchIntent: SearchIntentResult;
+  topicCoverage: TopicCoverageMap;
+  faqs: FaqAnalysisResult;
+  statistics: StatisticsAnalysisResult;
+  experts: ExpertAnalysisResult;
+  outline: OutlineRecommendation;
+}
+
+export interface OutlineRecommendation {
+  suggestedH2s: string[];
+  suggestedH3s: string[];
+  recommendedFAQ: string[];
+  recommendedCTA: string;
+}
+
+export interface UserSelections {
+  contentOpportunities: boolean[];
+  faqQuestions: boolean[];
+  statistics: boolean[];
+  includeCommonTopics: boolean;
+  includeOutline: boolean;
+  includeHookRecommendation: boolean;
+  includeWritingStyle: boolean;
+  includeReadability: boolean;
+}
+
+export interface SerpResearchPackage {
+  topic: string;
+  selectedUrls: string[];
+  fetchedPages: FetchedPage[];
+  report: SerpIntelligenceReport;
+  userSelections: UserSelections;
+}

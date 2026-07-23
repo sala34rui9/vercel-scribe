@@ -1,9 +1,10 @@
-
 import React, { useState, useCallback, useRef, Suspense, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { ArticleForm } from './components/ArticleForm';
 import { Dashboard } from './components/Dashboard';
 import { SeoSettings } from './components/SeoSettings';
+import { AdminUsage } from './components/AdminUsage';
+const SerpIntelligence = React.lazy(() => import('./components/SerpIntelligence').then(m => ({ default: m.SerpIntelligence })));
 const ArticlePreview = React.lazy(() => import('./components/ArticlePreview').then(m => ({ default: m.ArticlePreview })));
 import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel, SearchProvider, SEORankingData } from './types';
 import { generateArticle, generatePrimaryKeywords, generateNLPKeywords, scanForInternalLinks, scanForExternalLinks } from './services/geminiService';
@@ -77,7 +78,7 @@ const App: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [formKey, setFormKey] = useState(0);
-  const [activePage, setActivePage] = useState<'home' | 'editor' | 'articles' | 'seo'>(() => {
+  const [activePage, setActivePage] = useState<'home' | 'editor' | 'articles' | 'seo' | 'serp' | 'admin'>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -553,14 +554,14 @@ const App: React.FC = () => {
   // Show dashboard on home page
   if (activePage === 'home') {
     return (
-      <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} onShowSeo={showSeo} savedCount={generatedArticles.length}>
+      <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} onShowSeo={showSeo} onShowSerp={showSerp} onShowAdmin={() => setActivePage('admin')} savedCount={generatedArticles.length}>
         <Dashboard onNavigate={setActivePage} />
       </Layout>
     );
   }
 
   return (
-    <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} onShowSeo={showSeo} savedCount={generatedArticles.length}>
+    <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} onShowSeo={showSeo} onShowSerp={showSerp} onShowAdmin={() => setActivePage('admin')} savedCount={generatedArticles.length}>
       <div className="h-[calc(100vh-8rem)] w-full overflow-y-auto pb-8">
         {activePage === 'editor' && (
           <div className="max-w-5xl mx-auto">
@@ -666,6 +667,12 @@ const App: React.FC = () => {
           </div>
         )}
       </div>
+
+      {activePage === 'admin' && (
+        <div className="animate-in fade-in duration-300 h-full w-full">
+          <AdminUsage />
+        </div>
+      )}
     </Layout>
   );
 };

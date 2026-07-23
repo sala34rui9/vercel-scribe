@@ -12,6 +12,8 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 const isRetryable = (status: number) => [429, 500, 503].includes(status);
 
+import { fetchWebPages, getTinyFishFetchApiKey, FetchedDocument } from './tinyfishFetchService';
+
 export interface SearchWebParams {
   query: string;
   purpose?: string;
@@ -172,10 +174,49 @@ export const listSearchUsage = async (
   return tinyfishRequest<SearchUsageResponse>('/usage', apiKey, options, timeout);
 };
 
+// Helpers for filtering and fetching
+const filterUrlsForFetch = (urls: string[]): string[] => {
+  const ignorePatterns = [/search/i, /category/i, /login/i, /ad/i, /track/i, /\/tag\//i, /\/author\//i];
+  return urls.filter(url => !ignorePatterns.some(p => p.test(url)));
+};
+
+const formatFetchedDocsToContext = (topic: string, docs: FetchedDocument[]): string => {
+  let context = `# Research Context: ${topic}\n\n`;
+  const successfulDocs = docs.filter(d => d.status === 'success' && d.markdown);
+  
+  if (successfulDocs.length === 0) {
+    return context + "No detailed content could be fetched.";
+  }
+
+  successfulDocs.forEach(doc => {
+    context += `## Source: ${doc.title || doc.url}\n`;
+    context += `**URL:** ${doc.url}\n`;
+    if (doc.author) context += `**Author:** ${doc.author}\n`;
+    if (doc.published_date) context += `**Published:** ${doc.published_date}\n`;
+    context += `\n${doc.markdown?.substring(0, 4000) || ''}\n\n---\n\n`;
+  });
+  return context;
+};
+
 export const fetchRealTimeDataTinyFish = async (topic: string): Promise<{ content: string; sources: string[] }> => {
   const result = await searchWeb(topic, { purpose: 'research' });
+  const allUrls = result.results.map(r => r.url).filter(Boolean);
+  const sources = allUrls;
+
+  if (getTinyFishFetchApiKey()) {
+    console.log('[TinyFish] Fetch API key found, extracting full content...');
+    const filteredUrls = filterUrlsForFetch(allUrls).slice(0, 3);
+    try {
+      const fetchResponse = await fetchWebPages(filteredUrls, { purpose: `Extract factual information about ${topic}` });
+      const content = formatFetchedDocsToContext(topic, fetchResponse.results);
+      return { content, sources };
+    } catch (e) {
+      console.warn('[TinyFish] Fetch failed, falling back to snippets', e);
+    }
+  }
+
+  // Fallback to snippets
   const content = result.results.map(r => `- **${r.title}**: ${r.snippet}`).join('\n');
-  const sources = result.results.map(r => r.url).filter(Boolean);
   return { content, sources };
 };
 
@@ -228,19 +269,62 @@ export const analyzeBrandWebsiteTinyFish = async (
   }
 
   const siteArchitecture = result.results.map(r => r.url);
-  const content = result.results.map(r => `## ${r.title}\n${r.snippet}`).join('\n\n');
   const brandVoice = `Based on site analysis of ${websiteUrl}`;
 
+  if (getTinyFishFetchApiKey()) {
+    console.log('[TinyFish] Fetch API key found, extracting brand website content...');
+    const urlsToFetch = siteArchitecture.slice(0, 5);
+    try {
+      const fetchResponse = await fetchWebPages(urlsToFetch, { purpose: `Analyze brand voice and content for ${websiteUrl}` });
+      const content = formatFetchedDocsToContext(websiteUrl, fetchResponse.results);
+      return { brandVoice, siteArchitecture, content };
+    } catch (e) {
+      console.warn('[TinyFish] Fetch failed, falling back to snippets', e);
+    }
+  }
+
+  const content = result.results.map(r => `## ${r.title}\n${r.snippet}`).join('\n\n');
   return { brandVoice, siteArchitecture, content };
 };
 
 export const extractManualReferencesTinyFish = async (
   query: string
 ): Promise<{ content: string; sources: string[] }> => {
+  // If it's a direct URL being passed as query
+  let urlsToFetch = [query];
+  let sources = [query];
+  let isDirectUrl = false;
+
+  try {
+    new URL(query);
+    isDirectUrl = true;
+  } catch (e) {}
+
+  if (!isDirectUrl) {
+    const result = await searchWeb(query, { purpose: 'research' });
+    urlsToFetch = result.results.map(r => r.url);
+    sources = urlsToFetch;
+  }
+
+  if (getTinyFishFetchApiKey() && urlsToFetch.length > 0) {
+    console.log('[TinyFish] Fetch API key found, extracting manual references...');
+    try {
+      const fetchResponse = await fetchWebPages(urlsToFetch.slice(0, 3), { purpose: `Extract reference content for ${query}` });
+      const content = formatFetchedDocsToContext(query, fetchResponse.results);
+      return { content, sources };
+    } catch (e) {
+      console.warn('[TinyFish] Fetch failed, falling back to snippets if available', e);
+    }
+  }
+
+  if (isDirectUrl) {
+    return { content: `Could not fetch content for ${query}`, sources };
+  }
+
   const result = await searchWeb(query, { purpose: 'research' });
   const content = result.results.map(r =>
     `### Reference: ${r.url}\n${r.snippet?.substring(0, 1000) || 'Content not available'}...`
   ).join('\n\n');
-  const sources = result.results.map(r => r.url);
-  return { content, sources };
+  
+  return { content, sources: result.results.map(r => r.url) };
 };
