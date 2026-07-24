@@ -185,7 +185,24 @@ export const fetchWebPages = async (
       }
 
       // Transform response to match FetchedDocument interface
-      const results: FetchedDocument[] = data.results || [];
+      // Note: API does NOT return a 'status' field — we determine success by content presence
+      const results: FetchedDocument[] = (data.results || []).map((item: any) => ({
+        url: item.url || '',
+        final_url: item.final_url,
+        title: item.title,
+        description: item.description,
+        language: item.language,
+        author: item.author,
+        published_date: item.published_date,
+        // API returns content in 'text' field regardless of format requested
+        text: item.text || item.markdown || item.html,
+        html: item.html,
+        markdown: item.markdown,
+        // Success = has content and no error
+        status: item.error ? 'error' : (item.text || item.markdown || item.html) ? 'success' : 'error',
+        error: item.error,
+        latency_ms: item.latency_ms,
+      }));
 
       // Handle per-URL failures from errors[] (per official docs)
       if (data.errors && Array.isArray(data.errors)) {
