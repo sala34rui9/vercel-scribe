@@ -673,7 +673,7 @@ const App: React.FC = () => {
 
         {activePage === 'serp' && (
           <Suspense fallback={<div className="flex-1 flex items-center justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-cyan-600" /></div>}>
-            <SerpIntelligence onGenerateWithResearch={(researchPackage, topic) => {
+            <SerpIntelligence onGenerateWithResearch={(researchPackage, topic, deepSeekModel) => {
               setActivePage('articles');
               handleGenerate({
                 mode: 'single',
@@ -694,6 +694,7 @@ const App: React.FC = () => {
                 includeFaq: true,
                 includeConclusion: true,
                 provider: AIProvider.DEEPSEEK,
+                deepSeekModel: deepSeekModel,
                 deepResearch: true,
                 realTimeData: true,
                 personalResources: researchPackage,

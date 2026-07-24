@@ -10,7 +10,7 @@ import {
   Eye, BookOpen, PenTool, RefreshCw, Check, X, ExternalLink,
   Layers, MessageSquare, TrendingUp, Award, Hash, Users, Link as LinkIcon
 } from 'lucide-react';
-import { SearchProvider, AIProvider, SerpSearchResult, FetchedPage, SerpIntelligenceReport, UserSelections } from '../types';
+import { SearchProvider, AIProvider, SerpSearchResult, FetchedPage, SerpIntelligenceReport, UserSelections, DeepSeekModel } from '../types';
 import { searchWeb, getTinyFishApiKey } from '../services/tinyfishService';
 import { getTinyFishFetchApiKey, fetchWebPages } from '../services/tinyfishFetchService';
 import { getTavilyApiKey, tavilySearch } from '../services/tavilyService';
@@ -19,7 +19,7 @@ import { generateSerpIntelligenceReport, buildResearchPackage } from '../service
 type WorkflowStep = 'search' | 'select' | 'fetch' | 'analyze' | 'recommendations' | 'generate';
 
 interface SerpIntelligenceProps {
-  onGenerateWithResearch?: (researchPackage: string, topic: string) => void;
+  onGenerateWithResearch?: (researchPackage: string, topic: string, deepSeekModel: DeepSeekModel) => void;
 }
 
 export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWithResearch }) => {
@@ -27,6 +27,7 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
   const [currentStep, setCurrentStep] = useState<WorkflowStep>('search');
   const [topic, setTopic] = useState('');
   const [searchProvider, setSearchProvider] = useState<SearchProvider>(SearchProvider.TINYFISH);
+  const [selectedDeepSeekModel, setSelectedDeepSeekModel] = useState<DeepSeekModel>(DeepSeekModel.V3_NON_THINKING);
 
   // Search results
   const [searchResults, setSearchResults] = useState<SerpSearchResult[]>([]);
@@ -280,7 +281,7 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
     );
 
     if (onGenerateWithResearch) {
-      onGenerateWithResearch(researchPackage, topic);
+      onGenerateWithResearch(researchPackage, topic, selectedDeepSeekModel);
     }
 
     setIsGenerating(false);
@@ -843,6 +844,40 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
             <div className="p-3 bg-slate-50 rounded-lg">
               <p className="text-xs text-slate-500 uppercase font-semibold">Sources Analyzed</p>
               <p className="text-sm font-medium text-slate-800">{fetchedPages.filter(p => p.fetchStatus === 'success').length} pages</p>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-slate-800 mb-3">Select Generation Model</h3>
+            <div className="space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="deepseekModel"
+                  value={DeepSeekModel.V3_NON_THINKING}
+                  checked={selectedDeepSeekModel === DeepSeekModel.V3_NON_THINKING}
+                  onChange={() => setSelectedDeepSeekModel(DeepSeekModel.V3_NON_THINKING)}
+                  className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500"
+                />
+                <div>
+                  <div className="text-sm font-medium text-slate-800">Regular Mode (DeepSeek-V3.2)</div>
+                  <div className="text-xs text-slate-500">Fast and efficient generation. Recommended for standard articles.</div>
+                </div>
+              </label>
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="deepseekModel"
+                  value={DeepSeekModel.V3_THINKING}
+                  checked={selectedDeepSeekModel === DeepSeekModel.V3_THINKING}
+                  onChange={() => setSelectedDeepSeekModel(DeepSeekModel.V3_THINKING)}
+                  className="mt-1 w-4 h-4 text-blue-600 focus:ring-blue-500"
+                />
+                <div>
+                  <div className="text-sm font-medium text-slate-800">Reasoning Mode (DeepSeek-V3.2 Thinking)</div>
+                  <div className="text-xs text-slate-500">Advanced reasoning for higher quality content. <span className="text-amber-600 font-medium">Note: This will take significantly longer to generate.</span></div>
+                </div>
+              </label>
             </div>
           </div>
 
