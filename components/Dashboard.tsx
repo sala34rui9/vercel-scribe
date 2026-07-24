@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, BarChart3, Rocket, Zap } from 'lucide-react';
+import { FileText, BarChart3, Rocket, Zap, CheckCircle2 } from 'lucide-react';
 
 interface DashboardProps {
   onNavigate: (page: 'editor') => void;

@@ -109,6 +109,7 @@ export const CompetitiveStrategyReportComponent: React.FC<CompetitiveReportProps
   };
 
   const selectedOutline = report.outlineOptions[report.selectedOutlineIndex];
+  const hasOutlineData = selectedOutline && selectedOutline.h2s.length > 0;
 
   return (
     <div className="space-y-4">
@@ -263,7 +264,43 @@ export const CompetitiveStrategyReportComponent: React.FC<CompetitiveReportProps
         onToggle={() => toggleSection('outline')}
       >
         <div className="space-y-4">
+          {/* Empty state: no outline data */}
+          {!hasOutlineData && (
+            <div className="text-center py-6">
+              <BookOpen className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+              <p className="text-sm text-slate-500 mb-3">Outline generation failed or returned no data.</p>
+              <button
+                onClick={async () => {
+                  setRegeneratingOption('all');
+                  try {
+                    const newOptions = await generateAllOutlineOptions(
+                      fetchedPages.filter(p => p.fetchStatus === 'success'),
+                      topic,
+                    );
+                    onReportUpdate({
+                      ...report,
+                      outlineOptions: newOptions,
+                      selectedOutlineIndex: 0,
+                      selectedH2s: new Set(newOptions[0]?.h2s || []),
+                      selectedH3s: new Set(newOptions[0]?.h3s || []),
+                    });
+                  } catch (e) {
+                    console.error('Failed to regenerate outlines:', e);
+                  } finally {
+                    setRegeneratingOption(null);
+                  }
+                }}
+                disabled={regeneratingOption === 'all'}
+                className="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 flex items-center gap-2 mx-auto transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${regeneratingOption === 'all' ? 'animate-spin' : ''}`} />
+                {regeneratingOption === 'all' ? 'Generating...' : 'Regenerate All Outlines'}
+              </button>
+            </div>
+          )}
+
           {/* Outline Option Selector */}
+          {hasOutlineData && (
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">Choose an Outline Strategy</label>
             <div className="grid grid-cols-3 gap-2">
@@ -285,9 +322,10 @@ export const CompetitiveStrategyReportComponent: React.FC<CompetitiveReportProps
               ))}
             </div>
           </div>
+          )}
 
           {/* Selected Outline with Toggles */}
-          {selectedOutline && (
+          {hasOutlineData && selectedOutline && (
             <div className="border border-slate-200 rounded-lg overflow-hidden">
               <div className="bg-slate-50 px-4 py-2 flex items-center justify-between border-b border-slate-200">
                 <span className="text-sm font-medium text-slate-700">

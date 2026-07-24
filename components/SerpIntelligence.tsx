@@ -885,14 +885,21 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
             </div>
           )}
 
-          {/* Generate Button */}
-          <div className="mt-8 pt-6 border-t border-slate-200">
+          {/* Action Buttons */}
+          <div className="mt-8 pt-6 border-t border-slate-200 space-y-3">
+            <button
+              onClick={() => setCurrentStep('competitive')}
+              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold rounded-lg hover:from-indigo-700 hover:to-purple-700 flex items-center justify-center gap-2 transition-all shadow-lg"
+            >
+              <TrendingUp className="w-5 h-5" />
+              Generate Competitive Strategy
+            </button>
             <button
               onClick={() => setCurrentStep('generate')}
-              className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-indigo-700 flex items-center justify-center gap-2 transition-all shadow-lg"
+              className="w-full py-2.5 bg-white border border-slate-300 text-slate-700 font-medium rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2 transition-all text-sm"
             >
-              <PenTool className="w-5 h-5" />
-              Proceed to Generate Article
+              <PenTool className="w-4 h-4" />
+              Skip to Generate (without competitive analysis)
             </button>
           </div>
         </div>
@@ -1057,7 +1064,7 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
           >
             <ChevronLeft className="w-4 h-4" /> Previous
           </button>
-          {currentStep !== 'generate' && currentStep !== 'recommendations' && (
+          {currentStep !== 'generate' && (
             <button
               onClick={nextStep}
               disabled={!canGoNext()}
