@@ -225,6 +225,7 @@ export interface FetchedPage {
   language: string;
   fetchStatus: 'success' | 'failed';
   errorMessage?: string;
+  latencyMs?: number;
 }
 
 export interface ContentSimilarityResult {

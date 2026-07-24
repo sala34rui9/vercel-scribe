@@ -46,6 +46,7 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
   const [fetchedPages, setFetchedPages] = useState<FetchedPage[]>([]);
   const [isFetching, setIsFetching] = useState(false);
   const [fetchProgress, setFetchProgress] = useState({ completed: 0, total: 0 });
+  const [fetchDuration, setFetchDuration] = useState<number | null>(null);
 
   // Analysis state
   const [report, setReport] = useState<SerpIntelligenceReport | null>(null);
@@ -208,19 +209,37 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
     }
     setIsFetching(true);
     setFetchProgress({ completed: 0, total: urls.length });
+    setFetchDuration(null);
     setSearchError(null);
     const pages: FetchedPage[] = [];
+    const fetchStartTime = performance.now();
     try {
       const fetchResult = await fetchWebPages(urls, { purpose: "research", format: "markdown" });
       for (const doc of fetchResult.results) {
         const pageUrl = doc.url || urls[0];
-        pages.push({ url: pageUrl, finalUrl: doc.final_url || doc.url || pageUrl, domain: (() => { try { return new URL(doc.final_url || doc.url || pageUrl).hostname; } catch { return pageUrl; } })(), title: doc.title || "Untitled", author: doc.author || undefined, publicationDate: doc.published_date || undefined, content: doc.markdown || doc.text || "Content could not be extracted", language: doc.language || "en", fetchStatus: doc.status === "success" ? "success" as const : "failed" as const, errorMessage: doc.error || undefined });
+        pages.push({
+          url: pageUrl,
+          finalUrl: doc.final_url || doc.url || pageUrl,
+          domain: (() => { try { return new URL(doc.final_url || doc.url || pageUrl).hostname; } catch { return pageUrl; } })(),
+          title: doc.title || "Untitled",
+          author: doc.author || undefined,
+          publicationDate: doc.published_date || undefined,
+          content: doc.markdown || doc.text || "Content could not be extracted",
+          language: doc.language || "en",
+          fetchStatus: doc.status === "success" ? "success" as const : "failed" as const,
+          errorMessage: doc.error || undefined,
+          latencyMs: doc.latency_ms,
+        });
       }
+      const elapsed = Math.round(performance.now() - fetchStartTime);
+      setFetchDuration(elapsed);
       setFetchProgress({ completed: urls.length, total: urls.length });
       setFetchedPages([...pages]);
       fetchedCacheRef.current.set(cacheKey, pages);
-    } catch (err) {
-      setSearchError("Fetch failed: " + err.message);
+    } catch (err: any) {
+      const elapsed = Math.round(performance.now() - fetchStartTime);
+      setFetchDuration(elapsed);
+      setSearchError("Fetch failed: " + (err?.message || String(err)));
     } finally {
       setIsFetching(false);
     }
@@ -243,6 +262,7 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
       setReport(result);
     } catch (err: any) {
       console.error('[SERP Intelligence] Analysis failed:', err);
+      setSearchError('Analysis failed: ' + (err?.message || String(err)));
     } finally {
       setIsAnalyzing(false);
     }
@@ -673,7 +693,7 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
     </div>
   );
 
-  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string; details?: any } | null>(null);
   const [isTesting, setIsTesting] = useState(false);
 
   const handleTestConnection = async () => {
@@ -754,6 +774,9 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
                 )}
                 <span className="text-sm font-medium text-slate-800 truncate flex-1">{page.title || page.url}</span>
                 <span className="text-xs text-slate-500">{page.domain}</span>
+                {page.latencyMs && (
+                  <span className="text-xs text-slate-400 font-mono">{Math.round(page.latencyMs)}ms</span>
+                )}
               </div>
               {page.fetchStatus === 'failed' && page.errorMessage && (
                 <p className="text-xs text-red-600 mt-1 ml-6">{page.errorMessage}</p>
@@ -763,18 +786,28 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
         </div>
 
         {fetchedPages.length > 0 && !isFetching && (
-          <div className="mt-4 flex items-center justify-between">
-            <span className="text-sm text-slate-600">
-              <span className="font-semibold text-green-600">{fetchedPages.filter(p => p.fetchStatus === 'success').length}</span> successful,
-              <span className="font-semibold text-red-600 ml-1">{fetchedPages.filter(p => p.fetchStatus === 'failed').length}</span> failed
-            </span>
-            <button
-              onClick={nextStep}
-              disabled={fetchedPages.filter(p => p.fetchStatus === 'success').length === 0}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-colors"
-            >
-              Analyze Content <ChevronRight className="w-4 h-4" />
-            </button>
+          <div className="mt-4">
+            {fetchDuration !== null && (
+              <div className="mb-3 p-2.5 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between">
+                <span className="text-xs font-medium text-blue-700">⏱ Total fetch time</span>
+                <span className="text-sm font-semibold text-blue-800 font-mono">
+                  {fetchDuration < 1000 ? `${fetchDuration}ms` : `${(fetchDuration / 1000).toFixed(1)}s`}
+                </span>
+              </div>
+            )}
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-slate-600">
+                <span className="font-semibold text-green-600">{fetchedPages.filter(p => p.fetchStatus === 'success').length}</span> successful,
+                <span className="font-semibold text-red-600 ml-1">{fetchedPages.filter(p => p.fetchStatus === 'failed').length}</span> failed
+              </span>
+              <button
+                onClick={nextStep}
+                disabled={fetchedPages.filter(p => p.fetchStatus === 'success').length === 0}
+                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 transition-colors"
+              >
+                Analyze Content <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -865,6 +898,39 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
               className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 flex items-center gap-2 mx-auto transition-colors"
             >
               View Recommendations <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {!isAnalyzing && !report && searchError && (
+          <div className="py-6">
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-semibold text-red-800 mb-1">Analysis Failed</h3>
+                  <p className="text-xs text-red-700">{searchError}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setSearchError(null); handleAnalyze(); }}
+                className="mt-3 px-4 py-2 bg-red-100 text-red-700 text-sm font-medium rounded-lg hover:bg-red-200 flex items-center gap-2 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" /> Retry Analysis
+              </button>
+            </div>
+          </div>
+        )}
+
+        {!isAnalyzing && !report && !searchError && (
+          <div className="text-center py-8">
+            <BarChart3 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-sm text-slate-500 mb-4">Ready to analyze {fetchedPages.filter(p => p.fetchStatus === 'success').length} fetched pages</p>
+            <button
+              onClick={handleAnalyze}
+              className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 flex items-center gap-2 mx-auto transition-colors"
+            >
+              <BarChart3 className="w-4 h-4" /> Start Analysis
             </button>
           </div>
         )}
