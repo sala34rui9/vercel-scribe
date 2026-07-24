@@ -24,6 +24,7 @@ export interface SearchWebParams {
   recency_minutes?: number;
   page?: number;
   include_thumbnail?: boolean;
+  purpose?: string;
 }
 
 export interface ListSearchUsageParams {
