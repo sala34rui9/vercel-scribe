@@ -8,15 +8,17 @@ import {
   Search, Download, CheckSquare, Square, ChevronRight, ChevronLeft,
   Loader2, AlertCircle, Globe, FileText, Zap, Target, BarChart3,
   Eye, BookOpen, PenTool, RefreshCw, Check, X, ExternalLink,
-  Layers, MessageSquare, TrendingUp, Award, Hash, Users, Link as LinkIcon
+  Layers, MessageSquare, TrendingUp, Hash
 } from 'lucide-react';
 import { SearchProvider, AIProvider, SerpSearchResult, FetchedPage, SerpIntelligenceReport, UserSelections, DeepSeekModel } from '../types';
 import { searchWeb, getTinyFishApiKey } from '../services/tinyfishService';
 import { getTinyFishFetchApiKey, fetchWebPages } from '../services/tinyfishFetchService';
 import { getTavilyApiKey, tavilySearch } from '../services/tavilyService';
 import { generateSerpIntelligenceReport, buildResearchPackage } from '../services/serpAnalysisService';
+import { generateCompetitiveStrategyReport, buildCompetitivePrompt, CompetitiveStrategyReport } from '../services/competitiveStrategyService';
+import CompetitiveStrategyReportComponent from './CompetitiveStrategyReport';
 
-type WorkflowStep = 'search' | 'select' | 'fetch' | 'analyze' | 'recommendations' | 'generate';
+type WorkflowStep = 'search' | 'select' | 'fetch' | 'analyze' | 'recommendations' | 'competitive' | 'generate';
 
 interface SerpIntelligenceProps {
   onGenerateWithResearch?: (researchPackage: string, topic: string, deepSeekModel: DeepSeekModel) => void;
@@ -59,6 +61,11 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
 
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Competitive Strategy state
+  const [competitiveReport, setCompetitiveReport] = useState<CompetitiveStrategyReport | null>(null);
+  const [isGeneratingCompetitive, setIsGeneratingCompetitive] = useState(false);
+  const [competitiveProgress, setCompetitiveProgress] = useState({ stage: '', progress: 0 });
+
   // Cache
   const fetchedCacheRef = useRef<Map<string, FetchedPage[]>>(new Map());
 
@@ -69,6 +76,7 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
     { id: 'fetch', label: 'Fetch', icon: Download },
     { id: 'analyze', label: 'Analyze', icon: BarChart3 },
     { id: 'recommendations', label: 'Recommendations', icon: Target },
+    { id: 'competitive', label: 'Competitive', icon: TrendingUp },
     { id: 'generate', label: 'Generate', icon: PenTool },
   ];
 
@@ -85,6 +93,7 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
       case 'fetch': return fetchedPages.filter(p => p.fetchStatus === 'success').length > 0;
       case 'analyze': return report !== null;
       case 'recommendations': return true;
+      case 'competitive': return competitiveReport !== null;
       case 'generate': return false;
       default: return false;
     }
@@ -97,6 +106,8 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
         handleFetch();
       } else if (next.id === 'analyze' && fetchedPages.length > 0) {
         handleAnalyze();
+      } else if (next.id === 'competitive' && fetchedPages.length > 0) {
+        handleCompetitiveStrategy();
       }
       setCurrentStep(next.id);
     }
@@ -172,77 +183,38 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
     setSelectedUrls(new Set());
   };
 
+
   // ---- Step 3: Fetch Content ----
   const handleFetch = async () => {
     const urls = Array.from(selectedUrls);
     if (urls.length === 0) return;
-
-    // Check cache
-    const cacheKey = urls.sort().join(',');
+    const cacheKey = urls.sort().join(",");
     if (fetchedCacheRef.current.has(cacheKey)) {
       setFetchedPages(fetchedCacheRef.current.get(cacheKey)!);
       return;
     }
-
+    if (!getTinyFishFetchApiKey()) {
+      setSearchError("TinyFish Fetch API key is missing. Please add it in Settings.");
+      return;
+    }
     setIsFetching(true);
     setFetchProgress({ completed: 0, total: urls.length });
-
+    setSearchError(null);
     const pages: FetchedPage[] = [];
-    const concurrency = 3;
-
-    for (let i = 0; i < urls.length; i += concurrency) {
-      const batch = urls.slice(i, i + concurrency);
-      const batchResults = await Promise.all(batch.map(async (url) => {
-        try {
-          if (getTinyFishFetchApiKey()) {
-            const fetchResult = await fetchWebPages([url], { purpose: 'research' });
-            const doc = fetchResult.results[0];
-            if (doc) {
-              return {
-                url,
-                finalUrl: doc.url || url,
-                domain: new URL(doc.url || url).hostname,
-                title: doc.title || 'Untitled',
-                content: doc.markdown || 'Content could not be extracted',
-                language: doc.language || 'en',
-                fetchStatus: 'success' as const,
-              } as FetchedPage;
-            }
-          }
-          
-          // Fallback to Search API if Fetch API key is not available or if fetch returns no doc
-          const result = await searchWeb(url, {}, 60000);
-          const firstResult = result.results?.[0];
-          return {
-            url,
-            finalUrl: firstResult?.url || url,
-            domain: new URL(url).hostname,
-            title: firstResult?.title || 'Untitled',
-            content: firstResult?.snippet || 'Content could not be extracted',
-            language: 'en',
-            fetchStatus: 'success' as const,
-          } as FetchedPage;
-        } catch (err: any) {
-          return {
-            url,
-            finalUrl: url,
-            domain: new URL(url).hostname,
-            title: 'Failed to fetch',
-            content: '',
-            language: 'en',
-            fetchStatus: 'failed' as const,
-            errorMessage: err.message,
-          } as FetchedPage;
-        }
-      }));
-
-      pages.push(...batchResults);
-      setFetchProgress({ completed: Math.min(i + batch.length, urls.length), total: urls.length });
+    try {
+      const fetchResult = await fetchWebPages(urls, { purpose: "research", format: "markdown" });
+      for (const doc of fetchResult.results) {
+        const pageUrl = doc.url || urls[0];
+        pages.push({ url: pageUrl, finalUrl: doc.final_url || doc.url || pageUrl, domain: (() => { try { return new URL(doc.final_url || doc.url || pageUrl).hostname; } catch { return pageUrl; } })(), title: doc.title || "Untitled", author: doc.author || undefined, publicationDate: doc.published_date || undefined, content: doc.markdown || doc.text || "Content could not be extracted", language: doc.language || "en", fetchStatus: doc.status === "success" ? "success" as const : "failed" as const, errorMessage: doc.error || undefined });
+      }
+      setFetchProgress({ completed: urls.length, total: urls.length });
       setFetchedPages([...pages]);
+      fetchedCacheRef.current.set(cacheKey, pages);
+    } catch (err) {
+      setSearchError("Fetch failed: " + err.message);
+    } finally {
+      setIsFetching(false);
     }
-
-    fetchedCacheRef.current.set(cacheKey, pages);
-    setIsFetching(false);
   };
 
   // ---- Step 4: Analyze ----
@@ -267,18 +239,46 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
     }
   };
 
-  // ---- Step 6: Generate ----
+  // ---- Step 6: Competitive Strategy ----
+  const handleCompetitiveStrategy = async () => {
+    const successfulPages = fetchedPages.filter(p => p.fetchStatus === 'success');
+    if (successfulPages.length === 0) return;
+
+    setIsGeneratingCompetitive(true);
+    setCompetitiveProgress({ stage: 'Starting competitive analysis...', progress: 0 });
+
+    try {
+      const result = await generateCompetitiveStrategyReport(
+        successfulPages,
+        topic,
+        (stage, progress) => setCompetitiveProgress({ stage, progress }),
+      );
+      setCompetitiveReport(result);
+    } catch (err: any) {
+      console.error('[SERP Intelligence] Competitive strategy failed:', err);
+      setSearchError(err.message || 'Competitive analysis failed');
+    } finally {
+      setIsGeneratingCompetitive(false);
+    }
+  };
+
+  // ---- Step 7: Generate ----
   const handleGenerate = () => {
-    if (!report) return;
     setIsGenerating(true);
 
-    const researchPackage = buildResearchPackage(
-      topic,
-      Array.from(selectedUrls),
-      fetchedPages,
-      report,
-      selections,
-    );
+    // Use competitive report if available, otherwise fall back to basic report
+    let researchPackage = '';
+    if (competitiveReport) {
+      researchPackage = buildCompetitivePrompt(topic, competitiveReport);
+    } else if (report) {
+      researchPackage = buildResearchPackage(
+        topic,
+        Array.from(selectedUrls),
+        fetchedPages,
+        report,
+        selections,
+      );
+    }
 
     if (onGenerateWithResearch) {
       onGenerateWithResearch(researchPackage, topic, selectedDeepSeekModel);
@@ -820,6 +820,63 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
     );
   };
 
+  // ---- Step 6: Competitive Strategy Render ----
+  const renderCompetitiveStep = () => {
+    if (isGeneratingCompetitive) {
+      return (
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+            <TrendingUp className="w-5 h-5 mr-2 text-indigo-600" />
+            Generating Competitive Strategy...
+          </h2>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-6 h-6 text-indigo-600 animate-spin" />
+              <div>
+                <p className="text-sm font-medium text-slate-800">{competitiveProgress.stage}</p>
+                <p className="text-xs text-slate-500">Analyzing competitors to build winning strategy...</p>
+              </div>
+            </div>
+            <div className="w-full bg-slate-200 rounded-full h-3">
+              <div
+                className="bg-gradient-to-r from-indigo-500 to-purple-600 h-3 rounded-full transition-all duration-500"
+                style={{ width: `${competitiveProgress.progress}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (!competitiveReport) {
+      return (
+        <div className="bg-white rounded-xl border border-slate-200 p-6 text-center">
+          <TrendingUp className="w-12 h-12 text-indigo-400 mx-auto mb-3" />
+          <h2 className="text-lg font-semibold text-slate-800 mb-2">Competitive Strategy</h2>
+          <p className="text-sm text-slate-600 mb-4">
+            Generate a comprehensive strategy to outperform all competing pages.
+          </p>
+          <button
+            onClick={handleCompetitiveStrategy}
+            className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+          >
+            Generate Strategy
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <CompetitiveStrategyReportComponent
+        report={competitiveReport}
+        onReportUpdate={setCompetitiveReport}
+        onProceedToGenerate={() => setCurrentStep('generate')}
+        fetchedPages={fetchedPages}
+        topic={topic}
+      />
+    );
+  };
+
   const renderGenerateStep = () => (
     <div className="space-y-4">
       <div className="bg-white rounded-xl border border-slate-200 p-6">
@@ -907,6 +964,7 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
         {currentStep === 'fetch' && renderFetchStep()}
         {currentStep === 'analyze' && renderAnalyzeStep()}
         {currentStep === 'recommendations' && renderRecommendationsStep()}
+        {currentStep === 'competitive' && renderCompetitiveStep()}
         {currentStep === 'generate' && renderGenerateStep()}
       </div>
 

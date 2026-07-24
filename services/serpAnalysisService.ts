@@ -41,7 +41,7 @@ const cleanJsonOutput = (text: string): string => {
   return clean.trim();
 };
 
-async function callDeepSeek(prompt: string): Promise<any> {
+export async function callDeepSeek(prompt: string): Promise<any> {
   const apiKey = getDeepSeekApiKey();
   if (!apiKey) {
     throw new Error('DeepSeek API key is missing. Please add your API key in Settings.');
@@ -72,14 +72,14 @@ async function callDeepSeek(prompt: string): Promise<any> {
   return JSON.parse(cleanJsonOutput(content));
 }
 
-function buildContentSummary(pages: FetchedPage[]): string {
+export function buildContentSummary(pages: FetchedPage[]): string {
   return pages
     .filter(p => p.fetchStatus === 'success')
     .map((p, i) => `--- PAGE ${i + 1} ---\nURL: ${p.url}\nTitle: ${p.title}\nDomain: ${p.domain}\nContent:\n${p.content.substring(0, 3000)}`)
     .join('\n\n');
 }
 
-function buildTop5Summary(pages: FetchedPage[]): string {
+export function buildTop5Summary(pages: FetchedPage[]): string {
   return pages
     .filter(p => p.fetchStatus === 'success')
     .slice(0, 5)
