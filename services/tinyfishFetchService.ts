@@ -162,7 +162,27 @@ export const fetchWebPages = async (
       }
 
       const data = await response.json();
-      console.log(`[TinyFish Fetch] Success: ${data.results?.length || 0} results, ${data.errors?.length || 0} errors`);
+      console.log(`[TinyFish Fetch] Response keys:`, Object.keys(data));
+      console.log(`[TinyFish Fetch] results: ${data.results?.length || 0}, errors: ${data.errors?.length || 0}`);
+
+      // Handle case where API returns results directly as array (not wrapped in object)
+      if (Array.isArray(data)) {
+        console.log('[TinyFish Fetch] Response is direct array, wrapping...');
+        const results: FetchedDocument[] = data.map((item: any) => ({
+          url: item.url || '',
+          final_url: item.final_url,
+          title: item.title,
+          description: item.description,
+          language: item.language,
+          author: item.author,
+          published_date: item.published_date,
+          text: item.text || item.markdown || item.html,
+          status: item.error ? 'error' : 'success',
+          error: item.error,
+        }));
+        const total_success = results.filter(r => r.status === 'success').length;
+        return { results, total_success, total_failed: results.length - total_success };
+      }
 
       // Transform response to match FetchedDocument interface
       const results: FetchedDocument[] = data.results || [];
@@ -202,6 +222,34 @@ export const fetchWebPages = async (
 };
 
 /**
+ * Debug: Get raw API response for inspection
+ * Useful for troubleshooting response structure issues
+ */
+export const debugFetchRaw = async (url: string): Promise<any> => {
+  const apiKey = getTinyFishFetchApiKey();
+  if (!apiKey) {
+    return { error: 'API key missing' };
+  }
+
+  const payload = { urls: [url], format: 'markdown' };
+
+  const response = await fetch(TINYFISH_FETCH_API_BASE + '/', {
+    method: 'POST',
+    headers: { 'X-API-Key': apiKey, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  console.log('[TinyFish Debug] Raw API Response:', JSON.stringify(data, null, 2));
+  console.log('[TinyFish Debug] Top-level keys:', Object.keys(data));
+  console.log('[TinyFish Debug] results type:', Array.isArray(data.results) ? 'array' : typeof data.results);
+  console.log('[TinyFish Debug] results length:', data.results?.length);
+  console.log('[TinyFish Debug] errors:', data.errors);
+  console.log('[TinyFish Debug] First result keys:', data.results?.[0] ? Object.keys(data.results[0]) : 'no results');
+  return data;
+};
+
+/**
  * Test the TinyFish Fetch API connection
  * Returns diagnostic information about the API status
  */
@@ -223,9 +271,19 @@ export const testFetchConnection = async (): Promise<{
       30000,
     );
     if (response.total_success > 0) {
-      return { success: true, message: 'Connection successful!', details: response };
+      return { success: true, message: `Connection successful! Got ${response.total_success} result(s).`, details: response };
+    } else if (response.total_failed > 0) {
+      return {
+        success: false,
+        message: `API connected but ${response.total_failed} URL(s) failed. Check console for details.`,
+        details: response,
+      };
     } else {
-      return { success: false, message: 'API returned no results', details: response };
+      return {
+        success: false,
+        message: 'API returned empty response (no results, no errors). Response may have different structure.',
+        details: response,
+      };
     }
   } catch (err: any) {
     return { success: false, message: err.message, details: err };

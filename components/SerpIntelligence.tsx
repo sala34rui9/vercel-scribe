@@ -8,11 +8,11 @@ import {
   Search, Download, CheckSquare, Square, ChevronRight, ChevronLeft,
   Loader2, AlertCircle, Globe, FileText, Zap, Target, BarChart3,
   Eye, BookOpen, PenTool, RefreshCw, Check, X, ExternalLink,
-  Layers, MessageSquare, TrendingUp, Hash
+  Layers, MessageSquare, TrendingUp, Hash, Bug
 } from 'lucide-react';
 import { SearchProvider, AIProvider, SerpSearchResult, FetchedPage, SerpIntelligenceReport, UserSelections, DeepSeekModel } from '../types';
 import { searchWeb, getTinyFishApiKey } from '../services/tinyfishService';
-import { getTinyFishFetchApiKey, fetchWebPages, testFetchConnection } from '../services/tinyfishFetchService';
+import { getTinyFishFetchApiKey, fetchWebPages, testFetchConnection, debugFetchRaw } from '../services/tinyfishFetchService';
 import { getTavilyApiKey, tavilySearch } from '../services/tavilyService';
 import { generateSerpIntelligenceReport, buildResearchPackage } from '../services/serpAnalysisService';
 import { generateCompetitiveStrategyReport, buildCompetitivePrompt, CompetitiveStrategyReport } from '../services/competitiveStrategyService';
@@ -495,19 +495,37 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
             <Download className="w-5 h-5 mr-2 text-blue-600" />
             Fetch Content
           </h2>
-          <button
-            onClick={handleTestConnection}
-            disabled={isTesting}
-            className="text-xs px-3 py-1.5 bg-slate-100 text-slate-600 rounded-md hover:bg-slate-200 disabled:opacity-50 flex items-center gap-1"
-          >
-            {isTesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-            {isTesting ? 'Testing...' : 'Test Connection'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleTestConnection}
+              disabled={isTesting}
+              className="text-xs px-3 py-1.5 bg-slate-100 text-slate-600 rounded-md hover:bg-slate-200 disabled:opacity-50 flex items-center gap-1"
+            >
+              {isTesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+              {isTesting ? 'Testing...' : 'Test'}
+            </button>
+            <button
+              onClick={async () => {
+                const result = await debugFetchRaw('https://example.com');
+                console.log('[Debug] Full API response:', result);
+                alert('Check browser console (F12) for raw API response');
+              }}
+              className="text-xs px-3 py-1.5 bg-slate-100 text-slate-600 rounded-md hover:bg-slate-200 flex items-center gap-1"
+            >
+              <Bug className="w-3 h-3" />
+              Debug
+            </button>
+          </div>
         </div>
 
         {testResult && (
           <div className={`mb-4 p-3 rounded-lg text-sm ${testResult.success ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
             {testResult.success ? '✓' : '✗'} {testResult.message}
+            {testResult.details && (
+              <pre className="mt-2 text-xs overflow-auto max-h-32 bg-white/50 p-2 rounded">
+                {JSON.stringify(testResult.details, null, 2)}
+              </pre>
+            )}
           </div>
         )}
 
