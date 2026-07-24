@@ -41,14 +41,17 @@ const cleanJsonOutput = (text: string): string => {
   return clean.trim();
 };
 
-export async function callDeepSeek(prompt: string): Promise<any> {
+export async function callDeepSeek(
+  prompt: string,
+  options?: { model?: 'deepseek-v4-pro' | 'deepseek-v4-flash' },
+): Promise<any> {
   const apiKey = getDeepSeekApiKey();
   if (!apiKey) {
     throw new Error('DeepSeek API key is missing. Please add your API key in Settings.');
   }
 
   const payload = {
-    model: "deepseek-v4-pro",
+    model: options?.model ?? 'deepseek-v4-pro',
     messages: [
       { role: "system", content: "You are an expert SEO analyst and content strategist. Always return valid JSON only, no markdown formatting." },
       { role: "user", content: prompt }
@@ -353,7 +356,7 @@ export const generateSerpIntelligenceReportMega = async (
   onProgress?.('Analyzing competitor content...', 10);
 
   const prompt = buildMegaPrompt(successfulPages, topic);
-  const raw = await callDeepSeek(prompt);
+  const raw = await callDeepSeek(prompt, { model: 'deepseek-v4-flash' });
 
   onProgress?.('Report complete!', 100);
 

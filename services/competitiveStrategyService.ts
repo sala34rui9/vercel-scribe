@@ -312,7 +312,7 @@ Return JSON:
   ]
 }`;
 
-  const result = await callDeepSeek(prompt);
+  const result = await callDeepSeek(prompt, { model: 'deepseek-v4-pro' });
 
   onProgress?.('Competitive strategy complete!', 100);
 
