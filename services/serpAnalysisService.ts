@@ -64,7 +64,8 @@ export async function callDeepSeek(prompt: string): Promise<any> {
   });
 
   if (!response.ok) {
-    throw new Error(`DeepSeek API Error (${response.status})`);
+    const errorBody = await response.text().catch(() => '');
+    throw new Error(`CRITICAL_API_ERROR: DeepSeek API Error (${response.status}): ${errorBody}`);
   }
 
   const data = await response.json();
@@ -118,7 +119,8 @@ Return JSON:
 
   try {
     return await callDeepSeek(prompt);
-  } catch (e) {
+  } catch (e: any) {
+    if (e.message?.includes('CRITICAL_API_ERROR')) throw e;
     console.error('[SERP Analysis] Content similarity analysis failed:', e);
     return {
       commonTopics: [], commonQuestions: [], repeatedAdvice: [],
@@ -166,7 +168,7 @@ Return JSON:
         enabled: true,
       })),
     };
-  } catch (e) {
+  } catch (e: any) { if (e?.message?.includes("CRITICAL_API_ERROR")) throw e;
     console.error('[SERP Analysis] Content gap analysis failed:', e);
     return {
       missingTopics: [], missingSubtopics: [], missingFAQs: [],
@@ -199,7 +201,7 @@ Return JSON:
 
   try {
     return await callDeepSeek(prompt);
-  } catch (e) {
+  } catch (e: any) { if (e?.message?.includes("CRITICAL_API_ERROR")) throw e;
     console.error('[SERP Analysis] SEO structure analysis failed:', e);
     return {
       averageH2s: 0, averageH3s: 0, averageParagraphLength: 0,
@@ -236,7 +238,7 @@ Return JSON:
 
   try {
     return await callDeepSeek(prompt);
-  } catch (e) {
+  } catch (e: any) { if (e?.message?.includes("CRITICAL_API_ERROR")) throw e;
     console.error('[SERP Analysis] Hook analysis failed:', e);
     return {
       topHookPattern: 'N/A', averageIntroLength: 0,
@@ -269,7 +271,7 @@ Return JSON:
 
   try {
     return await callDeepSeek(prompt);
-  } catch (e) {
+  } catch (e: any) { if (e?.message?.includes("CRITICAL_API_ERROR")) throw e;
     console.error('[SERP Analysis] Writing style analysis failed:', e);
     return {
       tone: [], readingLevel: 'N/A', sentenceComplexity: 'N/A',
@@ -302,7 +304,7 @@ Return JSON:
 
   try {
     return await callDeepSeek(prompt);
-  } catch (e) {
+  } catch (e: any) { if (e?.message?.includes("CRITICAL_API_ERROR")) throw e;
     console.error('[SERP Analysis] Readability analysis failed:', e);
     return {
       fleschReadingEase: 0, gradeLevel: 'N/A', averageSentenceLength: 0,
@@ -333,7 +335,7 @@ Return JSON:
 
   try {
     return await callDeepSeek(prompt);
-  } catch (e) {
+  } catch (e: any) { if (e?.message?.includes("CRITICAL_API_ERROR")) throw e;
     console.error('[SERP Analysis] Content pattern analysis failed:', e);
     return {
       averageArticleLength: 0, averageImages: 0, averageTables: 0,
@@ -359,7 +361,7 @@ Return JSON:
 
   try {
     return await callDeepSeek(prompt);
-  } catch (e) {
+  } catch (e: any) { if (e?.message?.includes("CRITICAL_API_ERROR")) throw e;
     console.error('[SERP Analysis] Search intent analysis failed:', e);
     return { primaryIntent: 'informational', confidence: 0, explanation: 'N/A' };
   }
@@ -383,7 +385,7 @@ Return JSON:
 
   try {
     return await callDeepSeek(prompt);
-  } catch (e) {
+  } catch (e: any) { if (e?.message?.includes("CRITICAL_API_ERROR")) throw e;
     console.error('[SERP Analysis] Topic coverage analysis failed:', e);
     return { coreTopics: [], supportingTopics: [], advancedTopics: [], missingTopics: [], optionalTopics: [] };
   }
@@ -413,7 +415,7 @@ Return JSON:
         enabled: true,
       })),
     };
-  } catch (e) {
+  } catch (e: any) { if (e?.message?.includes("CRITICAL_API_ERROR")) throw e;
     console.error('[SERP Analysis] FAQ analysis failed:', e);
     return { questions: [] };
   }
@@ -443,7 +445,7 @@ Return JSON:
         enabled: true,
       })),
     };
-  } catch (e) {
+  } catch (e: any) { if (e?.message?.includes("CRITICAL_API_ERROR")) throw e;
     console.error('[SERP Analysis] Statistics analysis failed:', e);
     return { statistics: [] };
   }
@@ -466,7 +468,7 @@ Return JSON:
 
   try {
     return await callDeepSeek(prompt);
-  } catch (e) {
+  } catch (e: any) { if (e?.message?.includes("CRITICAL_API_ERROR")) throw e;
     console.error('[SERP Analysis] Expert analysis failed:', e);
     return { expertQuotes: [], referencedOrganizations: [], researchPapers: [], governmentSources: [] };
   }
@@ -489,7 +491,7 @@ Return JSON:
 
   try {
     return await callDeepSeek(prompt);
-  } catch (e) {
+  } catch (e: any) { if (e?.message?.includes("CRITICAL_API_ERROR")) throw e;
     console.error('[SERP Analysis] Outline generation failed:', e);
     return { suggestedH2s: [], suggestedH3s: [], recommendedFAQ: [], recommendedCTA: '' };
   }
@@ -510,6 +512,12 @@ export const generateSerpIntelligenceReport = async (
   const successfulPages = pages.filter(p => p.fetchStatus === 'success');
   if (successfulPages.length === 0) {
     throw new Error('No successfully fetched pages to analyze');
+  }
+
+  // Early validation: ensure API key exists before attempting 13 parallel AI calls
+  const apiKey = localStorage.getItem('user_deepseek_api_key');
+  if (!apiKey || apiKey.trim() === '') {
+    throw new Error('DeepSeek API key is missing. Please add your API key in Settings → API Provider Settings.');
   }
 
   updateProgress('Analyzing content similarity...', 5);
