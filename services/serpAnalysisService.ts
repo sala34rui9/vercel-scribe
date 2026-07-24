@@ -88,6 +88,280 @@ export function buildTop5Summary(pages: FetchedPage[]): string {
     .join('\n\n');
 }
 
+export function buildAllPagesSummary(pages: FetchedPage[]): string {
+  const successful = pages.filter(p => p.fetchStatus === 'success');
+  let perPageLimit = 2000;
+  const totalChars = successful.reduce((sum, p) => sum + p.content.length, 0);
+  if (totalChars > 8000) {
+    perPageLimit = 1500;
+  }
+  return successful
+    .map((p, i) => `--- PAGE ${i + 1} ---\nURL: ${p.url}\nTitle: ${p.title}\nContent:\n${p.content.substring(0, perPageLimit)}`)
+    .join('\n\n');
+}
+
+// ---- Caching ----
+
+const analysisCache = new Map<string, { result: SerpIntelligenceReport; timestamp: number }>();
+const CACHE_TTL = 24 * 60 * 60 * 1000;
+
+function getCacheKey(pages: FetchedPage[]): string {
+  return pages
+    .filter(p => p.fetchStatus === 'success')
+    .map(p => p.url)
+    .sort()
+    .join('|');
+}
+
+// ---- Response Validation & Repair ----
+
+const validateAndRepairResponse = (raw: any): SerpIntelligenceReport => ({
+  similarity: {
+    commonTopics: raw.contentSimilarity?.commonTopics ?? [],
+    commonQuestions: raw.contentSimilarity?.commonQuestions ?? [],
+    repeatedAdvice: raw.contentSimilarity?.repeatedAdvice ?? [],
+    repeatedStatistics: raw.contentSimilarity?.repeatedStatistics ?? [],
+    commonH2s: raw.contentSimilarity?.commonH2s ?? [],
+    commonH3s: raw.contentSimilarity?.commonH3s ?? [],
+    commonExamples: raw.contentSimilarity?.commonExamples ?? [],
+    frequentlyLinkedResources: raw.contentSimilarity?.frequentlyLinkedResources ?? [],
+  },
+  gaps: {
+    missingTopics: raw.contentGaps?.missingTopics ?? [],
+    missingSubtopics: raw.contentGaps?.missingSubtopics ?? [],
+    missingFAQs: raw.contentGaps?.missingFAQs ?? [],
+    missingComparisons: raw.contentGaps?.missingComparisons ?? [],
+    missingExamples: raw.contentGaps?.missingExamples ?? [],
+    missingCaseStudies: raw.contentGaps?.missingCaseStudies ?? [],
+    missingStatistics: raw.contentGaps?.missingStatistics ?? [],
+    missingExpertOpinions: raw.contentGaps?.missingExpertOpinions ?? [],
+    contentOpportunities: (raw.contentGaps?.contentOpportunities || []).map((o: any) => ({
+      topic: o.topic || '',
+      reason: o.reason || '',
+      enabled: true,
+    })),
+  },
+  seoStructure: {
+    averageH2s: raw.seoStructure?.averageH2s ?? 0,
+    averageH3s: raw.seoStructure?.averageH3s ?? 0,
+    averageParagraphLength: raw.seoStructure?.averageParagraphLength ?? 0,
+    bulletUsagePercent: raw.seoStructure?.bulletUsagePercent ?? 0,
+    tableUsagePercent: raw.seoStructure?.tableUsagePercent ?? 0,
+    imageUsagePercent: raw.seoStructure?.imageUsagePercent ?? 0,
+    faqUsagePercent: raw.seoStructure?.faqUsagePercent ?? 0,
+    calloutUsagePercent: raw.seoStructure?.calloutUsagePercent ?? 0,
+    listUsagePercent: raw.seoStructure?.listUsagePercent ?? 0,
+    recommendations: raw.seoStructure?.recommendations ?? [],
+  },
+  hook: {
+    topHookPattern: raw.hookAnalysis?.topHookPattern ?? 'N/A',
+    averageIntroLength: raw.hookAnalysis?.averageIntroLength ?? 0,
+    commonFirstSentenceStructure: raw.hookAnalysis?.commonFirstSentenceStructure ?? 'N/A',
+    hookStyles: raw.hookAnalysis?.hookStyles ?? [],
+    recommendation: raw.hookAnalysis?.recommendation ?? 'N/A',
+  },
+  writingStyle: {
+    tone: raw.writingStyle?.tone ?? [],
+    readingLevel: raw.writingStyle?.readingLevel ?? 'N/A',
+    sentenceComplexity: raw.writingStyle?.sentenceComplexity ?? 'N/A',
+    vocabulary: raw.writingStyle?.vocabulary ?? 'N/A',
+    paragraphSize: raw.writingStyle?.paragraphSize ?? 'N/A',
+    formality: raw.writingStyle?.formality ?? 'N/A',
+    voice: raw.writingStyle?.voice ?? 'N/A',
+    persuasiveness: raw.writingStyle?.persuasiveness ?? 'N/A',
+    storytelling: raw.writingStyle?.storytelling ?? 'N/A',
+    educationalDepth: raw.writingStyle?.educationalDepth ?? 'N/A',
+    actionability: raw.writingStyle?.actionability ?? 'N/A',
+  },
+  readability: {
+    fleschReadingEase: raw.readability?.fleschReadingEase ?? 0,
+    gradeLevel: raw.readability?.gradeLevel ?? 'N/A',
+    averageSentenceLength: raw.readability?.averageSentenceLength ?? 0,
+    averageWordLength: raw.readability?.averageWordLength ?? 0,
+    averageParagraphLength: raw.readability?.averageParagraphLength ?? 0,
+    passiveVoicePercent: raw.readability?.passiveVoicePercent ?? 0,
+    transitionWordPercent: raw.readability?.transitionWordPercent ?? 0,
+    recommendedLevel: raw.readability?.recommendedLevel ?? 'N/A',
+    reason: raw.readability?.reason ?? 'N/A',
+  },
+  contentPatterns: {
+    averageArticleLength: raw.contentPatterns?.averageArticleLength ?? 0,
+    averageImages: raw.contentPatterns?.averageImages ?? 0,
+    averageTables: raw.contentPatterns?.averageTables ?? 0,
+    averageBulletLists: raw.contentPatterns?.averageBulletLists ?? 0,
+    averageFAQs: raw.contentPatterns?.averageFAQs ?? 0,
+    averageLinks: raw.contentPatterns?.averageLinks ?? 0,
+    averageCitations: raw.contentPatterns?.averageCitations ?? 0,
+    averageExamples: raw.contentPatterns?.averageExamples ?? 0,
+  },
+  searchIntent: raw.searchIntent ?? { primaryIntent: 'informational', confidence: 0, explanation: 'N/A' },
+  topicCoverage: {
+    coreTopics: raw.topicCoverage?.coreTopics ?? [],
+    supportingTopics: raw.topicCoverage?.supportingTopics ?? [],
+    advancedTopics: raw.topicCoverage?.advancedTopics ?? [],
+    missingTopics: raw.topicCoverage?.missingTopics ?? [],
+    optionalTopics: raw.topicCoverage?.optionalTopics ?? [],
+  },
+  faqs: {
+    questions: (raw.faqs?.questions || []).map((q: any) => ({
+      question: q.question || '',
+      frequency: q.frequency || 1,
+      enabled: true,
+    })),
+  },
+  statistics: {
+    statistics: (raw.statistics?.statistics || []).map((s: any) => ({
+      value: s.value || '',
+      context: s.context || '',
+      enabled: true,
+    })),
+  },
+  experts: {
+    expertQuotes: raw.expertAnalysis?.expertQuotes ?? [],
+    referencedOrganizations: raw.expertAnalysis?.referencedOrganizations ?? [],
+    researchPapers: raw.expertAnalysis?.researchPapers ?? [],
+    governmentSources: raw.expertAnalysis?.governmentSources ?? [],
+  },
+  outline: raw.outline ?? { suggestedH2s: [], suggestedH3s: [], recommendedFAQ: [], recommendedCTA: '' },
+});
+
+// ---- Mega-Call Analysis Function ----
+
+const buildMegaPrompt = (pages: FetchedPage[], topic: string): string => {
+  const pageSummary = buildAllPagesSummary(pages);
+  return `You are an expert SEO analyst and content strategist. Analyze the following ${pages.filter(p => p.fetchStatus === 'success').length} competitor pages for the topic "${topic}" and return a comprehensive analysis.
+
+COMPETITOR PAGES:
+${pageSummary}
+
+Return ONLY valid JSON with this exact structure:
+{
+  "contentSimilarity": {
+    "commonTopics": ["topic1", "topic2"],
+    "commonQuestions": ["question1"],
+    "repeatedAdvice": ["advice1"],
+    "repeatedStatistics": ["stat1"],
+    "commonH2s": ["heading1"],
+    "commonH3s": ["subheading1"],
+    "commonExamples": ["example1"],
+    "frequentlyLinkedResources": ["url1"]
+  },
+  "contentGaps": {
+    "missingTopics": ["topic1"],
+    "missingSubtopics": ["subtopic1"],
+    "missingFAQs": ["faq1"],
+    "missingComparisons": ["comparison1"],
+    "missingExamples": ["example type"],
+    "missingCaseStudies": ["case study topic"],
+    "missingStatistics": ["statistic type"],
+    "missingExpertOpinions": ["expert type"],
+    "contentOpportunities": [{"topic": "opportunity", "reason": "why"}]
+  },
+  "seoStructure": {
+    "averageH2s": 5, "averageH3s": 12, "averageParagraphLength": 80,
+    "bulletUsagePercent": 60, "tableUsagePercent": 30, "imageUsagePercent": 70,
+    "faqUsagePercent": 40, "calloutUsagePercent": 20, "listUsagePercent": 50,
+    "recommendations": ["rec1", "rec2"]
+  },
+  "hookAnalysis": {
+    "topHookPattern": "description",
+    "averageIntroLength": 95,
+    "commonFirstSentenceStructure": "Question/Problem/Statistic",
+    "hookStyles": [{"style": "problem-first", "count": 3}],
+    "recommendation": "specific recommendation"
+  },
+  "writingStyle": {
+    "tone": ["professional", "educational"],
+    "readingLevel": "Grade 7-8",
+    "sentenceComplexity": "moderate",
+    "vocabulary": "industry-specific but accessible",
+    "paragraphSize": "3-4 sentences",
+    "formality": "semi-formal",
+    "voice": "authoritative yet conversational",
+    "persuasiveness": "moderate-high",
+    "storytelling": "minimal",
+    "educationalDepth": "comprehensive",
+    "actionability": "high"
+  },
+  "readability": {
+    "fleschReadingEase": 65, "gradeLevel": "Grade 7",
+    "averageSentenceLength": 15, "averageWordLength": 4.5,
+    "averageParagraphLength": 80, "passiveVoicePercent": 12,
+    "transitionWordPercent": 8, "recommendedLevel": "Grade 7",
+    "reason": "explanation"
+  },
+  "contentPatterns": {
+    "averageArticleLength": 2500, "averageImages": 5, "averageTables": 2,
+    "averageBulletLists": 4, "averageFAQs": 3, "averageLinks": 8,
+    "averageCitations": 3, "averageExamples": 4
+  },
+  "searchIntent": {
+    "primaryIntent": "informational",
+    "confidence": 85,
+    "explanation": "why this intent was determined"
+  },
+  "topicCoverage": {
+    "coreTopics": ["topic1"],
+    "supportingTopics": ["topic2"],
+    "advancedTopics": ["topic3"],
+    "missingTopics": ["topic4"],
+    "optionalTopics": ["topic5"]
+  },
+  "faqs": {
+    "questions": [{"question": "What is X?", "frequency": 4}]
+  },
+  "statistics": {
+    "statistics": [{"value": "73% of marketers", "context": "use AI tools"}]
+  },
+  "expertAnalysis": {
+    "expertQuotes": ["quote1"],
+    "referencedOrganizations": ["org1"],
+    "researchPapers": ["paper1"],
+    "governmentSources": ["source1"]
+  },
+  "outline": {
+    "suggestedH2s": ["H2-1", "H2-2"],
+    "suggestedH3s": ["H3-1", "H3-2"],
+    "recommendedFAQ": ["FAQ-1"],
+    "recommendedCTA": "specific call-to-action"
+  }
+}`;
+};
+
+export const generateSerpIntelligenceReportMega = async (
+  pages: FetchedPage[],
+  topic: string,
+  onProgress?: (stage: string, progress: number) => void,
+): Promise<SerpIntelligenceReport> => {
+  const successfulPages = pages.filter(p => p.fetchStatus === 'success');
+  if (successfulPages.length === 0) {
+    throw new Error('No successfully fetched pages to analyze');
+  }
+
+  const apiKey = localStorage.getItem('user_deepseek_api_key');
+  if (!apiKey || apiKey.trim() === '') {
+    throw new Error('DeepSeek API key is missing. Please add your API key in Settings → API Provider Settings.');
+  }
+
+  const cacheKey = getCacheKey(successfulPages);
+  const cached = analysisCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    onProgress?.('Report complete (cached)!', 100);
+    return cached.result;
+  }
+
+  onProgress?.('Analyzing competitor content...', 10);
+
+  const prompt = buildMegaPrompt(successfulPages, topic);
+  const raw = await callDeepSeek(prompt);
+
+  onProgress?.('Report complete!', 100);
+
+  const result = validateAndRepairResponse(raw);
+  analysisCache.set(cacheKey, { result, timestamp: Date.now() });
+  return result;
+};
+
 // ---- Individual Analysis Functions ----
 
 export const analyzeContentSimilarity = async (pages: FetchedPage[]): Promise<ContentSimilarityResult> => {

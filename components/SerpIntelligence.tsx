@@ -14,8 +14,8 @@ import { SearchProvider, AIProvider, SerpSearchResult, FetchedPage, SerpIntellig
 import { searchWeb, getTinyFishApiKey } from '../services/tinyfishService';
 import { getTinyFishFetchApiKey, fetchWebPages, testFetchConnection, debugFetchRaw } from '../services/tinyfishFetchService';
 import { getTavilyApiKey, tavilySearch } from '../services/tavilyService';
-import { generateSerpIntelligenceReport, buildResearchPackage } from '../services/serpAnalysisService';
-import { generateCompetitiveStrategyReport, buildCompetitivePrompt, CompetitiveStrategyReport } from '../services/competitiveStrategyService';
+import { generateSerpIntelligenceReport, generateSerpIntelligenceReportMega, buildResearchPackage } from '../services/serpAnalysisService';
+import { generateCompetitiveStrategyReport, generateCompetitiveStrategyMega, buildCompetitivePrompt, CompetitiveStrategyReport } from '../services/competitiveStrategyService';
 import CompetitiveStrategyReportComponent from './CompetitiveStrategyReport';
 
 type WorkflowStep = 'search' | 'select' | 'fetch' | 'analyze' | 'recommendations' | 'competitive' | 'generate';
@@ -245,47 +245,72 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
     }
   };
 
-  // ---- Step 4: Analyze ----
+  // ---- Step 4: Analyze (mega-call) ----
   const handleAnalyze = async () => {
     const successfulPages = fetchedPages.filter(p => p.fetchStatus === 'success');
     if (successfulPages.length === 0) return;
 
     setIsAnalyzing(true);
-    setAnalysisProgress({ stage: 'Starting analysis...', progress: 0 });
+    setAnalysisProgress({ stage: 'Analyzing competitor content...', progress: 0 });
 
     try {
-      const result = await generateSerpIntelligenceReport(
+      const result = await generateSerpIntelligenceReportMega(
         successfulPages,
         topic,
         (stage, progress) => setAnalysisProgress({ stage, progress }),
       );
       setReport(result);
     } catch (err: any) {
-      console.error('[SERP Intelligence] Analysis failed:', err);
-      setSearchError('Analysis failed: ' + (err?.message || String(err)));
+      console.error('[SERP Intelligence] Mega analysis failed, falling back to sequential:', err);
+      try {
+        const result = await generateSerpIntelligenceReport(
+          successfulPages,
+          topic,
+          (stage, progress) => setAnalysisProgress({ stage, progress }),
+        );
+        setReport(result);
+      } catch (fallbackErr: any) {
+        console.error('[SERP Intelligence] Sequential analysis also failed:', fallbackErr);
+        setSearchError('Analysis failed: ' + (fallbackErr?.message || String(fallbackErr)));
+      }
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  // ---- Step 6: Competitive Strategy ----
+  // ---- Step 6: Competitive Strategy (mega-call) ----
   const handleCompetitiveStrategy = async () => {
     const successfulPages = fetchedPages.filter(p => p.fetchStatus === 'success');
     if (successfulPages.length === 0) return;
 
     setIsGeneratingCompetitive(true);
-    setCompetitiveProgress({ stage: 'Starting competitive analysis...', progress: 0 });
+    setCompetitiveProgress({ stage: 'Analyzing competitors to build winning strategy...', progress: 0 });
 
     try {
-      const result = await generateCompetitiveStrategyReport(
+      const analysisResults = report;
+      if (!analysisResults) {
+        throw new Error('No analysis results available. Please run analysis first.');
+      }
+      const result = await generateCompetitiveStrategyMega(
         successfulPages,
         topic,
+        analysisResults,
         (stage, progress) => setCompetitiveProgress({ stage, progress }),
       );
       setCompetitiveReport(result);
     } catch (err: any) {
-      console.error('[SERP Intelligence] Competitive strategy failed:', err);
-      setSearchError(err.message || 'Competitive analysis failed');
+      console.error('[SERP Intelligence] Mega competitive strategy failed, falling back to sequential:', err);
+      try {
+        const result = await generateCompetitiveStrategyReport(
+          successfulPages,
+          topic,
+          (stage, progress) => setCompetitiveProgress({ stage, progress }),
+        );
+        setCompetitiveReport(result);
+      } catch (fallbackErr: any) {
+        console.error('[SERP Intelligence] Sequential competitive strategy also failed:', fallbackErr);
+        setSearchError(fallbackErr.message || 'Competitive analysis failed');
+      }
     } finally {
       setIsGeneratingCompetitive(false);
     }
@@ -747,15 +772,21 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
         )}
 
         {isFetching && (
-          <div className="mb-4">
-            <div className="flex items-center justify-between text-sm text-slate-600 mb-2">
-              <span>Fetching {fetchProgress.total} URLs...</span>
-              <span>{fetchProgress.completed} / {fetchProgress.total}</span>
+          <div className="space-y-4 mb-4">
+            <div className="flex items-center gap-3">
+              <Loader2 className="w-6 h-6 text-blue-600 animate-spin" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-800">Fetching {fetchProgress.total} URLs...</p>
+                  <p className="text-sm font-medium text-slate-800">{fetchProgress.completed} / {fetchProgress.total}</p>
+                </div>
+                <p className="text-xs text-slate-500">Downloading content for analysis...</p>
+              </div>
             </div>
-            <div className="w-full bg-slate-200 rounded-full h-2">
+            <div className="w-full bg-slate-200 rounded-full h-3">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${(fetchProgress.completed / fetchProgress.total) * 100}%` }}
+                className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-300"
+                style={{ width: `${fetchProgress.total > 0 ? (fetchProgress.completed / fetchProgress.total) * 100 : 0}%` }}
               />
             </div>
           </div>

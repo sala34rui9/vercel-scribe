@@ -7,6 +7,7 @@
 import {
   FetchedPage,
   ContentGapResult,
+  SerpIntelligenceReport,
 } from '../types';
 import {
   analyzeContentSimilarity,
@@ -271,6 +272,79 @@ export const generateAllOutlineOptions = async (
     options.push({ id: v.id, label: v.label, ...outline });
   }
   return options;
+};
+
+// ---- Mega-Call Strategy Function ----
+
+export const generateCompetitiveStrategyMega = async (
+  pages: FetchedPage[],
+  topic: string,
+  analysisResults: SerpIntelligenceReport,
+  onProgress?: (stage: string, progress: number) => void,
+): Promise<CompetitiveStrategyReport> => {
+  const successful = pages.filter(p => p.fetchStatus === 'success');
+  if (successful.length === 0) throw new Error('No successfully fetched pages');
+
+  onProgress?.('Analyzing competitors to build winning strategy...', 50);
+
+  const content = buildTop5Summary(successful);
+  const prompt = `Based on analysis of ${successful.length} competitor pages for "${topic}", generate a competitive strategy.
+
+Content sample:
+${content.substring(0, 4000)}
+
+Analysis findings:
+- Common topics: ${analysisResults.similarity.commonTopics.join(', ')}
+- Content gaps: ${analysisResults.gaps.missingTopics.join(', ')}
+- Missing subtopics: ${analysisResults.gaps.missingSubtopics.join(', ')}
+- Missing FAQs: ${analysisResults.gaps.missingFAQs.join(', ')}
+
+Return JSON:
+{
+  "weaknesses": ["weakness1", "weakness2"],
+  "outlines": {
+    "standard": { "h2s": ["H2-1", "H2-2"], "h3s": ["H3-1"], "recommendedFAQ": ["FAQ-1"], "recommendedCTA": "..." },
+    "comprehensive": { "h2s": ["H2-1"], "h3s": ["H3-1"], "recommendedFAQ": ["FAQ-1"], "recommendedCTA": "..." },
+    "actionOriented": { "h2s": ["H2-1"], "h3s": ["H3-1"], "recommendedFAQ": ["FAQ-1"], "recommendedCTA": "..." }
+  },
+  "competitiveAdvantages": [
+    {"action": "...", "impact": "high", "effort": "medium"}
+  ]
+}`;
+
+  const result = await callDeepSeek(prompt);
+
+  onProgress?.('Competitive strategy complete!', 100);
+
+  const overview = computeSerpOverview(successful);
+
+  return {
+    overview,
+    commonTopics: analysisResults.similarity.commonTopics || [],
+    opportunityTopics: [
+      ...(analysisResults.gaps.missingSubtopics || []),
+      ...(analysisResults.gaps.missingComparisons || []),
+      ...(analysisResults.gaps.missingExamples || []),
+    ].slice(0, 10),
+    missingOpportunities: analysisResults.gaps.contentOpportunities?.map(o => o.topic) || [],
+    weaknesses: result.weaknesses || [],
+    outlineOptions: [
+      { id: 'option-a', label: 'Option A: Standard', ...result.outlines?.standard },
+      { id: 'option-b', label: 'Option B: Comprehensive', ...result.outlines?.comprehensive },
+      { id: 'option-c', label: 'Option C: Action-Oriented', ...result.outlines?.actionOriented },
+    ],
+    selectedOutlineIndex: 0,
+    selectedH2s: new Set(result.outlines?.standard?.h2s || []),
+    selectedH3s: new Set(result.outlines?.standard?.h3s || []),
+    faqs: analysisResults.faqs.questions || [],
+    statistics: analysisResults.statistics.statistics || [],
+    competitiveAdvantages: (result.competitiveAdvantages || []).map((a: any, i: number) => ({
+      rank: i + 1,
+      action: a.action || '',
+      impact: a.impact || 'medium',
+      effort: a.effort || 'medium',
+    })),
+  };
 };
 
 // ---- Full Report Generation ----
