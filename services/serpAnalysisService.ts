@@ -48,7 +48,7 @@ export async function callDeepSeek(prompt: string): Promise<any> {
   }
 
   const payload = {
-    model: "deepseek-chat",
+    model: "deepseek-v4-pro",
     messages: [
       { role: "system", content: "You are an expert SEO analyst and content strategist. Always return valid JSON only, no markdown formatting." },
       { role: "user", content: prompt }

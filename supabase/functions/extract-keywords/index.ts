@@ -148,7 +148,7 @@ async function extractKeywordsDeepSeek(topic: string, keywordType: string, apiKe
       'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-pro',
       messages: [
         { role: 'system', content: 'You are an expert SEO Specialist.' },
         { role: 'user', content: prompt }

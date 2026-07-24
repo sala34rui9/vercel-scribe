@@ -52,9 +52,9 @@ export enum AIProvider {
 }
 
 export enum DeepSeekModel {
-  V3_NON_THINKING = "DeepSeek-V3.2 (Non-thinking Mode)",
-  V3_THINKING = "DeepSeek-V3.2 (Thinking Mode)",
-  V3_SPECIALE = "DeepSeek-V3.2-Speciale (Thinking Mode Only)"
+  V3_NON_THINKING = "DeepSeek-v4-flash (Fast & Standard)",
+  V3_THINKING = "DeepSeek-v4-pro (Reasoning Mode)",
+  V3_SPECIALE = "DeepSeek-v4-pro Speciale (Advanced Reasoning)"
 }
 
 export enum SearchProvider {

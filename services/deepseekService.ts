@@ -53,7 +53,7 @@ export const generatePrimaryKeywordsDeepSeek = async (topic: string): Promise<st
   }
 
   const payload = {
-    model: "deepseek-chat",
+    model: "deepseek-v4-pro",
     messages: [
       {
         role: "system",
@@ -114,7 +114,7 @@ export const generateNLPKeywordsDeepSeek = async (topic: string): Promise<string
   }
 
   const payload = {
-    model: "deepseek-chat",
+    model: "deepseek-v4-pro",
     messages: [
       {
         role: "system",
@@ -175,7 +175,7 @@ export const generateFullSEOStrategyDeepSeek = async (topic: string): Promise<{ 
   }
 
   const payload = {
-    model: "deepseek-chat",
+    model: "deepseek-v4-pro",
     messages: [
       {
         role: "system",
@@ -695,18 +695,18 @@ export const generateArticleDeepSeek = async (config: ArticleConfig, signal?: Ab
     `;
 
   // --- MODEL MAPPING ---
-  let apiModel = "deepseek-chat";
+  let apiModel = "deepseek-v4-pro";
   let systemPrompt = "You are an expert SEO Content Writer.";
 
   if (deepSeekModel === DeepSeekModel.V3_THINKING) {
-    apiModel = "deepseek-reasoner";
+    apiModel = "deepseek-v4-pro";
   } else if (deepSeekModel === DeepSeekModel.V3_SPECIALE) {
-    apiModel = "deepseek-reasoner";
-    systemPrompt = "You are DeepSeek-V3.2-Speciale, an advanced reasoning engine specialized for high-end creative and technical writing. You prioritize depth, nuance, and structural perfection.";
+    apiModel = "deepseek-v4-pro";
+    systemPrompt = "You are DeepSeek-V4 Pro Speciale, an advanced reasoning engine specialized for high-end creative and technical writing. You prioritize depth, nuance, and structural perfection.";
   } else {
     // V3_NON_THINKING
-    apiModel = "deepseek-chat";
-    systemPrompt = "You are DeepSeek-V3.2, a high-speed, efficient AI writing assistant.";
+    apiModel = "deepseek-v4-flash";
+    systemPrompt = "You are DeepSeek-V4 Flash, a high-speed, efficient AI writing assistant.";
   }
 
   const payload = {
@@ -779,7 +779,7 @@ export const selectBestInternalLinksDeepSeek = async (topic: string, links: Inte
   const candidates = links.map(l => `- Title: "${l.title}", URL: ${l.url}`).join('\n');
 
   const payload = {
-    model: "deepseek-chat",
+    model: "deepseek-v4-pro",
     messages: [
       {
         role: "system",

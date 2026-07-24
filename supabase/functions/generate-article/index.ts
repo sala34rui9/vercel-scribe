@@ -321,7 +321,7 @@ async function generateWithDeepSeek(config: any, apiKey: string, tavilyKey?: str
       'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: 'deepseek-chat',
+      model: 'deepseek-v4-pro',
       messages: [
         { role: 'system', content: 'You are an expert SEO Content Writer.' },
         { role: 'user', content: prompt }
