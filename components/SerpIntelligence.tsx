@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 import { SearchProvider, AIProvider, SerpSearchResult, FetchedPage, SerpIntelligenceReport, UserSelections, DeepSeekModel } from '../types';
 import { searchWeb, getTinyFishApiKey } from '../services/tinyfishService';
-import { getTinyFishFetchApiKey, fetchWebPages } from '../services/tinyfishFetchService';
+import { getTinyFishFetchApiKey, fetchWebPages, testFetchConnection } from '../services/tinyfishFetchService';
 import { getTavilyApiKey, tavilySearch } from '../services/tavilyService';
 import { generateSerpIntelligenceReport, buildResearchPackage } from '../services/serpAnalysisService';
 import { generateCompetitiveStrategyReport, buildCompetitivePrompt, CompetitiveStrategyReport } from '../services/competitiveStrategyService';
@@ -476,13 +476,40 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
     </div>
   );
 
+  const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [isTesting, setIsTesting] = useState(false);
+
+  const handleTestConnection = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    const result = await testFetchConnection();
+    setTestResult(result);
+    setIsTesting(false);
+  };
+
   const renderFetchStep = () => (
     <div className="space-y-4">
       <div className="bg-white rounded-xl border border-slate-200 p-6">
-        <h2 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
-          <Download className="w-5 h-5 mr-2 text-blue-600" />
-          Fetch Content
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-slate-800 flex items-center">
+            <Download className="w-5 h-5 mr-2 text-blue-600" />
+            Fetch Content
+          </h2>
+          <button
+            onClick={handleTestConnection}
+            disabled={isTesting}
+            className="text-xs px-3 py-1.5 bg-slate-100 text-slate-600 rounded-md hover:bg-slate-200 disabled:opacity-50 flex items-center gap-1"
+          >
+            {isTesting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+            {isTesting ? 'Testing...' : 'Test Connection'}
+          </button>
+        </div>
+
+        {testResult && (
+          <div className={`mb-4 p-3 rounded-lg text-sm ${testResult.success ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+            {testResult.success ? '✓' : '✗'} {testResult.message}
+          </div>
+        )}
 
         {isFetching && (
           <div className="mb-4">
@@ -536,6 +563,41 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
           </div>
         )}
       </div>
+
+      {/* Debug/Diagnostic Panel - shown when fetch fails */}
+      {searchError && fetchedPages.length === 0 && (
+        <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+          <h3 className="text-sm font-semibold text-amber-800 mb-2 flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" /> Fetch Diagnostics
+          </h3>
+          <div className="text-xs text-amber-700 space-y-1">
+            <p><strong>Error:</strong> {searchError}</p>
+            <p><strong>API Key:</strong> {getTinyFishFetchApiKey() ? '✓ Set (' + getTinyFishFetchApiKey().substring(0, 8) + '...)' : '✗ Missing'}</p>
+            <p><strong>Endpoint:</strong> https://api.fetch.tinyfish.ai/</p>
+            <p><strong>URLs attempted:</strong> {selectedUrls.size}</p>
+          </div>
+          <div className="mt-3 space-y-2">
+            <p className="text-xs font-medium text-amber-800">Quick fixes to try:</p>
+            <ol className="text-xs text-amber-700 list-decimal list-inside space-y-1">
+              <li>Verify your TinyFish Fetch API key in Settings → API Provider Settings</li>
+              <li>Check browser DevTools (F12 → Network tab) for CORS errors</li>
+              <li>Try a single URL first to isolate the issue</li>
+              <li>Check if the API endpoint URL has changed</li>
+            </ol>
+          </div>
+          <button
+            onClick={() => {
+              setSearchError(null);
+              console.log('[SERP Debug] API Key:', getTinyFishFetchApiKey() ? 'Set' : 'Missing');
+              console.log('[SERP Debug] URLs:', Array.from(selectedUrls));
+              console.log('[SERP Debug] localStorage key:', localStorage.getItem('user_tinyfish_fetch_api_key'));
+            }}
+            className="mt-2 text-xs px-3 py-1.5 bg-amber-200 text-amber-800 rounded hover:bg-amber-300"
+          >
+            Log Debug Info to Console
+          </button>
+        </div>
+      )}
     </div>
   );
 
