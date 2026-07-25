@@ -1,43 +1,82 @@
-export const generateCloudflareImage = async (prompt: string, style?: string, ratio?: string): Promise<string> => {
-  const url = localStorage.getItem('user_cloudflare_api_url');
+import {
+  getModelPreset,
+  getStylePreset,
+  getRatioPreset,
+  BASE_NEGATIVE_PROMPT,
+  BASE_QUALITY_TERMS,
+  type ImageModel,
+  type ImageStyle,
+  type ImageRatio
+} from './imagePresets';
+
+interface GenerateOptions {
+  model: ImageModel;
+  style: ImageStyle;
+  ratio: ImageRatio;
+  steps?: number;
+}
+
+export const generateCloudflareImage = async (
+  prompt: string,
+  options: GenerateOptions
+): Promise<string> => {
+  const storedUrl = localStorage.getItem('user_cloudflare_api_url');
   const token = localStorage.getItem('user_cloudflare_api_token');
-  
-  if (!url || !token) {
+
+  if (!storedUrl || !token) {
     throw new Error('Cloudflare Image API is not configured.');
   }
 
-  try {
-    let finalPrompt = prompt;
-    if (style) finalPrompt += `, ${style} style`;
-    if (ratio) finalPrompt += `, ${ratio} aspect ratio`;
+  const modelPreset = getModelPreset(options.model);
+  const stylePreset = getStylePreset(options.style);
+  const ratioPreset = getRatioPreset(options.ratio);
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ prompt: finalPrompt })
-    });
+  const accountMatch = storedUrl.match(/\/accounts\/([^/]+)/);
+  const accountId = accountMatch ? accountMatch[1] : '';
+  const url = accountId
+    ? `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${modelPreset.modelId}`
+    : storedUrl;
 
-    if (!response.ok) {
-      const text = await response.text();
-      throw new Error(`Cloudflare API Error (${response.status}): ${text}`);
-    }
+  const enhancedPrompt = [
+    prompt,
+    stylePreset.promptModifiers,
+    BASE_QUALITY_TERMS
+  ].join(', ');
 
-    const blob = await response.blob();
-    
-    // Convert blob to base64
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        resolve(reader.result as string);
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (e) {
-    console.error('Failed to generate image via Cloudflare:', e);
-    throw e;
+  const negativePrompt = [
+    BASE_NEGATIVE_PROMPT,
+    stylePreset.negativePromptAdditions
+  ].join(', ');
+
+  const requestBody: Record<string, unknown> = {
+    prompt: enhancedPrompt,
+    negative_prompt: negativePrompt,
+    width: ratioPreset.width,
+    height: ratioPreset.height,
+    num_steps: Math.min(options.steps ?? 20, modelPreset.maxSteps),
+    guidance: 7.5
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(requestBody)
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Cloudflare API Error (${response.status}): ${text}`);
   }
+
+  const blob = await response.blob();
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 };

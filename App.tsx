@@ -39,7 +39,11 @@ const injectImages = async (
         prompt = `${topic}, specifically focusing on: ${matches[i - 1][1]}`;
       }
       
-      const base64Image = await generateCloudflareImage(prompt, config.imageStyle, config.imageRatio);
+      const base64Image = await generateCloudflareImage(prompt, {
+        model: config.imageModel ?? 'sdxl',
+        style: config.imageStyle ?? 'photorealistic',
+        ratio: config.imageRatio ?? '16:9'
+      });
       
       if (i === 0) {
         finalContent = `![Featured Image](${base64Image})\n\n${finalContent}`;
@@ -680,6 +684,9 @@ const App: React.FC = () => {
                 topic,
                 autoOptimize: true,
                 imageCount: 0,
+                imageModel: 'sdxl',
+                imageStyle: 'photorealistic',
+                imageRatio: '16:9',
                 wordCount: 2000,
                 type: 'Blog Post' as any,
                 tone: 'Professional' as any,

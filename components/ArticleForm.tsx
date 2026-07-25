@@ -6,6 +6,8 @@ import { generateNLPKeywordsDeepSeek, generatePrimaryKeywordsDeepSeek } from '..
 import { scanForInternalLinksTavily, scanForExternalLinksTavily } from '../services/tavilyService';
 import { scanForInternalLinksTinyFish, scanForExternalLinksTinyFish } from '../services/tinyfishService';
 import { isWebScanProvider, resolveAutoProvider } from '../services/researchProviderUtils';
+import { MODEL_PRESETS, STYLE_PRESETS, RATIO_PRESETS } from '../services/imagePresets';
+import type { ImageModel, ImageStyle, ImageRatio } from '../services/imagePresets';
 import {
   Wand2,
   Settings2,
@@ -69,11 +71,14 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   const [imageCount, setImageCount] = useState<number>(() => {
     return parseInt(localStorage.getItem('seo_scribe_image_count') || '0', 10);
   });
-  const [imageStyle, setImageStyle] = useState(() => {
-    return localStorage.getItem('seo_scribe_image_style') || 'Realistic';
+  const [imageModel, setImageModel] = useState<ImageModel>(() => {
+    return (localStorage.getItem('seo_scribe_image_model') as ImageModel) || 'sdxl';
   });
-  const [imageRatio, setImageRatio] = useState(() => {
-    return localStorage.getItem('seo_scribe_image_ratio') || '16:9';
+  const [imageStyle, setImageStyle] = useState<ImageStyle>(() => {
+    return (localStorage.getItem('seo_scribe_image_style') as ImageStyle) || 'photorealistic';
+  });
+  const [imageRatio, setImageRatio] = useState<ImageRatio>(() => {
+    return (localStorage.getItem('seo_scribe_image_ratio') as ImageRatio) || '16:9';
   });
 
   // Initialize from local storage if available
@@ -174,6 +179,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   useEffect(() => {
     localStorage.setItem('seo_scribe_image_count', imageCount.toString());
   }, [imageCount]);
+
+  useEffect(() => {
+    localStorage.setItem('seo_scribe_image_model', imageModel);
+  }, [imageModel]);
 
   useEffect(() => {
     localStorage.setItem('seo_scribe_image_style', imageStyle);
@@ -658,6 +667,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       queueTopics,
       autoOptimize,
       imageCount,
+      imageModel,
       imageStyle,
       imageRatio,
       wordCount,
@@ -821,7 +831,22 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
             </h2>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">Model</label>
+              <select
+                value={imageModel}
+                onChange={(e) => setImageModel(e.target.value as ImageModel)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm bg-white"
+              >
+                {MODEL_PRESETS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label} — {m.bestFor}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">Number of Images</label>
               <select
@@ -830,7 +855,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm bg-white"
               >
                 <option value="0">None</option>
-                <option value="1">1 (Featured Image)</option>
+                <option value="1">1 Featured Image</option>
                 <option value="2">2 Images</option>
                 <option value="3">3 Images</option>
                 <option value="4">4 Images</option>
@@ -844,27 +869,27 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">Style</label>
                   <select
                     value={imageStyle}
-                    onChange={(e) => setImageStyle(e.target.value)}
+                    onChange={(e) => setImageStyle(e.target.value as ImageStyle)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm bg-white"
                   >
-                    <option value="Realistic">Realistic / Photographic</option>
-                    <option value="Digital Art">Digital Art</option>
-                    <option value="Cartoon">Cartoon / Illustration</option>
-                    <option value="Minimalist">Minimalist</option>
-                    <option value="Watercolor">Watercolor</option>
-                    <option value="3D Render">3D Render</option>
+                    {STYLE_PRESETS.map((s) => (
+                      <option key={s.id} value={s.id}>{s.label}</option>
+                    ))}
                   </select>
                 </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">Aspect Ratio</label>
                   <select
                     value={imageRatio}
-                    onChange={(e) => setImageRatio(e.target.value)}
+                    onChange={(e) => setImageRatio(e.target.value as ImageRatio)}
                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none text-sm bg-white"
                   >
-                    <option value="16:9">16:9 (Landscape)</option>
-                    <option value="1:1">1:1 (Square)</option>
-                    <option value="9:16">9:16 (Portrait)</option>
+                    {RATIO_PRESETS.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.label} ({r.width}×{r.height})
+                      </option>
+                    ))}
                   </select>
                 </div>
               </>

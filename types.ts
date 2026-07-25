@@ -1,4 +1,6 @@
 
+import type { ImageModel, ImageStyle, ImageRatio } from './services/imagePresets';
+
 export enum ArticleType {
   BLOG_POST = "Blog Post",
   NEWS_ARTICLE = "News Article",
@@ -99,8 +101,9 @@ export interface ArticleConfig {
   queueTopics?: string[]; // Used for queue/bulk mode
   autoOptimize: boolean; // Enables the Auto-SEO pipeline
   imageCount: number; // Number of Cloudflare images to generate (0 for none)
-  imageStyle?: string; // Style of the generated image
-  imageRatio?: string; // Aspect ratio of the generated image
+  imageModel: ImageModel; // AI model used for image generation
+  imageStyle: ImageStyle; // Style of the generated image
+  imageRatio: ImageRatio; // Aspect ratio of the generated image
   imagePrompt?: string; // Optional custom prompt for the image
 
   wordCount: number;
@@ -379,3 +382,5 @@ export interface SerpResearchPackage {
   report: SerpIntelligenceReport;
   userSelections: UserSelections;
 }
+
+export type { ImageModel, ImageStyle, ImageRatio } from './services/imagePresets';
