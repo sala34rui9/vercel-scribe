@@ -33,7 +33,8 @@ export const generateCloudflareImage = async (
 
   const accountMatch = storedUrl.match(/\/accounts\/([^/]+)/);
   const accountId = accountMatch ? accountMatch[1] : '';
-  const url = accountId
+  const isDirectApi = !!accountId;
+  const url = isDirectApi
     ? `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${modelPreset.modelId}`
     : storedUrl;
 
@@ -43,19 +44,19 @@ export const generateCloudflareImage = async (
     BASE_QUALITY_TERMS
   ].join(', ');
 
-  const negativePrompt = [
-    BASE_NEGATIVE_PROMPT,
-    stylePreset.negativePromptAdditions
-  ].join(', ');
+  const requestBody: Record<string, unknown> = { prompt: enhancedPrompt };
 
-  const requestBody: Record<string, unknown> = {
-    prompt: enhancedPrompt,
-    negative_prompt: negativePrompt,
-    width: ratioPreset.width,
-    height: ratioPreset.height,
-    num_steps: Math.min(options.steps ?? 20, modelPreset.maxSteps),
-    guidance: 7.5
-  };
+  if (isDirectApi) {
+    const negativePrompt = [
+      BASE_NEGATIVE_PROMPT,
+      stylePreset.negativePromptAdditions
+    ].join(', ');
+    requestBody.negative_prompt = negativePrompt;
+    requestBody.width = ratioPreset.width;
+    requestBody.height = ratioPreset.height;
+    requestBody.num_steps = Math.min(options.steps ?? 8, modelPreset.maxSteps);
+    requestBody.guidance = 7.5;
+  }
 
   const response = await fetch(url, {
     method: 'POST',
@@ -69,6 +70,17 @@ export const generateCloudflareImage = async (
   if (!response.ok) {
     const text = await response.text();
     throw new Error(`Cloudflare API Error (${response.status}): ${text}`);
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    const json = await response.json();
+    const base64 = json?.result?.image || json?.image;
+    if (base64) {
+      return `data:image/png;base64,${base64}`;
+    }
+    throw new Error('Cloudflare API returned JSON without image data.');
   }
 
   const blob = await response.blob();
