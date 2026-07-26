@@ -16,6 +16,22 @@ import { generateCloudflareImage } from './services/cloudflareImageService';
 import { fetchSEORankingData } from './services/supabaseClient';
 import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, BrainCircuit, Activity, GripVertical, Home, BarChart3 } from 'lucide-react';
 
+const buildImagePrompt = (topic: string, sectionHeading: string | null, imageIndex: number, totalImages: number): string => {
+  const baseSubject = topic.replace(/['"]/g, '');
+
+  if (imageIndex === 0) {
+    // Featured / hero image — wide establishing shot
+    return `Professional hero banner for a blog article about "${baseSubject}". Wide-angle editorial photograph, clean modern composition, vibrant colors, professional lighting, no text or watermarks, editorial magazine quality, wide shot`;
+  }
+
+  if (sectionHeading) {
+    const cleanHeading = sectionHeading.replace(/['"*#]/g, '').trim();
+    return `Professional blog illustration for section "${cleanHeading}" in an article about "${baseSubject}". Focused close-up or detail shot, clean composition, modern editorial style, natural colors, no text or watermarks, high detail`;
+  }
+
+  return `Professional blog illustration for an article about "${baseSubject}". Clean editorial photo, modern style, no text or watermarks, well-composed`;
+};
+
 const injectImages = async (
   content: string, 
   topic: string, 
@@ -34,10 +50,9 @@ const injectImages = async (
       setProcessingStatus(`Generating image ${i + 1}/${config.imageCount}...`);
       setLogs(prev => [...prev, `> Generating image ${i + 1} of ${config.imageCount} via Cloudflare AI...`]);
       
-      let prompt = config.imagePrompt || topic;
-      if (i > 0 && matches[i - 1]) {
-        prompt = `${topic}, specifically focusing on: ${matches[i - 1][1]}`;
-      }
+      // Use custom prompt if provided, otherwise build a smart contextual one
+      const sectionHeading = (i > 0 && matches[i - 1]) ? matches[i - 1][1] : null;
+      const prompt = config.imagePrompt || buildImagePrompt(topic, sectionHeading, i, config.imageCount);
       
       const base64Image = await generateCloudflareImage(prompt, {
         model: config.imageModel ?? 'sdxl',
