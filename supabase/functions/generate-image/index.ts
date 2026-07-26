@@ -31,7 +31,19 @@ serve(async (req) => {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`Cloudflare API Error (${response.status}): ${text}`);
+      let parsedError = text;
+      try {
+        const jsonErr = JSON.parse(text);
+        if (jsonErr.errors && Array.isArray(jsonErr.errors)) {
+          parsedError = jsonErr.errors.map((e: any) => e.message || JSON.stringify(e)).join('; ');
+        }
+      } catch (_) {
+        // Not JSON
+      }
+      return new Response(
+        JSON.stringify({ error: `Cloudflare API Error (${response.status}): ${parsedError}` }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const arrayBuffer = await response.arrayBuffer();
@@ -48,8 +60,8 @@ serve(async (req) => {
   } catch (error: any) {
     console.error('Error generating image:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: error.message || 'Unknown error' }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

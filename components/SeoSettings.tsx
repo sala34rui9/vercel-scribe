@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Target, BarChart3, Globe, Save, ShieldCheck, Key, Activity, RefreshCw, Settings, Search } from 'lucide-react';
+import { Target, BarChart3, Globe, Save, ShieldCheck, Key, Activity, RefreshCw, Settings, Search, Image as ImageIcon, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { fetchSEORankingData } from '../services/supabaseClient';
+import { generateCloudflareImage } from '../services/cloudflareImageService';
 import { SEORankingData } from '../types';
 import FindKeywords from './FindKeywords';
 
@@ -19,6 +20,10 @@ export const SeoSettings: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResults, setScanResults] = useState<SEORankingData | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+
+  const [isTestingImage, setIsTestingImage] = useState(false);
+  const [imageTestResult, setImageTestResult] = useState<string | null>(null);
+  const [imageTestError, setImageTestError] = useState<string | null>(null);
 
   useEffect(() => {
     const srKey = localStorage.getItem('user_se_ranking_api_key');
@@ -87,6 +92,33 @@ export const SeoSettings: React.FC = () => {
       setTimeout(() => {
         setSaveStatus('idle');
       }, 1500);
+    }
+  };
+
+  const handleTestImage = async () => {
+    if (!cloudflareApiUrl || !cloudflareApiToken) {
+      setImageTestError('Please enter both Cloudflare Account ID and API Token before testing.');
+      return;
+    }
+
+    setIsTestingImage(true);
+    setImageTestError(null);
+    setImageTestResult(null);
+
+    try {
+      handleSaveSettings();
+
+      const testDataUrl = await generateCloudflareImage(
+        'A futuristic workspace with glowing holographic screen and AI assistant, 8k resolution',
+        { model: 'sdxl', style: 'photorealistic', ratio: '16:9' }
+      );
+
+      setImageTestResult(testDataUrl);
+    } catch (err: any) {
+      console.error('Image test error:', err);
+      setImageTestError(err.message || 'Failed to generate test image.');
+    } finally {
+      setIsTestingImage(false);
     }
   };
 
@@ -270,6 +302,43 @@ export const SeoSettings: React.FC = () => {
               <p className="text-xs text-slate-500">
                 Used to automatically generate featured images for your articles via Cloudflare Workers AI.
               </p>
+
+              {/* Test Image Generation Button & Output */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={handleTestImage}
+                  disabled={isTestingImage || !cloudflareApiUrl || !cloudflareApiToken}
+                  className="flex items-center px-4 py-2 bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  <Sparkles className={`w-4 h-4 mr-2 text-amber-600 ${isTestingImage ? 'animate-spin' : ''}`} />
+                  {isTestingImage ? 'Testing Cloudflare AI Generation...' : 'Test & Debug Image Generation'}
+                </button>
+
+                {imageTestError && (
+                  <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 animate-in fade-in">
+                    <div className="flex items-center font-semibold mb-1 text-red-800">
+                      <AlertCircle className="w-4 h-4 mr-1.5 text-red-600" />
+                      Image Generation Failed
+                    </div>
+                    <p className="font-mono text-xs break-all bg-red-100/60 p-2.5 rounded mt-1 text-red-900 border border-red-200">
+                      {imageTestError}
+                    </p>
+                  </div>
+                )}
+
+                {imageTestResult && (
+                  <div className="mt-3 p-4 bg-emerald-50 border border-emerald-200 rounded-lg animate-in fade-in">
+                    <div className="flex items-center font-semibold text-emerald-800 text-sm mb-2">
+                      <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" />
+                      Success! Test Image Generated via Cloudflare Workers AI:
+                    </div>
+                    <div className="relative rounded-lg overflow-hidden border border-emerald-300 shadow-sm max-w-md">
+                      <img src={imageTestResult} alt="Test Generation" className="w-full h-auto object-cover" />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Domain Targeting Section */}
