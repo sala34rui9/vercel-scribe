@@ -1,3 +1,4 @@
+import { supabase } from './supabaseClient';
 import {
   getModelPreset,
   getStylePreset,
@@ -20,23 +21,27 @@ export const generateCloudflareImage = async (
   prompt: string,
   options: GenerateOptions
 ): Promise<string> => {
-  const storedUrl = localStorage.getItem('user_cloudflare_api_url');
+  const accountId = localStorage.getItem('user_cloudflare_api_url') || '';
   const token = localStorage.getItem('user_cloudflare_api_token');
 
-  if (!storedUrl || !token) {
-    throw new Error('Cloudflare Image API is not configured.');
+  // We still check for credentials, though the URL might now just be the account ID
+  if (!accountId || !token) {
+    throw new Error('Cloudflare API Token or Account ID is not configured.');
+  }
+
+  // Handle both raw Account ID or the legacy full URL logic (extracting account ID)
+  let cleanAccountId = accountId;
+  const accountMatch = accountId.match(/\/accounts\/([^/]+)/);
+  if (accountMatch) {
+    cleanAccountId = accountMatch[1];
+  } else {
+    // Basic cleanup in case they pasted spaces
+    cleanAccountId = cleanAccountId.trim();
   }
 
   const modelPreset = getModelPreset(options.model);
   const stylePreset = getStylePreset(options.style);
   const ratioPreset = getRatioPreset(options.ratio);
-
-  const accountMatch = storedUrl.match(/\/accounts\/([^/]+)/);
-  const accountId = accountMatch ? accountMatch[1] : '';
-  const isDirectApi = !!accountId;
-  const url = isDirectApi
-    ? `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${modelPreset.modelId}`
-    : storedUrl;
 
   const enhancedPrompt = [
     prompt,
@@ -44,51 +49,40 @@ export const generateCloudflareImage = async (
     BASE_QUALITY_TERMS
   ].join(', ');
 
-  const requestBody: Record<string, unknown> = { prompt: enhancedPrompt };
+  const negativePrompt = [
+    BASE_NEGATIVE_PROMPT,
+    stylePreset.negativePromptAdditions
+  ].join(', ');
 
-  if (isDirectApi) {
-    const negativePrompt = [
-      BASE_NEGATIVE_PROMPT,
-      stylePreset.negativePromptAdditions
-    ].join(', ');
-    requestBody.negative_prompt = negativePrompt;
-    requestBody.width = ratioPreset.width;
-    requestBody.height = ratioPreset.height;
-    requestBody.num_steps = Math.min(options.steps ?? 8, modelPreset.maxSteps);
-    requestBody.guidance = 7.5;
-  }
+  const requestBody: Record<string, unknown> = {
+    prompt: enhancedPrompt,
+    negative_prompt: negativePrompt,
+    width: ratioPreset.width,
+    height: ratioPreset.height,
+    num_steps: Math.min(options.steps ?? 20, modelPreset.maxSteps),
+    guidance: 7.5
+  };
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(requestBody)
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Cloudflare API Error (${response.status}): ${text}`);
-  }
-
-  const contentType = response.headers.get('content-type') || '';
-
-  if (contentType.includes('application/json')) {
-    const json = await response.json();
-    const base64 = json?.result?.image || json?.image;
-    if (base64) {
-      return `data:image/png;base64,${base64}`;
+  const { data, error } = await supabase.functions.invoke('generate-image', {
+    body: {
+      accountId: cleanAccountId,
+      apiToken: token,
+      modelId: modelPreset.modelId,
+      requestBody
     }
-    throw new Error('Cloudflare API returned JSON without image data.');
+  });
+
+  if (error) {
+    throw new Error(`Edge Function Error: ${error.message}`);
   }
 
-  const blob = await response.blob();
+  if (data?.error) {
+    throw new Error(`Cloudflare API Error: ${data.error}`);
+  }
 
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
+  if (!data?.image) {
+    throw new Error('No image data returned from Edge Function.');
+  }
+
+  return data.image;
 };

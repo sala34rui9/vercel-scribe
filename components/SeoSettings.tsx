@@ -243,13 +243,13 @@ export const SeoSettings: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div className="space-y-2">
                   <label className="flex items-center text-sm font-semibold text-slate-700">
-                    Cloudflare Worker URL
+                    Cloudflare Account ID
                   </label>
                   <input
                     type="text"
                     value={cloudflareApiUrl}
                     onChange={(e) => setCloudflareApiUrl(e.target.value)}
-                    placeholder="https://your-worker.workers.dev"
+                    placeholder="e.g. 9a78..."
                     className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm transition-shadow"
                   />
                 </div>
