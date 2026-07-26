@@ -59,7 +59,7 @@ export const generateCloudflareImage = async (
     negative_prompt: negativePrompt,
     width: ratioPreset.width,
     height: ratioPreset.height,
-    num_steps: Math.min(options.steps ?? 30, modelPreset.maxSteps),
+    num_steps: Math.min(options.steps ?? 20, modelPreset.maxSteps),
     guidance: 8.5
   };
 

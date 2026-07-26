@@ -15,7 +15,7 @@ export const MODEL_PRESETS: ModelPreset[] = [
     label: 'Stable Diffusion XL',
     description: 'Versatile, high-quality, handles all styles',
     modelId: '@cf/stabilityai/stable-diffusion-xl-base-1.0',
-    maxSteps: 40,
+    maxSteps: 20,
     bestFor: 'All-around'
   },
   {
@@ -23,7 +23,7 @@ export const MODEL_PRESETS: ModelPreset[] = [
     label: 'Dreamshaper 8',
     description: 'Fine-tuned for photorealism',
     modelId: '@cf/lykon/dreamshaper-8-lcm',
-    maxSteps: 30,
+    maxSteps: 20,
     bestFor: 'Photorealism'
   },
   {
