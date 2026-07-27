@@ -82,9 +82,11 @@ serve(async (req) => {
       result = await generateWithGemini(config, geminiApiKey, tavilyApiKey);
     } else if (aiProvider === 'deepseek' && deepseekApiKey) {
       result = await generateWithDeepSeek(config, deepseekApiKey, tavilyApiKey);
+    } else if (aiProvider === 'bynara' && bynaraApiKey) {
+      result = await generateWithBynara(config, bynaraApiKey, tavilyApiKey);
     } else {
       return new Response(
-        JSON.stringify({ error: 'Invalid AI provider' }),
+        JSON.stringify({ error: 'Invalid AI provider or provider API key not configured on server' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -350,16 +352,33 @@ async function generateWithDeepSeek(config: any, apiKey: string, tavilyKey?: str
 // ============================================================================
 async function generateWithBynara(config: any, apiKey: string, tavilyKey?: string) {
   const {
-    topic, wordCount, type, tone, primaryKeywords, humanizeContent, personalResources
+    topic, wordCount, type, tone, primaryKeywords, humanizeContent, personalResources, bynaraModel
   } = config;
+
+  // Map bynaraModel enum to actual API model ID
+  // Default to mistral-large for free tier compatibility
+  let apiModel = bynaraModel || 'mistral-large';
+
+  // Validate model exists (fallback to mistral-large if invalid)
+  const validModels = [
+    'mistral-large', 'deepseek-v4-flash', 'deepseek-v4-pro',
+    'deepseek-v4-flash-alibaba', 'deepseek-v4-pro-alibaba',
+    'claude-sonnet-5', 'claude-opus-4.7', 'gpt-5.4', 'gpt-5.5',
+    'grok-4.5', 'kimi-k3', 'glm-5.2', 'qwen3.7-max',
+    'mistral-medium-3-5', 'minimax-m3', 'agnes-2.5-flash'
+  ];
+  if (!validModels.includes(apiModel)) {
+    console.warn(`[Edge:Bynara] Invalid model "${apiModel}", falling back to mistral-large`);
+    apiModel = 'mistral-large';
+  }
 
   let humanizeInstruction = "";
   if (humanizeContent) {
     humanizeInstruction = `
     "HUMANIZE CONTENT" MODE ENABLED:
-    STRICTLY BANNED WORDS: "Delve", "Dive deep", "Game-changer", "Unleash", "Unlock", 
+    STRICTLY BANNED WORDS: "Delve", "Dive deep", "Game-changer", "Unleash", "Unlock",
     "Elevate", "Realm", "Tapestry", "Symphony", "Leverage", "Harness", "Seamlessly"
-    
+
     HUMAN WRITING GUIDELINES:
     - Use short, punchy sentences. Fragment sentences are okay.
     - Use contractions everywhere (don't, won't, can't, it's).
@@ -381,18 +400,20 @@ async function generateWithBynara(config: any, apiKey: string, tavilyKey?: strin
 
   const prompt = `
     TASK: Write a comprehensive ${type} about "${topic}".
-    
+
     CONFIGURATION:
     - Target Word Count: ${wordCount} words.
     - Tone: ${tone}.
     - Primary Keywords: ${primaryKeywords?.join(", ") || ""}.
-    
+
     ${humanizeInstruction}
     ${seoRankingInstruction}
     ${personalResources ? `PERSONAL RESOURCES:\n${personalResources}` : ''}
-    
+
     Output in pure Markdown.
   `;
+
+  console.log(`[Edge:Bynara] Calling model: ${apiModel}`);
 
   const response = await fetch('https://router.bynara.id/v1/chat/completions', {
     method: 'POST',
@@ -401,7 +422,7 @@ async function generateWithBynara(config: any, apiKey: string, tavilyKey?: strin
       'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: 'deepseek-3.2',
+      model: apiModel,
       messages: [
         { role: 'system', content: 'You are an expert SEO Content Writer.' },
         { role: 'user', content: prompt }
@@ -410,7 +431,8 @@ async function generateWithBynara(config: any, apiKey: string, tavilyKey?: strin
   });
 
   if (!response.ok) {
-    throw new Error(`Bynara API error: ${response.status}`);
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(`Bynara API error (${response.status}): ${errorData.error?.message || response.statusText}`);
   }
 
   const data = await response.json();

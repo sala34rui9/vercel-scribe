@@ -61,7 +61,22 @@ export enum DeepSeekModel {
 }
 
 export enum BynaraModel {
-  DEFAULT = "deepseek-3.2"
+  MISTRAL_LARGE = "mistral-large",
+  DEEPSEEK_V4_FLASH = "deepseek-v4-flash",
+  DEEPSEEK_V4_PRO = "deepseek-v4-pro",
+  DEEPSEEK_V4_FLASH_ALIBABA = "deepseek-v4-flash-alibaba",
+  DEEPSEEK_V4_PRO_ALIBABA = "deepseek-v4-pro-alibaba",
+  CLAUDE_SONNET_5 = "claude-sonnet-5",
+  CLAUDE_OPUS_4_7 = "claude-opus-4.7",
+  GPT_5_4 = "gpt-5.4",
+  GPT_5_5 = "gpt-5.5",
+  GROK_4_5 = "grok-4.5",
+  KIMI_K3 = "kimi-k3",
+  GLM_5_2 = "glm-5.2",
+  QWEN3_7_MAX = "qwen3.7-max",
+  MIXTRAL_MEDIUM_3_5 = "mistral-medium-3-5",
+  MIMAX_M3 = "minimax-m3",
+  AGNES_2_5_FLASH = "agnes-2.5-flash"
 }
 
 export enum SearchProvider {

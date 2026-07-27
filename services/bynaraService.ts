@@ -2,7 +2,11 @@ import { ArticleConfig, BynaraModel, OpeningStyle, ReadabilityLevel, TargetCount
 import { resolveAutoProvider } from './researchProviderUtils';
 
 const BYNARA_API_URL = "https://router.bynara.id/v1/chat/completions";
+const BYNARA_CORS_PROXY = "https://corsproxy.io/?";
 const LOCAL_STORAGE_KEY_KEY = 'user_bynara_api_key';
+const REQUEST_TIMEOUT_MS = 60000; // 60 seconds
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 2000; // 2 seconds between retries
 
 const getApiKey = (): string => {
   const customKey = localStorage.getItem(LOCAL_STORAGE_KEY_KEY);
@@ -10,6 +14,67 @@ const getApiKey = (): string => {
     return customKey.trim();
   }
   return '';
+};
+
+/**
+ * Determines if CORS proxy should be enabled.
+ * Users can disable it by setting localStorage item 'bynara_cors_proxy' to 'disabled'.
+ */
+const isCorsProxyEnabled = (): boolean => {
+  return localStorage.getItem('bynara_cors_proxy') !== 'disabled';
+};
+
+/**
+ * Gets the final API URL, optionally through a CORS proxy.
+ */
+const getApiUrl = (): string => {
+  if (isCorsProxyEnabled()) {
+    return `${BYNARA_CORS_PROXY}${encodeURIComponent(BYNARA_API_URL)}`;
+  }
+  return BYNARA_API_URL;
+};
+
+/**
+ * Executes a fetch request with timeout and retry logic.
+ */
+const fetchWithRetry = async (
+  url: string,
+  options: RequestInit,
+  retries: number = MAX_RETRIES
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  // Merge external signal with timeout controller
+  const originalSignal = options.signal;
+  if (originalSignal) {
+    originalSignal.addEventListener('abort', () => controller.abort());
+  }
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+
+    // Don't retry on abort
+    if (error.name === 'AbortError') {
+      throw error;
+    }
+
+    // Retry on network errors
+    if (retries > 0) {
+      console.warn(`[Bynara] Request failed, retrying... (${retries} attempts left)`);
+      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+      return fetchWithRetry(url, options, retries - 1);
+    }
+
+    throw error;
+  }
 };
 
 /**
@@ -53,7 +118,7 @@ export const generatePrimaryKeywordsBynara = async (topic: string): Promise<stri
   }
 
   const payload = {
-    model: "deepseek-3.2",
+    model: BynaraModel.MISTRAL_LARGE,
     messages: [
       {
         role: "system",
@@ -71,7 +136,7 @@ export const generatePrimaryKeywordsBynara = async (topic: string): Promise<stri
   try {
     logApiDiagnostics('generatePrimaryKeywords', apiKey);
 
-    const response = await fetch(BYNARA_API_URL, {
+    const response = await fetchWithRetry(getApiUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify(payload)
@@ -99,7 +164,10 @@ export const generatePrimaryKeywordsBynara = async (topic: string): Promise<stri
     if (error instanceof TypeError && error.message.includes('fetch')) {
       logApiDiagnostics('generatePrimaryKeywords (Network Error)', apiKey, error);
       console.error('[Bynara] Network error:', error);
-      throw new Error(`Bynara connection failed: Check internet & API key`);
+      throw new Error(`Bynara connection failed: Check internet & API key. If in browser, CORS may be blocking the request.`);
+    }
+    if (error.name === 'AbortError') {
+      throw new Error('Bynara request timed out. Please try again.');
     }
     console.error("Bynara keyword generation error:", error);
     throw error;
@@ -114,7 +182,7 @@ export const generateNLPKeywordsBynara = async (topic: string): Promise<string[]
   }
 
   const payload = {
-    model: "deepseek-3.2",
+    model: BynaraModel.MISTRAL_LARGE,
     messages: [
       {
         role: "system",
@@ -132,7 +200,7 @@ export const generateNLPKeywordsBynara = async (topic: string): Promise<string[]
   try {
     logApiDiagnostics('generateNLPKeywords', apiKey);
 
-    const response = await fetch(BYNARA_API_URL, {
+    const response = await fetchWithRetry(getApiUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify(payload)
@@ -160,7 +228,10 @@ export const generateNLPKeywordsBynara = async (topic: string): Promise<string[]
     if (error instanceof TypeError && error.message.includes('fetch')) {
       logApiDiagnostics('generateNLPKeywords (Network Error)', apiKey, error);
       console.error('[Bynara] Network error:', error);
-      throw new Error(`Bynara connection failed: Check internet & API key`);
+      throw new Error(`Bynara connection failed: Check internet & API key. If in browser, CORS may be blocking the request.`);
+    }
+    if (error.name === 'AbortError') {
+      throw new Error('Bynara request timed out. Please try again.');
     }
     console.error("Bynara NLP keyword generation error:", error);
     throw error;
@@ -175,7 +246,7 @@ export const generateFullSEOStrategyBynara = async (topic: string): Promise<{ pr
   }
 
   const payload = {
-    model: "deepseek-3.2",
+    model: BynaraModel.MISTRAL_LARGE,
     messages: [
       {
         role: "system",
@@ -183,11 +254,11 @@ export const generateFullSEOStrategyBynara = async (topic: string): Promise<{ pr
       },
       {
         role: "user",
-        content: `Analyze the topic: "${topic}". 
+        content: `Analyze the topic: "${topic}".
         Generate a complete SEO strategy:
         1. 5-7 Primary Keywords (Head & Long-tail).
         2. 10-15 NLP/LSI Keywords (Contextual).
-        
+
         Return ONLY a raw JSON object with keys 'primaryKeywords' and 'nlpKeywords'. No markdown.`
       }
     ],
@@ -197,7 +268,7 @@ export const generateFullSEOStrategyBynara = async (topic: string): Promise<{ pr
   try {
     logApiDiagnostics('generateFullSEOStrategy', apiKey);
 
-    const response = await fetch(BYNARA_API_URL, {
+    const response = await fetchWithRetry(getApiUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify(payload)
@@ -695,18 +766,81 @@ export const generateArticleBynara = async (config: ArticleConfig, signal?: Abor
     `;
 
   // --- MODEL MAPPING ---
-  let apiModel = "deepseek-3.2";
+  // Maps BynaraModel enum to actual API model IDs from ByNara's available models
+  // See: https://router.bynara.id/v1/models
+  let apiModel = BynaraModel.MISTRAL_LARGE; // Default to Mistral Large (free tier compatible)
   let systemPrompt = "You are an expert SEO Content Writer.";
 
-  if (bynaraModel === BynaraModel.DEFAULT) {
-    apiModel = "deepseek-3.2";
-  } else if (bynaraModel === BynaraModel.DEFAULT) {
-    apiModel = "deepseek-3.2";
-    systemPrompt = "You are Bynara-V4 Pro Speciale, an advanced reasoning engine specialized for high-end creative and technical writing. You prioritize depth, nuance, and structural perfection.";
-  } else {
-    // V3_NON_THINKING
-    apiModel = "deepseek-3.2";
-    systemPrompt = "You are Bynara-V4 Flash, a high-speed, efficient AI writing assistant.";
+  switch (bynaraModel) {
+    case BynaraModel.MISTRAL_LARGE:
+      apiModel = BynaraModel.MISTRAL_LARGE;
+      systemPrompt = "You are an expert SEO Content Writer.";
+      break;
+    case BynaraModel.DEEPSEEK_V4_FLASH:
+      apiModel = BynaraModel.DEEPSEEK_V4_FLASH;
+      systemPrompt = "You are an expert SEO Content Writer.";
+      break;
+    case BynaraModel.DEEPSEEK_V4_PRO:
+      apiModel = BynaraModel.DEEPSEEK_V4_PRO;
+      systemPrompt = "You are an advanced reasoning engine specialized for high-end creative and technical writing. You prioritize depth, nuance, and structural perfection.";
+      break;
+    case BynaraModel.DEEPSEEK_V4_FLASH_ALIBABA:
+      apiModel = BynaraModel.DEEPSEEK_V4_FLASH_ALIBABA;
+      systemPrompt = "You are an expert SEO Content Writer.";
+      break;
+    case BynaraModel.DEEPSEEK_V4_PRO_ALIBABA:
+      apiModel = BynaraModel.DEEPSEEK_V4_PRO_ALIBABA;
+      systemPrompt = "You are an advanced reasoning engine specialized for high-end creative and technical writing. You prioritize depth, nuance, and structural perfection.";
+      break;
+    case BynaraModel.CLAUDE_SONNET_5:
+      apiModel = BynaraModel.CLAUDE_SONNET_5;
+      systemPrompt = "You are an expert SEO Content Writer.";
+      break;
+    case BynaraModel.CLAUDE_OPUS_4_7:
+      apiModel = BynaraModel.CLAUDE_OPUS_4_7;
+      systemPrompt = "You are an advanced reasoning engine specialized for high-end creative and technical writing. You prioritize depth, nuance, and structural perfection.";
+      break;
+    case BynaraModel.GPT_5_4:
+      apiModel = BynaraModel.GPT_5_4;
+      systemPrompt = "You are an expert SEO Content Writer.";
+      break;
+    case BynaraModel.GPT_5_5:
+      apiModel = BynaraModel.GPT_5_5;
+      systemPrompt = "You are an advanced reasoning engine specialized for high-end creative and technical writing. You prioritize depth, nuance, and structural perfection.";
+      break;
+    case BynaraModel.GROK_4_5:
+      apiModel = BynaraModel.GROK_4_5;
+      systemPrompt = "You are an expert SEO Content Writer.";
+      break;
+    case BynaraModel.KIMI_K3:
+      apiModel = BynaraModel.KIMI_K3;
+      systemPrompt = "You are an advanced reasoning engine specialized for high-end creative and technical writing. You prioritize depth, nuance, and structural perfection.";
+      break;
+    case BynaraModel.GLM_5_2:
+      apiModel = BynaraModel.GLM_5_2;
+      systemPrompt = "You are an expert SEO Content Writer.";
+      break;
+    case BynaraModel.QWEN3_7_MAX:
+      apiModel = BynaraModel.QWEN3_7_MAX;
+      systemPrompt = "You are an advanced reasoning engine specialized for high-end creative and technical writing. You prioritize depth, nuance, and structural perfection.";
+      break;
+    case BynaraModel.MIXTRAL_MEDIUM_3_5:
+      apiModel = BynaraModel.MIXTRAL_MEDIUM_3_5;
+      systemPrompt = "You are an expert SEO Content Writer.";
+      break;
+    case BynaraModel.MIMAX_M3:
+      apiModel = BynaraModel.MIMAX_M3;
+      systemPrompt = "You are an expert SEO Content Writer.";
+      break;
+    case BynaraModel.AGNES_2_5_FLASH:
+      apiModel = BynaraModel.AGNES_2_5_FLASH;
+      systemPrompt = "You are an expert SEO Content Writer.";
+      break;
+    default:
+      // Fallback to Mistral Large for any unrecognized model
+      apiModel = BynaraModel.MISTRAL_LARGE;
+      systemPrompt = "You are an expert SEO Content Writer.";
+      break;
   }
 
   const payload = {
@@ -720,8 +854,9 @@ export const generateArticleBynara = async (config: ArticleConfig, signal?: Abor
 
   try {
     logApiDiagnostics('generateArticle', apiKey);
+    console.log(`[Bynara] Using model: ${apiModel}, CORS proxy: ${isCorsProxyEnabled() ? 'enabled' : 'disabled'}`);
 
-    const response = await fetch(BYNARA_API_URL, {
+    const response = await fetchWithRetry(getApiUrl(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -747,6 +882,10 @@ export const generateArticleBynara = async (config: ArticleConfig, signal?: Abor
         throw new Error(`Bynara API Authentication Failed: Your API key may be invalid. Visit https://platform.bynara.com/api/keys to verify.`);
       }
 
+      if (response.status === 404 || errorMessage.includes("model")) {
+        throw new Error(`Bynara Model Error: Model "${apiModel}" not found. Please select a different model in settings. Available models include: mistral-large, deepseek-v4-flash, claude-sonnet-5, gpt-5.4, grok-4.5.`);
+      }
+
       throw new Error(`Bynara API Error (${response.status}): ${errorMessage}`);
     }
 
@@ -761,7 +900,19 @@ export const generateArticleBynara = async (config: ArticleConfig, signal?: Abor
     if (error instanceof TypeError && error.message.includes('fetch')) {
       logApiDiagnostics('generateArticle (Network Error)', apiKey, error);
       console.error('[Bynara] Full network error:', error);
-      throw new Error(`Bynara API connection failed: ${error.message}\n\nTroubleshooting:\n1. Check your internet connection\n2. Verify API key at https://platform.bynara.com/api/keys\n3. Ensure your account has sufficient balance\n4. Try again in a few seconds`);
+      throw new Error(
+        `Bynara API connection failed: ${error.message}\n\n` +
+        `Troubleshooting:\n` +
+        `1. Check your internet connection\n` +
+        `2. CORS issue: The browser may be blocking the request. Try disabling CORS proxy in settings or use a different network.\n` +
+        `3. Verify API key at https://platform.bynara.com/api/keys\n` +
+        `4. Ensure your account has sufficient balance\n` +
+        `5. Check that your plan includes the selected model (${apiModel})\n` +
+        `6. Try again in a few seconds`
+      );
+    }
+    if (error.name === 'AbortError') {
+      throw new Error('Bynara request timed out after 60 seconds. Please try again or select a faster model.');
     }
     logApiDiagnostics('generateArticle (Unexpected Error)', apiKey, error);
     throw error;
@@ -779,7 +930,7 @@ export const selectBestInternalLinksBynara = async (topic: string, links: Intern
   const candidates = links.map(l => `- Title: "${l.title}", URL: ${l.url}`).join('\n');
 
   const payload = {
-    model: "deepseek-3.2",
+    model: BynaraModel.MISTRAL_LARGE,
     messages: [
       {
         role: "system",
@@ -788,10 +939,10 @@ export const selectBestInternalLinksBynara = async (topic: string, links: Intern
       {
         role: "user",
         content: `Analyze the topic: "${topic}".
-        
+
         Evaluate these candidate internal links:
         ${candidates}
-        
+
         Select the top 5-10 most relevant links that strictly compliment this topic.
         Return ONLY a raw JSON object with a "selectedUrls" array of strings. No markdown.`
       }
@@ -802,7 +953,7 @@ export const selectBestInternalLinksBynara = async (topic: string, links: Intern
   try {
     logApiDiagnostics('selectBestInternalLinks', apiKey);
 
-    const response = await fetch(BYNARA_API_URL, {
+    const response = await fetchWithRetry(getApiUrl(), {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
       body: JSON.stringify(payload)
