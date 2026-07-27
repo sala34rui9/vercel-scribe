@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bynara API Debug Tool</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Courier New', monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+  h1 { color: #00d4ff; margin-bottom: 10px; font-size: 1.4em; }
+  h2 { color: #ff6b6b; margin: 20px 0 10px; font-size: 1.1em; border-bottom: 1px solid #333; padding-bottom: 5px; }
+  .section { background: #16213e; border-radius: 8px; padding: 15px; margin-bottom: 15px; border: 1px solid #0f3460; }
+  .result { padding: 10px; border-radius: 4px; margin: 8px 0; white-space: pre-wrap; word-break: break-all; font-size: 0.85em; max-height: 300px; overflow-y: auto; }
+  .success { background: #0d3320; border: 1px solid #00c853; color: #69f0ae; }
+  .error { background: #3a0d0d; border: 1px solid #ff1744; color: #ff8a80; }
+  .warn { background: #3a330d; border: 1px solid #ffd600; color: #ffff00; }
+  .info { background: #0d1a3a; border: 1px solid #2979ff; color: #82b1ff; }
+  button { background: #0f3460; color: #00d4ff; border: 1px solid #00d4ff; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-family: inherit; font-size: 0.9em; margin: 5px; }
+  button:hover { background: #00d4ff; color: #1a1a2e; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  label { display: block; margin: 8px 0 4px; color: #aaa; font-size: 0.85em; }
+  input, select { width: 100%; padding: 8px; background: #0a0a1a; border: 1px solid #333; color: #e0e0e0; border-radius: 4px; font-family: inherit; }
+  .status { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 0.8em; margin-left: 8px; }
+  .status-ok { background: #00c853; color: #000; }
+  .status-fail { background: #ff1744; color: #fff; }
+  .status-loading { background: #ffd600; color: #000; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+  #log { max-height: 500px; overflow-y: auto; background: #0a0a1a; padding: 10px; border-radius: 4px; border: 1px solid #333; }
+  .log-entry { margin: 2px 0; padding: 2px 6px; border-left: 3px solid transparent; }
+  .log-info { border-color: #2979ff; }
+  .log-success { border-color: #00c853; }
+  .log-error { border-color: #ff1744; }
+  .log-warn { border-color: #ffd600; }
+</style>
+</head>
+<body>
+<h1>🔍 Bynara API Debug Tool</h1>
+<p style="color:#888;margin-bottom:20px;">Tests the Bynara API directly to diagnose 403 / timeout errors</p>
+
+<div class="section">
+  <h2>Configuration</h2>
+  <div class="grid">
+    <div>
+      <label>API Key (from localStorage)</label>
+      <input type="text" id="apiKey" placeholder="Will auto-read from localStorage" readonly style="opacity:0.7">
+    </div>
+    <div>
+      <label>Connection Method</label>
+      <select id="connectionMethod">
+        <option value="direct">Direct (no proxy)</option>
+        <option value="cors_proxy_io">CORS Proxy: corsproxy.io</option>
+        <option value="allorigins">CORS Proxy: allorigins.win</option>
+        <option value="cors_anywhere">CORS Proxy: cors-anywhere</option>
+      </select>
+    </div>
+  </div>
+  <div class="grid">
+    <div>
+      <label>Model to Test</label>
+      <select id="modelSelect">
+        <option value="mistral-large">mistral-large (default)</option>
+        <option value="deepseek-v4-flash">deepseek-v4-flash</option>
+        <option value="deepseek-v4-pro">deepseek-v4-pro</option>
+        <option value="deepseek-v4-flash-alibaba">deepseek-v4-flash-alibaba</option>
+        <option value="deepseek-v4-pro-alibaba">deepseek-v4-pro-alibaba</option>
+        <option value="claude-sonnet-5">claude-sonnet-5</option>
+        <option value="gpt-5.4">gpt-5.4</option>
+        <option value="grok-4.5">grok-4.5</option>
+        <option value="kimi-k3">kimi-k3</option>
+        <option value="glm-5.2">glm-5.2</option>
+        <option value="qwen3.7-max">qwen3.7-max</option>
+      </select>
+    </div>
+    <div>
+      <label>Timeout (seconds)</label>
+      <input type="number" id="timeoutSec" value="30" min="5" max="120">
+    </div>
+  </div>
+  <div style="margin-top:10px">
+    <button onclick="runAllTests()">🧪 Run All Model Tests</button>
+    <button onclick="runSingleTest()">▶ Test Selected Model</button>
+    <button onclick="testModelsList()">📋 Fetch Models List</button>
+    <button onclick="clearLog()">Clear Log</button>
+  </div>
+</div>
+
+<div class="section">
+  <h2>Live Log</h2>
+  <div id="log"></div>
+</div>
+
+<div class="section">
+  <h2>Test Results</h2>
+  <div id="results"></div>
+</div>
+
+<script>
+const BYNARA_API_URL = 'https://router.bynara.id/v1/chat/completions';
+const CORS_PROXIES = {
+  cors_proxy_io: 'https://corsproxy.io/?url=',
+  allorigins: 'https://api.allorigins.win/raw?url=',
+  cors_anywhere: 'https://cors-anywhere.herokuapp.com/',
+  direct: ''
+};
+
+const ALL_MODELS = [
+  'mistral-large', 'deepseek-v4-flash', 'deepseek-v4-pro',
+  'deepseek-v4-flash-alibaba', 'deepseek-v4-pro-alibaba',
+  'claude-sonnet-5', 'gpt-5.4', 'grok-4.5', 'kimi-k3', 'glm-5.2', 'qwen3.7-max'
+];
+
+// Initialize
+document.getElementById('apiKey').value = localStorage.getItem('user_bynara_api_key') || 'NOT SET';
+
+function log(msg, type = 'info') {
+  const el = document.getElementById('log');
+  const entry = document.createElement('div');
+  entry.className = `log-entry log-${type}`;
+  entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  el.appendChild(entry);
+  el.scrollTop = el.scrollHeight;
+}
+
+function clearLog() {
+  document.getElementById('log').innerHTML = '';
+  document.getElementById('results').innerHTML = '';
+}
+
+function getApiKey() {
+  const key = document.getElementById('apiKey').value;
+  if (!key || key === 'NOT SET' || key.length < 5) {
+    log('ERROR: No valid API key found. Set it in SEO Scribe settings first.', 'error');
+    return null;
+  }
+  return key;
+}
+
+function getProxyUrl(connectionMethod) {
+  if (connectionMethod === 'direct') return BYNARA_API_URL;
+  return CORS_PROXIES[connectionMethod] + encodeURIComponent(BYNARA_API_URL);
+}
+
+async function testModel(model, apiKey, connectionMethod, timeoutSec) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutSec * 1000);
+  const startTime = Date.now();
+
+  const payload = {
+    model: model,
+    messages: [{ role: 'user', content: 'Say hello in 5 words.' }],
+    max_tokens: 20,
+    stream: false
+  };
+
+  const url = getProxyUrl(connectionMethod);
+  log(`Testing ${model} via ${connectionMethod}...`, 'info');
+
+  try {
+    const fetchOptions = {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    };
+
+    if (connectionMethod !== 'direct') {
+      fetchOptions.headers = { 'Content-Type': 'application/json' };
+      fetchOptions.body = JSON.stringify({ apiKey, payload });
+    }
+
+    const response = await fetch(url, fetchOptions);
+    clearTimeout(timeoutId);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+
+    let responseBody;
+    try { responseBody = await response.json(); } catch(e) { responseBody = await response.text().catch(() => 'unreadable'); }
+
+    const result = { model, status: response.status, elapsed, ok: response.ok, body: responseBody };
+
+    if (response.ok) {
+      const content = responseBody.choices?.[0]?.message?.content || 'N/A';
+      log(`✅ ${model}: ${response.status} OK (${elapsed}s) → "${content}"`, 'success');
+    } else {
+      const errMsg = responseBody.error?.message || responseBody.message || JSON.stringify(responseBody).substring(0, 200);
+      log(`❌ ${model}: ${response.status} ${response.statusText} (${elapsed}s) → ${errMsg}`, 'error');
+    }
+
+    return result;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    const msg = error.name === 'AbortError' ? `TIMEOUT after ${elapsed}s` : `NETWORK ERROR: ${error.message}`;
+    log(`💥 ${model}: ${msg}`, 'error');
+    return { model, status: 0, elapsed, ok: false, body: { error: { message: msg } } };
+  }
+}
+
+function renderResult(result) {
+  const div = document.createElement('div');
+  div.className = `result ${result.ok ? 'success' : 'error'}`;
+  const statusClass = result.ok ? 'status-ok' : 'status-fail';
+  const bodyStr = typeof result.body === 'string' ? result.body : JSON.stringify(result.body, null, 2);
+  div.innerHTML = `<strong>${result.model}</strong> <span class="status ${statusClass}">${result.status || 'ERR'}</span> (${result.elapsed}s)\n${bodyStr.substring(0, 500)}`;
+  document.getElementById('results').prepend(div);
+}
+
+async function runSingleTest() {
+  const apiKey = getApiKey();
+  if (!apiKey) return;
+  const model = document.getElementById('modelSelect').value;
+  const conn = document.getElementById('connectionMethod').value;
+  const timeout = parseInt(document.getElementById('timeoutSec').value);
+  const result = await testModel(model, apiKey, conn, timeout);
+  renderResult(result);
+}
+
+async function runAllTests() {
+  const apiKey = getApiKey();
+  if (!apiKey) return;
+  const conn = document.getElementById('connectionMethod').value;
+  const timeout = Math.min(parseInt(document.getElementById('timeoutSec').value), 15);
+
+  document.getElementById('results').innerHTML = '';
+  log(`\n=== Testing ALL models via ${conn} (timeout: ${timeout}s each) ===`, 'warn');
+
+  const results = [];
+  for (const model of ALL_MODELS) {
+    const result = await testModel(model, apiKey, conn, timeout);
+    renderResult(result);
+    results.push(result);
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  const passed = results.filter(r => r.ok).length;
+  log(`\n=== Results: ${passed}/${ALL_MODELS.length} models working ===`, passed > 0 ? 'success' : 'error');
+  if (passed > 0) {
+    const working = results.filter(r => r.ok).map(r => r.model);
+    log(`Working models: ${working.join(', ')}`, 'success');
+  }
+  if (passed < ALL_MODELS.length) {
+    const failed = results.filter(r => !r.ok).map(r => `${r.model}(${r.status})`);
+    log(`Failed models: ${failed.join(', ')}`, 'error');
+  }
+}
+
+async function testModelsList() {
+  const apiKey = getApiKey();
+  if (!apiKey) return;
+  log('\n=== Fetching Bynara Models List ===', 'warn');
+
+  const controller = new AbortController();
+  setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch('https://router.bynara.id/v1/models', {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+      signal: controller.signal
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      log(`✅ Models endpoint OK. Found ${data.data?.length || '?'} models.`, 'success');
+      const div = document.createElement('div');
+      div.className = 'result info';
+      div.textContent = JSON.stringify(data, null, 2).substring(0, 2000);
+      document.getElementById('results').prepend(div);
+    } else {
+      const text = await response.text().catch(() => '');
+      log(`❌ Models endpoint: ${response.status} ${response.statusText}`, 'error');
+      const div = document.createElement('div');
+      div.className = 'result error';
+      div.textContent = `Status: ${response.status}\n${text.substring(0, 500)}`;
+      document.getElementById('results').prepend(div);
+    }
+  } catch (err) {
+    log(`💥 Models endpoint failed: ${err.message}`, 'error');
+  }
+}
+</script>
+</body>
+</html>
