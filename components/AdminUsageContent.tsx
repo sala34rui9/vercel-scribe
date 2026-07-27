@@ -51,7 +51,7 @@ export const AdminUsageContent: React.FC = () => {
   }
 
   return (
-    <div className="max-w-6xl mx-auto flex flex-col h-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden relative p-6">
+    <div className="max-w-6xl mx-auto flex flex-col h-full bg-white rounded-xl shadow-sm border border-slate-200 relative p-6">
       <div className="flex justify-between items-center mb-6 border-b border-slate-100 pb-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 flex items-center">

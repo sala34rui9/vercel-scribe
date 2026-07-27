@@ -733,7 +733,7 @@ const App: React.FC = () => {
         )}
 
         {activePage === 'admin' && (
-          <div className="animate-in fade-in duration-300 h-full w-full">
+          <div className="animate-in fade-in duration-300 min-h-0 h-full w-full">
             <AdminPanel />
           </div>
         )}
