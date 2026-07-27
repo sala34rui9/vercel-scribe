@@ -24,10 +24,20 @@ import {
 
 const DEEPSEEK_API_URL = "https://deepseek-proxy.ubantuplx.workers.dev";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com";
+const BYNARA_API_URL = "https://router.bynara.id/v1/chat/completions";
 
 const getDeepSeekApiKey = (): string => {
   const key = localStorage.getItem('user_deepseek_api_key');
   return key?.trim() || '';
+};
+
+const getBynaraApiKey = (): string => {
+  const key = localStorage.getItem('user_bynara_api_key');
+  return key?.trim() || '';
+};
+
+const getActiveProvider = (): string => {
+  return localStorage.getItem('seo_scribe_provider') || 'Google Gemini';
 };
 
 const cleanJsonOutput = (text: string): string => {
@@ -45,13 +55,30 @@ export async function callDeepSeek(
   prompt: string,
   options?: { model?: 'deepseek-v4-pro' | 'deepseek-v4-flash' },
 ): Promise<any> {
-  const apiKey = getDeepSeekApiKey();
-  if (!apiKey) {
-    throw new Error('DeepSeek API key is missing. Please add your API key in Settings.');
+  const deepSeekKey = getDeepSeekApiKey();
+  const bynaraKey = getBynaraApiKey();
+  const activeProvider = getActiveProvider();
+
+  // Decide which API to use
+  let useBynara = false;
+  if (activeProvider === 'Bynara' && bynaraKey) {
+    useBynara = true;
+  } else if (!deepSeekKey && bynaraKey) {
+    useBynara = true;
+  } else if (!deepSeekKey && !bynaraKey) {
+    throw new Error('DeepSeek or Bynara API key is missing. Please add an API key in Settings.');
+  }
+
+  const url = useBynara ? BYNARA_API_URL : DEEPSEEK_API_URL;
+  const key = useBynara ? bynaraKey : deepSeekKey;
+  
+  let model: any = options?.model ?? 'deepseek-v4-pro';
+  if (useBynara) {
+    model = 'deepseek-3.2'; // Standard Bynara model
   }
 
   const payload = {
-    model: options?.model ?? 'deepseek-v4-pro',
+    model: model,
     messages: [
       { role: "system", content: "You are an expert SEO analyst and content strategist. Always return valid JSON only, no markdown formatting." },
       { role: "user", content: prompt }
@@ -60,15 +87,15 @@ export async function callDeepSeek(
     temperature: 0.3,
   };
 
-  const response = await fetch(DEEPSEEK_API_URL, {
+  const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
     body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => '');
-    throw new Error(`CRITICAL_API_ERROR: DeepSeek API Error (${response.status}): ${errorBody}`);
+    throw new Error(`CRITICAL_API_ERROR: ${useBynara ? 'Bynara' : 'DeepSeek'} API Error (${response.status}): ${errorBody}`);
   }
 
   const data = await response.json();
@@ -341,9 +368,10 @@ export const generateSerpIntelligenceReportMega = async (
     throw new Error('No successfully fetched pages to analyze');
   }
 
-  const apiKey = localStorage.getItem('user_deepseek_api_key');
-  if (!apiKey || apiKey.trim() === '') {
-    throw new Error('DeepSeek API key is missing. Please add your API key in Settings → API Provider Settings.');
+  const deepSeekKey = localStorage.getItem('user_deepseek_api_key');
+  const bynaraKey = localStorage.getItem('user_bynara_api_key');
+  if (!deepSeekKey && !bynaraKey) {
+    throw new Error('DeepSeek or Bynara API key is missing. Please add an API key in Settings → API Provider Settings.');
   }
 
   const cacheKey = getCacheKey(successfulPages);
@@ -792,9 +820,10 @@ export const generateSerpIntelligenceReport = async (
   }
 
   // Early validation: ensure API key exists before attempting 13 parallel AI calls
-  const apiKey = localStorage.getItem('user_deepseek_api_key');
-  if (!apiKey || apiKey.trim() === '') {
-    throw new Error('DeepSeek API key is missing. Please add your API key in Settings → API Provider Settings.');
+  const deepSeekKey = localStorage.getItem('user_deepseek_api_key');
+  const bynaraKey = localStorage.getItem('user_bynara_api_key');
+  if (!deepSeekKey && !bynaraKey) {
+    throw new Error('DeepSeek or Bynara API key is missing. Please add an API key in Settings → API Provider Settings.');
   }
 
   updateProgress('Analyzing content similarity...', 5);

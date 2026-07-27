@@ -66,9 +66,10 @@ serve(async (req) => {
 
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
     const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
+    const bynaraApiKey = Deno.env.get('BYNARA_API_KEY');
     const tavilyApiKey = Deno.env.get('TAVILY_API_KEY');
 
-    if (!geminiApiKey && !deepseekApiKey) {
+    if (!geminiApiKey && !deepseekApiKey && !bynaraApiKey) {
       return new Response(
         JSON.stringify({ error: 'AI service not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -340,5 +341,84 @@ async function generateWithDeepSeek(config: any, apiKey: string, tavilyKey?: str
     content,
     sources: [],
     provider: 'deepseek'
+  };
+}
+
+
+// ============================================================================
+// YOUR SECRET BYNARA LOGIC (PROTECTED)
+// ============================================================================
+async function generateWithBynara(config: any, apiKey: string, tavilyKey?: string) {
+  const {
+    topic, wordCount, type, tone, primaryKeywords, humanizeContent, personalResources
+  } = config;
+
+  let humanizeInstruction = "";
+  if (humanizeContent) {
+    humanizeInstruction = `
+    "HUMANIZE CONTENT" MODE ENABLED:
+    STRICTLY BANNED WORDS: "Delve", "Dive deep", "Game-changer", "Unleash", "Unlock", 
+    "Elevate", "Realm", "Tapestry", "Symphony", "Leverage", "Harness", "Seamlessly"
+    
+    HUMAN WRITING GUIDELINES:
+    - Use short, punchy sentences. Fragment sentences are okay.
+    - Use contractions everywhere (don't, won't, can't, it's).
+    - Write like talking to a friend over coffee.
+    `;
+  }
+
+  let seoRankingInstruction = "";
+  if (config.seoRankingData) {
+    const { lostKeywords, competitorGaps, aiOverviewKeywords } = config.seoRankingData;
+    const parts = [];
+    if (lostKeywords && lostKeywords.length > 0) parts.push(`LOST KEYWORDS: ${lostKeywords.join(", ")}`);
+    if (competitorGaps && competitorGaps.length > 0) parts.push(`COMPETITOR GAPS: ${competitorGaps.join(", ")}`);
+    if (aiOverviewKeywords && aiOverviewKeywords.length > 0) parts.push(`AI OVERVIEW: ${aiOverviewKeywords.join(", ")}`);
+    if (parts.length > 0) {
+      seoRankingInstruction = `\n    SE RANKING INTELLIGENCE:\n    ${parts.join("\n    ")}\n    Integrate these keywords strategically.\n    `;
+    }
+  }
+
+  const prompt = `
+    TASK: Write a comprehensive ${type} about "${topic}".
+    
+    CONFIGURATION:
+    - Target Word Count: ${wordCount} words.
+    - Tone: ${tone}.
+    - Primary Keywords: ${primaryKeywords?.join(", ") || ""}.
+    
+    ${humanizeInstruction}
+    ${seoRankingInstruction}
+    ${personalResources ? `PERSONAL RESOURCES:\n${personalResources}` : ''}
+    
+    Output in pure Markdown.
+  `;
+
+  const response = await fetch('https://router.bynara.id/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'deepseek-3.2',
+      messages: [
+        { role: 'system', content: 'You are an expert SEO Content Writer.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Bynara API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content || '';
+
+  return {
+    content,
+    sources: [],
+    provider: 'bynara'
   };
 }

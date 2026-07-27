@@ -18,6 +18,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
 
   const [geminiKey, setGeminiKey] = useState('');
   const [deepSeekKey, setDeepSeekKey] = useState('');
+  const [bynaraKey, setBynaraKey] = useState('');
   const [tavilyKey, setTavilyKey] = useState('');
   const [tinyfishKey, setTinyfishKey] = useState('');
   const [tinyfishFetchKey, setTinyfishFetchKey] = useState('');
@@ -27,6 +28,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
 
   const [hasGeminiKey, setHasGeminiKey] = useState(false);
   const [hasDeepSeekKey, setHasDeepSeekKey] = useState(false);
+  const [hasBynaraKey, setHasBynaraKey] = useState(false);
   const [hasTavilyKey, setHasTavilyKey] = useState(false);
   const [hasTinyfishKey, setHasTinyfishKey] = useState(false);
   const [hasTinyfishFetchKey, setHasTinyfishFetchKey] = useState(false);
@@ -46,6 +48,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
     if (dKey) {
       setHasDeepSeekKey(true);
       setDeepSeekKey(dKey);
+    }
+
+    const bKey = localStorage.getItem('user_bynara_api_key');
+    if (bKey) {
+      setHasBynaraKey(true);
+      setBynaraKey(bKey);
     }
 
     const tKey = localStorage.getItem('user_tavily_api_key');
@@ -101,6 +109,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
       saved = true;
     }
 
+    if (bynaraKey.trim()) {
+      localStorage.setItem('user_bynara_api_key', bynaraKey.trim());
+      setHasBynaraKey(true);
+      saved = true;
+    }
+
     if (tavilyKey.trim()) {
       localStorage.setItem('user_tavily_api_key', tavilyKey.trim());
       setHasTavilyKey(true);
@@ -141,6 +155,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
     localStorage.removeItem('user_deepseek_api_key');
     setDeepSeekKey('');
     setHasDeepSeekKey(false);
+  };
+
+  const clearBynara = () => {
+    localStorage.removeItem('user_bynara_api_key');
+    setBynaraKey('');
+    setHasBynaraKey(false);
   };
 
   const clearTavily = () => {
@@ -190,6 +210,11 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
                   <Cpu className="w-3 h-3 mr-1" /> DeepSeek Ready
                 </span>
               )}
+              {hasBynaraKey && (
+                <span className="text-xs font-medium px-2 py-1 rounded border flex items-center bg-purple-50 text-purple-700 border-purple-200">
+                  <Globe className="w-3 h-3 mr-1" /> Bynara Ready
+                </span>
+              )}
               {hasTavilyKey && (
                 <span className="text-xs font-medium px-2 py-1 rounded border flex items-center bg-emerald-50 text-emerald-700 border-emerald-200">
                   <Search className="w-3 h-3 mr-1" /> Tavily Ready
@@ -231,7 +256,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
               title="Manage API Keys"
             >
               <Key className="w-5 h-5" />
-              {(hasGeminiKey || hasDeepSeekKey || hasTavilyKey) && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border border-white"></span>}
+              {(hasGeminiKey || hasDeepSeekKey || hasBynaraKey || hasTavilyKey) && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-green-500 rounded-full border border-white"></span>}
             </button>
             <button className="p-2 text-slate-400 hover:text-slate-600 transition-colors">
               <Layers className="w-5 h-5" />
@@ -397,6 +422,27 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
                   )}
                 </div>
                 <p className="text-xs text-slate-400">Required for DeepSeek-V3.2 & Speciale models</p>
+              </div>
+
+              {/* Bynara Section */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <label className="flex items-center text-sm font-semibold text-slate-700">
+                  <Globe className="w-4 h-4 mr-1.5 text-purple-500" />
+                  Bynara API Key
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={bynaraKey}
+                    onChange={(e) => setBynaraKey(e.target.value)}
+                    placeholder="sk-nry-..."
+                    className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm font-mono"
+                  />
+                  {hasBynaraKey && (
+                    <button onClick={clearBynara} className="px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200">Clear</button>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400">Required for Bynara models (e.g. deepseek-3.2 via Bynara)</p>
               </div>
 
               {/* Tavily Section */}

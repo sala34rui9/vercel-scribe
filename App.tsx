@@ -6,9 +6,10 @@ import { SeoSettings } from './components/SeoSettings';
 import { AdminUsage } from './components/AdminUsage';
 const SerpIntelligence = React.lazy(() => import('./components/SerpIntelligence').then(m => ({ default: m.SerpIntelligence })));
 const ArticlePreview = React.lazy(() => import('./components/ArticlePreview').then(m => ({ default: m.ArticlePreview })));
-import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel, SearchProvider, SEORankingData } from './types';
+import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel, SearchProvider, SEORankingData, BynaraModel } from './types';
 import { generateArticle, generatePrimaryKeywords, generateNLPKeywords, scanForInternalLinks, scanForExternalLinks } from './services/geminiService';
 import { generateArticleDeepSeek, generatePrimaryKeywordsDeepSeek, generateNLPKeywordsDeepSeek } from './services/deepseekService';
+import { generateArticleBynara } from './services/bynaraService';
 import { scanForInternalLinksTavily, scanForExternalLinksTavily } from './services/tavilyService';
 import { scanForInternalLinksTinyFish, scanForExternalLinksTinyFish } from './services/tinyfishService';
 import { resolveAutoProvider } from './services/researchProviderUtils';
@@ -141,6 +142,10 @@ const App: React.FC = () => {
       return await generateArticleDeepSeek(config, signal);
     }
 
+    if (config.provider === AIProvider.BYNARA) {
+      return await generateArticleBynara(config, signal);
+    }
+
     // 2. If User chose Gemini, try Gemini first
     try {
       return await generateArticle(config, signal);
@@ -175,6 +180,8 @@ const App: React.FC = () => {
       } else {
         providerName = "DeepSeek-V3";
       }
+    } else if (config.provider === AIProvider.BYNARA) {
+      providerName = "Bynara (DeepSeek)";
     }
     setActiveProviderName(providerName);
 
@@ -260,7 +267,7 @@ const App: React.FC = () => {
         // CONCURRENCY CONTROL
         // Default to higher parallelism for Gemini
         let CONCURRENCY_LIMIT = 5;
-        const isDeepSeekWebMode = config.provider === AIProvider.DEEPSEEK && (config.deepResearch || config.realTimeData);
+        const isDeepSeekWebMode = (config.provider === AIProvider.DEEPSEEK || config.provider === AIProvider.BYNARA) && (config.deepResearch || config.realTimeData);
 
         // If DeepSeek + Web Scan is active, force Sequential Mode to prevent Rate Limits/Crashes
         if (isDeepSeekWebMode) {
@@ -274,7 +281,7 @@ const App: React.FC = () => {
         // ========== CACHING OPTIMIZATION ==========
         // 1. BRAND RESEARCH CACHE: Fetch once, reuse for all articles
         let cachedBrandResearch: { brandVoice: string; siteArchitecture: string[]; content: string } | undefined;
-        if (config.deepResearch && config.websiteUrl && config.provider === AIProvider.DEEPSEEK) {
+        if (config.deepResearch && config.websiteUrl && (config.provider === AIProvider.DEEPSEEK || config.provider === AIProvider.BYNARA)) {
           try {
             setProcessingStatus("Pre-fetching Brand Research (will be reused for all articles)...");
             const resolvedResearch = resolveAutoProvider(config.researchProvider);
@@ -302,11 +309,11 @@ const App: React.FC = () => {
           try {
             setProcessingStatus("Pre-scanning Internal Links (will be reused for all articles)...");
             const resolvedResearch = resolveAutoProvider(config.researchProvider);
-            if (config.provider === AIProvider.DEEPSEEK && resolvedResearch === SearchProvider.TAVILY) {
+            if ((config.provider === AIProvider.DEEPSEEK || config.provider === AIProvider.BYNARA) && resolvedResearch === SearchProvider.TAVILY) {
               const tavilyResult = await scanForInternalLinksTavily(config.websiteUrl, config.queueTopics?.[0] || 'general');
               cachedInternalLinks = tavilyResult.links;
               console.log(`[Bulk Optimization] Cached ${cachedInternalLinks.length} internal links from Tavily`);
-            } else if (config.provider === AIProvider.DEEPSEEK && resolvedResearch === SearchProvider.TINYFISH) {
+            } else if ((config.provider === AIProvider.DEEPSEEK || config.provider === AIProvider.BYNARA) && resolvedResearch === SearchProvider.TINYFISH) {
               const tinyfishResult = await scanForInternalLinksTinyFish(config.websiteUrl, config.queueTopics?.[0] || 'general');
               cachedInternalLinks = tinyfishResult.links;
               console.log(`[Bulk Optimization] Cached ${cachedInternalLinks.length} internal links from TinyFish`);
@@ -371,8 +378,8 @@ const App: React.FC = () => {
               if (config.autoOptimize) {
                 // 1. KEYWORD ANALYSIS - Use keywordAnalysisProvider if available, otherwise fallback to provider
                 try {
-                  const keywordProvider = config.keywordAnalysisProvider || (config.provider === AIProvider.DEEPSEEK ? SearchProvider.TAVILY : SearchProvider.GEMINI);
-                  if (keywordProvider === SearchProvider.TAVILY || config.provider === AIProvider.DEEPSEEK) {
+                  const keywordProvider = config.keywordAnalysisProvider || ((config.provider === AIProvider.DEEPSEEK || config.provider === AIProvider.BYNARA) ? SearchProvider.TAVILY : SearchProvider.GEMINI);
+                  if (keywordProvider === SearchProvider.TAVILY || (config.provider === AIProvider.DEEPSEEK || config.provider === AIProvider.BYNARA)) {
                     topicPrimaryKeywords = await generatePrimaryKeywordsDeepSeek(topic);
                     topicNLPKeywords = await generateNLPKeywordsDeepSeek(topic);
                   } else {
@@ -395,10 +402,10 @@ const App: React.FC = () => {
                     // Fallback: Scan per article (should rarely happen)
                     try {
                       const resolvedPerTopic = resolveAutoProvider(config.researchProvider);
-                      if (config.provider === AIProvider.DEEPSEEK && resolvedPerTopic === SearchProvider.TAVILY) {
+                      if ((config.provider === AIProvider.DEEPSEEK || config.provider === AIProvider.BYNARA) && resolvedPerTopic === SearchProvider.TAVILY) {
                         const tavilyResult = await scanForInternalLinksTavily(config.websiteUrl, topic);
                         topicInternalLinks = tavilyResult.links.slice(0, 3);
-                      } else if (config.provider === AIProvider.DEEPSEEK && resolvedPerTopic === SearchProvider.TINYFISH) {
+                      } else if ((config.provider === AIProvider.DEEPSEEK || config.provider === AIProvider.BYNARA) && resolvedPerTopic === SearchProvider.TINYFISH) {
                         const tinyfishResult = await scanForInternalLinksTinyFish(config.websiteUrl, topic);
                         topicInternalLinks = tinyfishResult.links.slice(0, 3);
                       } else if (config.provider === AIProvider.GEMINI || resolvedPerTopic === SearchProvider.GEMINI) {
@@ -424,10 +431,10 @@ const App: React.FC = () => {
                     } catch (e) { }
 
                     const resolvedExt = resolveAutoProvider(config.externalLinkSearchProvider || config.researchProvider);
-                    if (config.provider === AIProvider.DEEPSEEK && resolvedExt === SearchProvider.TAVILY) {
+                    if ((config.provider === AIProvider.DEEPSEEK || config.provider === AIProvider.BYNARA) && resolvedExt === SearchProvider.TAVILY) {
                       const extLinks = await scanForExternalLinksTavily(topic, domainToExclude);
                       topicExternalLinks = extLinks.slice(0, 5);
-                    } else if (config.provider === AIProvider.DEEPSEEK && resolvedExt === SearchProvider.TINYFISH) {
+                    } else if ((config.provider === AIProvider.DEEPSEEK || config.provider === AIProvider.BYNARA) && resolvedExt === SearchProvider.TINYFISH) {
                       const extLinks = await scanForExternalLinksTinyFish(topic, domainToExclude);
                       topicExternalLinks = extLinks.slice(0, 5);
                     } else {

@@ -50,7 +50,8 @@ export enum TargetCountry {
 
 export enum AIProvider {
   GEMINI = "Google Gemini",
-  DEEPSEEK = "DeepSeek"
+  DEEPSEEK = "DeepSeek",
+  BYNARA = "Bynara"
 }
 
 export enum DeepSeekModel {
@@ -59,11 +60,16 @@ export enum DeepSeekModel {
   V3_SPECIALE = "DeepSeek-v4-pro Speciale (Advanced Reasoning)"
 }
 
+export enum BynaraModel {
+  DEFAULT = "deepseek-3.2"
+}
+
 export enum SearchProvider {
   GEMINI = "Google Gemini",
   SERPSTACK = "SERPStack",
   TAVILY = "Tavily",
   TINYFISH = "TinyFish",
+  BYNARA = "Bynara",
   AUTO = "Auto"
 }
 
@@ -137,6 +143,7 @@ export interface ArticleConfig {
   // AI Provider Settings
   provider: AIProvider;
   deepSeekModel?: DeepSeekModel;
+  bynaraModel?: BynaraModel;
   searchProvider?: SearchProvider; // For real-time data search (Gemini, SERPStack, or Tavily)
   researchProvider?: SearchProvider; // For internal/external link scanning (Gemini or Tavily)
   externalLinkSearchProvider?: SearchProvider; // For external link discovery (Gemini or Tavily)

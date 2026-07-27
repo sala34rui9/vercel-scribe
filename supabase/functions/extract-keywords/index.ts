@@ -39,6 +39,7 @@ serve(async (req) => {
 
     const geminiApiKey = Deno.env.get('GEMINI_API_KEY');
     const deepseekApiKey = Deno.env.get('DEEPSEEK_API_KEY');
+    const bynaraApiKey = Deno.env.get('BYNARA_API_KEY');
 
     // 3. YOUR SECRET KEYWORD EXTRACTION LOGIC
     let result;
@@ -169,4 +170,67 @@ async function extractKeywordsDeepSeek(topic: string, keywordType: string, apiKe
   const keywords = JSON.parse(cleanContent);
 
   return keywords;
+}
+
+
+// ============================================================================
+// YOUR SECRET BYNARA KEYWORD LOGIC (PROTECTED)
+// ============================================================================
+async function extractKeywordsBynara(topic: string, keywordType: string, apiKey: string) {
+  let prompt = '';
+  
+  if (keywordType === 'primary') {
+    prompt = `Act as a senior SEO Specialist. Analyze the article topic/heading: "${topic}". 
+    Identify 5-7 high-potential Primary SEO Keywords that this article should target.
+    
+    Requirements:
+    1. Include a mix of "head terms" (single keywords) and "long-tail keywords" (multiple words).
+    2. Focus on terms with high relevance and search intent match.
+    3. Return ONLY the keywords in a JSON array format: {"keywords": ["keyword1", "keyword2"]}`;
+  } else if (keywordType === 'nlp') {
+    prompt = `Generate a list of 10-15 high-value NLP (Natural Language Processing) and LSI (Latent Semantic Indexing) keywords related to the topic: "${topic}". 
+    These should be semantically related terms that help search engines understand the context.
+    Return JSON format: {"keywords": ["keyword1", "keyword2"]}`;
+  } else {
+    // Full strategy
+    prompt = `Analyze the topic: "${topic}". 
+    Generate a complete SEO strategy:
+    1. 5-7 Primary Keywords (Head & Long-tail).
+    2. 10-15 NLP/LSI Keywords (Contextual).
+    
+    Return JSON format: {"primaryKeywords": ["..."], "nlpKeywords": ["..."]}`;
+  }
+
+  const response = await fetch('https://router.bynara.id/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'deepseek-3.2',
+      messages: [
+        { role: 'system', content: 'You are an expert SEO Content Writer.' },
+        { role: 'user', content: prompt }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Bynara API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content || '';
+  
+  // Clean JSON output if DeepSeek includes markdown formatting
+  let cleanContent = content.trim();
+  cleanContent = cleanContent.replace(/```json/gi, '').replace(/```/g, '');
+  const firstBrace = cleanContent.indexOf('{');
+  const lastBrace = cleanContent.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleanContent = cleanContent.substring(firstBrace, lastBrace + 1);
+  }
+
+  return JSON.parse(cleanContent.trim());
 }

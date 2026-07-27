@@ -171,7 +171,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
   // Force a web-scan-capable provider when DeepSeek is selected
   useEffect(() => {
-    if (provider === AIProvider.DEEPSEEK && !isWebScanProvider(researchProvider)) {
+    if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && !isWebScanProvider(researchProvider)) {
       setResearchProvider(SearchProvider.TAVILY);
     }
   }, [provider, researchProvider]);
@@ -215,7 +215,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       let result = { primaryKeywords: [] as string[], nlpKeywords: [] as string[] };
 
       // Use keywordAnalysisProvider or DeepSeek if selected
-      if (keywordAnalysisProvider === SearchProvider.TAVILY || provider === AIProvider.DEEPSEEK) {
+      if (keywordAnalysisProvider === SearchProvider.TAVILY || (provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA)) {
         const { generateFullSEOStrategyDeepSeek } = await import('../services/deepseekService');
         result = await generateFullSEOStrategyDeepSeek(topicToAnalyze);
       } else {
@@ -247,7 +247,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     let keywords: string[] = [];
     try {
       // Use keywordAnalysisProvider instead of main provider
-      if (keywordAnalysisProvider === SearchProvider.TAVILY || provider === AIProvider.DEEPSEEK) {
+      if (keywordAnalysisProvider === SearchProvider.TAVILY || (provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA)) {
         try {
           keywords = await generatePrimaryKeywordsDeepSeek(topicToAnalyze);
         } catch (e: any) {
@@ -282,7 +282,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     let keywords: string[] = [];
     try {
       // Use keywordAnalysisProvider instead of main provider
-      if (keywordAnalysisProvider === SearchProvider.TAVILY || provider === AIProvider.DEEPSEEK) {
+      if (keywordAnalysisProvider === SearchProvider.TAVILY || (provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA)) {
         try {
           keywords = await generateNLPKeywordsDeepSeek(topicToAnalyze);
         } catch (e: any) {
@@ -335,7 +335,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     if (!websiteUrl || !currentTopic) return;
 
     // DeepSeek requires a web scanning provider (Tavily, TinyFish, or Auto)
-    if (provider === AIProvider.DEEPSEEK && !isWebScanProvider(researchProvider)) {
+    if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && !isWebScanProvider(researchProvider)) {
       alert("⚠️ Web Scan Disabled\n\nDeepSeek requires a web scanning provider. Please select Tavily, TinyFish, or Auto as the Research Provider.");
       return;
     }
@@ -366,7 +366,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
     try {
       const resolvedProvider = resolveAutoProvider(researchProvider);
-      if (provider === AIProvider.DEEPSEEK && resolvedProvider === SearchProvider.TINYFISH) {
+      if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && resolvedProvider === SearchProvider.TINYFISH) {
         // Use TinyFish for scanning
         const result = await scanForInternalLinksTinyFish(websiteUrl, currentTopic);
         setFoundLinks(result.links);
@@ -376,7 +376,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
         } catch (e) {
           console.warn("Failed to cache internal links", e);
         }
-      } else if (provider === AIProvider.DEEPSEEK && resolvedProvider === SearchProvider.TAVILY) {
+      } else if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && resolvedProvider === SearchProvider.TAVILY) {
         // Use Tavily for scanning
         const result = await scanForInternalLinksTavily(websiteUrl, currentTopic);
         setFoundLinks(result.links);
@@ -548,7 +548,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     try {
       let selectedUrls: string[] = [];
 
-      if (provider === AIProvider.DEEPSEEK) {
+      if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA)) {
         const { selectBestInternalLinksDeepSeek } = await import('../services/deepseekService');
         selectedUrls = await selectBestInternalLinksDeepSeek(currentTopic, foundLinks);
       } else {
@@ -558,7 +558,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
       if (selectedUrls.length > 0) {
         setSelectedLinkUrls(new Set(selectedUrls));
-        const providerName = provider === AIProvider.DEEPSEEK ? 'DeepSeek' : 'Gemini';
+        const providerName = (provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) ? 'DeepSeek' : 'Gemini';
         alert(`✨ ${providerName} selected ${selectedUrls.length} relevant links for you!`);
       } else {
         alert("AI couldn't find strongly relevant links. Default selection kept.");
@@ -602,7 +602,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     if (!currentTopic) return;
 
     // DeepSeek requires a web scanning provider
-    if (provider === AIProvider.DEEPSEEK && !isWebScanProvider(researchProvider)) {
+    if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && !isWebScanProvider(researchProvider)) {
       alert("⚠️ Web Scan Disabled\n\nDeepSeek requires a web scanning provider. Please select Tavily, TinyFish, or Auto as the Research Provider.");
       return;
     }
@@ -622,9 +622,9 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       // Logic to choose provider
       let links: any[] = [];
       const resolvedProvider = resolveAutoProvider(researchProvider);
-      if (provider === AIProvider.DEEPSEEK && resolvedProvider === SearchProvider.TINYFISH) {
+      if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && resolvedProvider === SearchProvider.TINYFISH) {
         links = await scanForExternalLinksTinyFish(currentTopic, domainToExclude);
-      } else if (provider === AIProvider.DEEPSEEK && resolvedProvider === SearchProvider.TAVILY) {
+      } else if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && resolvedProvider === SearchProvider.TAVILY) {
         links = await scanForExternalLinksTavily(currentTopic, domainToExclude);
       } else {
         links = await scanForExternalLinks(currentTopic, domainToExclude);
@@ -716,7 +716,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Select Provider</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 type="button"
                 onClick={() => setProvider(AIProvider.GEMINI)}
@@ -739,11 +739,22 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 <Cpu className={`w-5 h-5 mr-2 ${provider === AIProvider.DEEPSEEK ? 'fill-indigo-600 text-indigo-600' : ''}`} />
                 DeepSeek
               </button>
+              <button
+                type="button"
+                onClick={() => setProvider(AIProvider.BYNARA)}
+                className={`flex items-center justify-center py-3 px-4 rounded-lg border-2 transition-all ${provider === AIProvider.BYNARA
+                  ? 'border-purple-600 bg-purple-50 text-purple-700 font-bold'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-purple-300'
+                  }`}
+              >
+                <Globe className={`w-5 h-5 mr-2 ${provider === AIProvider.BYNARA ? 'fill-purple-600 text-purple-600' : ''}`} />
+                Bynara
+              </button>
             </div>
           </div>
 
           {/* DeepSeek Specific Model Selection */}
-          {provider === AIProvider.DEEPSEEK && (
+          {(provider === AIProvider.DEEPSEEK) && (
             <div className="animate-in fade-in slide-in-from-top-2 duration-300">
               <label className="block text-sm font-medium text-slate-700 mb-1">DeepSeek Model Variant</label>
               <div className="relative">
@@ -1073,7 +1084,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   </span>
                   <p className={`text-xs mt-1 ${deepResearch ? 'text-indigo-600' : 'text-slate-500'}`}>
                     Analyzes brand voice & site architecture.
-                    {provider === AIProvider.DEEPSEEK && " (Uses inferred knowledge)"}
+                    {(provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && " (Uses inferred knowledge)"}
                   </p>
                 </div>
               </label>
@@ -1095,7 +1106,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                   </span>
                   <p className={`text-xs mt-1 ${realTimeData ? 'text-amber-600' : 'text-slate-500'}`}>
                     Fetches latest news & stats via Search.
-                    {provider === AIProvider.DEEPSEEK && " (Uses recent training data)"}
+                    {(provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && " (Uses recent training data)"}
                   </p>
                 </div>
               </label>
@@ -1218,7 +1229,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                         </div>
                       </div>
                     ) : (
-                      provider === AIProvider.DEEPSEEK && isWebScanProvider(researchProvider) ? (
+                      (provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && isWebScanProvider(researchProvider) ? (
                         <div className="flex items-start">
                           <Sparkles className="w-4 h-4 mr-2 mt-0.5 text-emerald-600 flex-shrink-0" />
                           <div>
@@ -1326,7 +1337,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                               ? 'bg-indigo-100 text-indigo-400 cursor-wait'
                               : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100'
                               }`}
-                            title={`Use ${provider === AIProvider.DEEPSEEK ? 'DeepSeek' : 'Gemini'} to select best links`}
+                            title={`Use ${(provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) ? 'DeepSeek' : 'Gemini'} to select best links`}
                           >
                             {isAutoSelecting ? (
                               <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
@@ -1466,7 +1477,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
             </div>
 
             {/* Logic Branch: If Bulk OR (enabled and auto-optimize), hide manual search */}
-            {includeExternalLinks && (mode === 'bulk' || (mode === 'bulk' && autoOptimize)) ? (
+            {includeExternalLinks && (mode === 'bulk' || (mode === 'single' && autoOptimize)) ? (
               <div className="p-4 bg-white text-sm text-slate-500 italic">
                 {provider === AIProvider.GEMINI ? (
                   <div className="flex items-center text-indigo-600">
@@ -1521,7 +1532,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                               ? 'bg-indigo-100 text-indigo-400 cursor-wait'
                               : 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200'
                               }`}
-                            title={`Use ${provider === AIProvider.DEEPSEEK ? 'DeepSeek' : 'Gemini'} to select best links`}
+                            title={`Use ${(provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) ? 'DeepSeek' : 'Gemini'} to select best links`}
                           >
                             {isAutoSelecting ? (
                               <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
@@ -2015,7 +2026,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
         disabled={isGenerating || !isFormValid}
         className={`w-full py-4 px-6 rounded-xl text-white font-medium text-lg flex items-center justify-center transition-all ${isGenerating || !isFormValid
           ? 'bg-slate-400 cursor-not-allowed'
-          : provider === AIProvider.DEEPSEEK
+          : (provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA)
             ? 'bg-indigo-600 hover:bg-indigo-700 shadow-lg hover:shadow-indigo-500/25'
             : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-blue-500/25'
           }`}
