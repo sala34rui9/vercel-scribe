@@ -1,124 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import { Target, BarChart3, Globe, Save, ShieldCheck, Key, Activity, RefreshCw, Settings, Search, Image as ImageIcon, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Target, Globe, Save, ShieldCheck, Activity, RefreshCw, Settings, Search } from 'lucide-react';
 import { fetchSEORankingData } from '../services/supabaseClient';
-import { generateCloudflareImage } from '../services/cloudflareImageService';
 import { SEORankingData } from '../types';
 import FindKeywords from './FindKeywords';
 
 export const SeoSettings: React.FC = () => {
   const [activeSettingsTab, setActiveSettingsTab] = useState<'settings' | 'find_keywords'>('settings');
 
-  const [seRankingKey, setSeRankingKey] = useState('');
   const [targetDomain, setTargetDomain] = useState('');
   const [competitorDomain, setCompetitorDomain] = useState('');
-  const [hasSeRankingKey, setHasSeRankingKey] = useState(false);
-  
-  const [cloudflareApiUrl, setCloudflareApiUrl] = useState('');
-  const [cloudflareApiToken, setCloudflareApiToken] = useState('');
 
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved'>('idle');
   const [isScanning, setIsScanning] = useState(false);
   const [scanResults, setScanResults] = useState<SEORankingData | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
 
-  const [isTestingImage, setIsTestingImage] = useState(false);
-  const [imageTestResult, setImageTestResult] = useState<string | null>(null);
-  const [imageTestError, setImageTestError] = useState<string | null>(null);
-
   useEffect(() => {
-    const srKey = localStorage.getItem('user_se_ranking_api_key');
-    if (srKey) {
-      setHasSeRankingKey(true);
-      setSeRankingKey(srKey);
-    }
-
     const td = localStorage.getItem('seo_scribe_target_domain');
     if (td) setTargetDomain(td);
 
     const cd = localStorage.getItem('seo_scribe_competitor_domain');
     if (cd) setCompetitorDomain(cd);
-
-    const cfUrl = localStorage.getItem('user_cloudflare_api_url');
-    if (cfUrl) setCloudflareApiUrl(cfUrl);
-
-    const cfToken = localStorage.getItem('user_cloudflare_api_token');
-    if (cfToken) setCloudflareApiToken(cfToken);
   }, []);
 
   const handleSaveSettings = () => {
     let saved = false;
 
-    if (seRankingKey.trim()) {
-      localStorage.setItem('user_se_ranking_api_key', seRankingKey.trim());
-      setHasSeRankingKey(true);
-      saved = true;
-    } else {
-      localStorage.removeItem('user_se_ranking_api_key');
-      setHasSeRankingKey(false);
-    }
-
     if (targetDomain.trim()) {
       localStorage.setItem('seo_scribe_target_domain', targetDomain.trim());
+      saved = true;
     } else {
       localStorage.removeItem('seo_scribe_target_domain');
     }
 
     if (competitorDomain.trim()) {
       localStorage.setItem('seo_scribe_competitor_domain', competitorDomain.trim());
+      saved = true;
     } else {
       localStorage.removeItem('seo_scribe_competitor_domain');
     }
 
-    saved = saved || targetDomain.trim().length > 0 || competitorDomain.trim().length > 0;
-
-    if (cloudflareApiUrl.trim()) {
-      localStorage.setItem('user_cloudflare_api_url', cloudflareApiUrl.trim());
-      saved = true;
-    } else {
-      localStorage.removeItem('user_cloudflare_api_url');
-    }
-
-    if (cloudflareApiToken.trim()) {
-      localStorage.setItem('user_cloudflare_api_token', cloudflareApiToken.trim());
-      saved = true;
-    } else {
-      localStorage.removeItem('user_cloudflare_api_token');
-    }
-
-    if (saved || seRankingKey.trim() === '') {
+    if (saved) {
       setSaveStatus('saved');
-      // Trigger a custom event so Layout can update its badges if necessary
       window.dispatchEvent(new Event('seo_settings_updated'));
       setTimeout(() => {
         setSaveStatus('idle');
       }, 1500);
-    }
-  };
-
-  const handleTestImage = async () => {
-    if (!cloudflareApiUrl || !cloudflareApiToken) {
-      setImageTestError('Please enter both Cloudflare Account ID and API Token before testing.');
-      return;
-    }
-
-    setIsTestingImage(true);
-    setImageTestError(null);
-    setImageTestResult(null);
-
-    try {
-      handleSaveSettings();
-
-      const testDataUrl = await generateCloudflareImage(
-        'A futuristic workspace with glowing holographic screen and AI assistant, 8k resolution',
-        { model: 'sdxl', style: 'photorealistic', ratio: '16:9' }
-      );
-
-      setImageTestResult(testDataUrl);
-    } catch (err: any) {
-      console.error('Image test error:', err);
-      setImageTestError(err.message || 'Failed to generate test image.');
-    } finally {
-      setIsTestingImage(false);
     }
   };
 
@@ -127,12 +54,11 @@ export const SeoSettings: React.FC = () => {
     setIsScanning(true);
     setScanError(null);
     try {
-      handleSaveSettings(); // Save before scanning to ensure API keys are current
-      
-      // Call the Supabase Edge Function directly so we can see the raw response
+      handleSaveSettings();
+
       const { supabase } = await import('../services/supabaseClient');
       const seRankingKey = localStorage.getItem('user_se_ranking_api_key');
-      
+
       const { data, error } = await supabase.functions.invoke('fetch-seo-data', {
         body: {
           targetDomain,
@@ -140,7 +66,7 @@ export const SeoSettings: React.FC = () => {
           seRankingKey
         }
       });
-      
+
       if (error) {
         let errorMsg = error.message;
         if (typeof error === 'object' && error !== null && 'context' in error) {
@@ -158,14 +84,14 @@ export const SeoSettings: React.FC = () => {
         console.error('Scan error:', error);
         return;
       }
-      
+
       if (data?.error) {
         setScanError(`API error: ${data.error}`);
         console.error('API error:', data.error);
       }
-      
+
       console.log('[SEO Scan] Raw response:', JSON.stringify(data, null, 2));
-      
+
       setScanResults({
         lostKeywords: data?.lostKeywords || [],
         competitorGaps: data?.competitorGaps || [],
@@ -180,23 +106,18 @@ export const SeoSettings: React.FC = () => {
     }
   };
 
-  const clearSeRanking = () => {
-    localStorage.removeItem('user_se_ranking_api_key');
-    setSeRankingKey('');
-    setHasSeRankingKey(false);
-    window.dispatchEvent(new Event('seo_settings_updated'));
-  };
+  const hasSeRankingKey = !!localStorage.getItem('user_se_ranking_api_key');
 
   return (
     <div className="max-w-5xl mx-auto w-full py-8 px-4 animate-in fade-in duration-300">
-      
+
       {/* Top Tabs */}
       <div className="flex mb-6 space-x-2 border-b border-gray-200">
         <button
           onClick={() => setActiveSettingsTab('settings')}
           className={`flex items-center px-4 py-2 font-medium text-sm rounded-t-lg transition-colors ${
-            activeSettingsTab === 'settings' 
-              ? 'bg-white text-blue-600 border border-gray-200 border-b-white -mb-px' 
+            activeSettingsTab === 'settings'
+              ? 'bg-white text-blue-600 border border-gray-200 border-b-white -mb-px'
               : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
@@ -206,8 +127,8 @@ export const SeoSettings: React.FC = () => {
         <button
           onClick={() => setActiveSettingsTab('find_keywords')}
           className={`flex items-center px-4 py-2 font-medium text-sm rounded-t-lg transition-colors ${
-            activeSettingsTab === 'find_keywords' 
-              ? 'bg-white text-blue-600 border border-gray-200 border-b-white -mb-px' 
+            activeSettingsTab === 'find_keywords'
+              ? 'bg-white text-blue-600 border border-gray-200 border-b-white -mb-px'
               : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
           }`}
         >
@@ -225,129 +146,21 @@ export const SeoSettings: React.FC = () => {
               <Target className="w-6 h-6 text-amber-600" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-800">SEO Intelligence Settings</h2>
+              <h2 className="text-xl font-bold text-slate-800">SEO Domain Settings</h2>
               <p className="text-sm text-slate-500 mt-1">
-                Configure your SE Ranking API and target domains for data-driven article optimization.
+                Configure your target domains for data-driven article optimization.
               </p>
             </div>
           </div>
 
           <div className="p-8 space-y-8">
-            {/* SE Ranking Section */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-slate-800 flex items-center border-b border-slate-100 pb-2">
-                <Key className="w-4 h-4 mr-2 text-slate-500" />
-                API Authentication
-              </h3>
-              <label className="flex items-center text-sm font-semibold text-slate-700 mt-4">
-                <BarChart3 className="w-4 h-4 mr-1.5 text-amber-500" />
-                SE Ranking API Key
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={seRankingKey}
-                  onChange={(e) => setSeRankingKey(e.target.value)}
-                  placeholder="Your SE Ranking API key..."
-                  className="flex-1 px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm font-mono transition-shadow"
-                />
-                {hasSeRankingKey && (
-                  <button 
-                    onClick={clearSeRanking} 
-                    className="px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg border border-red-200 transition-colors"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              <p className="text-xs text-slate-500">
-                Powers keyword gap analysis and lost keyword recovery. Required for SEO Intelligence features.
-              </p>
-            </div>
-
-            {/* Cloudflare Image API Section */}
-            <div className="space-y-3 pt-4">
-              <h3 className="text-sm font-bold text-slate-800 flex items-center border-b border-slate-100 pb-2">
-                <Globe className="w-4 h-4 mr-2 text-slate-500" />
-                Featured Image Generation
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                <div className="space-y-2">
-                  <label className="flex items-center text-sm font-semibold text-slate-700">
-                    Cloudflare Account ID
-                  </label>
-                  <input
-                    type="text"
-                    value={cloudflareApiUrl}
-                    onChange={(e) => setCloudflareApiUrl(e.target.value)}
-                    placeholder="e.g. 9a78..."
-                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm transition-shadow"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label className="flex items-center text-sm font-semibold text-slate-700">
-                    API Token (Bearer)
-                  </label>
-                  <input
-                    type="password"
-                    value={cloudflareApiToken}
-                    onChange={(e) => setCloudflareApiToken(e.target.value)}
-                    placeholder="Your secret API token..."
-                    className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-sm font-mono transition-shadow"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-slate-500">
-                Used to automatically generate featured images for your articles via Cloudflare Workers AI.
-              </p>
-
-              {/* Test Image Generation Button & Output */}
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={handleTestImage}
-                  disabled={isTestingImage || !cloudflareApiUrl || !cloudflareApiToken}
-                  className="flex items-center px-4 py-2 bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                >
-                  <Sparkles className={`w-4 h-4 mr-2 text-amber-600 ${isTestingImage ? 'animate-spin' : ''}`} />
-                  {isTestingImage ? 'Testing Cloudflare AI Generation...' : 'Test & Debug Image Generation'}
-                </button>
-
-                {imageTestError && (
-                  <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 animate-in fade-in">
-                    <div className="flex items-center font-semibold mb-1 text-red-800">
-                      <AlertCircle className="w-4 h-4 mr-1.5 text-red-600" />
-                      Image Generation Failed
-                    </div>
-                    <p className="font-mono text-xs break-all bg-red-100/60 p-2.5 rounded mt-1 text-red-900 border border-red-200">
-                      {imageTestError}
-                    </p>
-                  </div>
-                )}
-
-                {imageTestResult && (
-                  <div className="mt-3 p-4 bg-emerald-50 border border-emerald-200 rounded-lg animate-in fade-in">
-                    <div className="flex items-center font-semibold text-emerald-800 text-sm mb-2">
-                      <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-600" />
-                      Success! Test Image Generated via Cloudflare Workers AI:
-                    </div>
-                    <div className="relative rounded-lg overflow-hidden border border-emerald-300 shadow-sm max-w-md">
-                      <img src={imageTestResult} alt="Test Generation" className="w-full h-auto object-cover" />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
             {/* Domain Targeting Section */}
             <div className="space-y-4">
               <h3 className="text-sm font-bold text-slate-800 flex items-center border-b border-slate-100 pb-2">
                 <Globe className="w-4 h-4 mr-2 text-slate-500" />
                 Domain Targeting
               </h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
                 {/* Target Domain */}
                 <div className="space-y-2">

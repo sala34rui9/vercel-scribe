@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { listFetchUsage, getTinyFishFetchApiKey, FetchUsageResponse } from '../services/tinyfishFetchService';
 import { Settings, RefreshCw, AlertCircle, Loader2, Database, Clock, Globe } from 'lucide-react';
 
-export const AdminUsage: React.FC = () => {
+export const AdminUsageContent: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<FetchUsageResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -12,7 +12,7 @@ export const AdminUsage: React.FC = () => {
 
   const loadUsage = async (pageNum: number) => {
     if (!apiKey) {
-      setError('TinyFish Fetch API Key is missing. Please add it in Settings.');
+      setError('TinyFish Fetch API Key is missing. Please add it in the Admin panel\'s API Keys section.');
       return;
     }
 
@@ -32,7 +32,7 @@ export const AdminUsage: React.FC = () => {
     if (apiKey) {
       loadUsage(page);
     } else {
-      setError('TinyFish Fetch API Key is missing. Please add it in Settings.');
+      setError('TinyFish Fetch API Key is missing. Please add it in the Admin panel\'s API Keys section.');
     }
   }, [page, apiKey]);
 
@@ -44,7 +44,7 @@ export const AdminUsage: React.FC = () => {
         </div>
         <h3 className="text-lg font-medium text-slate-600">Admin Dashboard requires API Key</h3>
         <p className="text-slate-400 max-w-sm mt-2">
-          Please add your TinyFish Fetch API Key in the settings modal to view usage logs.
+          Please add your TinyFish Fetch API Key in the API Keys section to view usage logs.
         </p>
       </div>
     );

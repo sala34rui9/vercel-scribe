@@ -3,7 +3,7 @@ import { Layout } from './components/Layout';
 import { ArticleForm } from './components/ArticleForm';
 import { Dashboard } from './components/Dashboard';
 import { SeoSettings } from './components/SeoSettings';
-import { AdminUsage } from './components/AdminUsage';
+import { AdminPanel } from './components/AdminPanel';
 const SerpIntelligence = React.lazy(() => import('./components/SerpIntelligence').then(m => ({ default: m.SerpIntelligence })));
 const ArticlePreview = React.lazy(() => import('./components/ArticlePreview').then(m => ({ default: m.ArticlePreview })));
 import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel, SearchProvider, SEORankingData, BynaraModel } from './types';
@@ -734,7 +734,7 @@ const App: React.FC = () => {
 
         {activePage === 'admin' && (
           <div className="animate-in fade-in duration-300 h-full w-full">
-            <AdminUsage />
+            <AdminPanel />
           </div>
         )}
       </div>

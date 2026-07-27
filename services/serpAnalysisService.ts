@@ -5,6 +5,7 @@
  */
 
 import { GoogleGenAI, Type } from "@google/genai";
+import { callBynaraApi } from "./bynaraService";
 import { getGeminiApiKey } from "./geminiService";
 import {
   FetchedPage,

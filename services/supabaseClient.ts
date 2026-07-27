@@ -4,6 +4,7 @@
  * This file contains ONLY API calls - no sensitive logic or prompts.
  * All your intellectual property is now protected on Supabase servers.
  */
+/// <reference types="vite/client" />
 
 import { createClient } from '@supabase/supabase-js';
 import { ArticleConfig, InternalLink, ExternalLink, SEORankingData, DomainOverview, CompetitorEntry } from '../types';
