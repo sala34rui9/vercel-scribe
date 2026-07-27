@@ -8,7 +8,7 @@ import {
   Search, Download, CheckSquare, Square, ChevronRight, ChevronLeft,
   Loader2, AlertCircle, Globe, FileText, Zap, Target, BarChart3,
   Eye, BookOpen, PenTool, RefreshCw, Check, X, ExternalLink,
-  Layers, MessageSquare, TrendingUp, Hash, Bug, MapPin, ChevronDown, ChevronUp
+  Layers, MessageSquare, TrendingUp, Hash, Bug, MapPin, ChevronDown, ChevronUp, Cpu
 } from 'lucide-react';
 import { SearchProvider, AIProvider, SerpSearchResult, FetchedPage, SerpIntelligenceReport, UserSelections, DeepSeekModel } from '../types';
 import { searchWeb, getTinyFishApiKey } from '../services/tinyfishService';
@@ -30,6 +30,12 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
   const [topic, setTopic] = useState('');
   const [searchProvider, setSearchProvider] = useState<SearchProvider>(SearchProvider.TINYFISH);
   const [selectedDeepSeekModel, setSelectedDeepSeekModel] = useState<DeepSeekModel>(DeepSeekModel.V3_NON_THINKING);
+
+  const [selectedAIProvider, setSelectedAIProvider] = useState<AIProvider>(() => {
+    const p = localStorage.getItem('seo_scribe_provider');
+    return (p as AIProvider) || AIProvider.GEMINI;
+  });
+
 
   // Geo-targeting state
   const [targetLocation, setTargetLocation] = useState<string>('');
@@ -258,6 +264,8 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
         successfulPages,
         topic,
         (stage, progress) => setAnalysisProgress({ stage, progress }),
+        selectedDeepSeekModel,
+        selectedAIProvider
       );
       setReport(result);
     } catch (err: any) {
@@ -267,6 +275,8 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
           successfulPages,
           topic,
           (stage, progress) => setAnalysisProgress({ stage, progress }),
+          selectedDeepSeekModel,
+          selectedAIProvider
         );
         setReport(result);
       } catch (fallbackErr: any) {
@@ -957,6 +967,51 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
           <div className="text-center py-8">
             <BarChart3 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
             <p className="text-sm text-slate-500 mb-4">Ready to analyze {fetchedPages.filter(p => p.fetchStatus === 'success').length} fetched pages</p>
+            
+            
+            <div className="max-w-xs mx-auto mb-4 text-left animate-in fade-in slide-in-from-top-2 duration-300">
+              <label className="block text-sm font-medium text-slate-700 mb-1">AI Provider</label>
+              <div className="relative">
+                <div className="absolute left-3 top-3 w-4 h-4 text-indigo-500">
+                  <Cpu className="w-4 h-4" />
+                </div>
+                <select
+                  value={selectedAIProvider}
+                  onChange={(e) => setSelectedAIProvider(e.target.value as AIProvider)}
+                  className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white font-medium text-slate-700 shadow-sm"
+                >
+                  <option value={AIProvider.GEMINI}>Google Gemini</option>
+                  <option value={AIProvider.DEEPSEEK}>DeepSeek</option>
+                  <option value={AIProvider.BYNARA}>Bynara</option>
+                </select>
+                <div className="absolute right-3 top-3 pointer-events-none text-slate-400">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
+            </div>
+
+            {selectedAIProvider === AIProvider.DEEPSEEK && (
+            <div className="max-w-xs mx-auto mb-6 text-left animate-in fade-in slide-in-from-top-2 duration-300">
+              <label className="block text-sm font-medium text-slate-700 mb-1">DeepSeek Model Variant</label>
+              <div className="relative">
+                <div className="absolute left-3 top-3 w-4 h-4 text-indigo-500">
+                  <Cpu className="w-4 h-4" />
+                </div>
+                <select
+                  value={selectedDeepSeekModel}
+                  onChange={(e) => setSelectedDeepSeekModel(e.target.value as DeepSeekModel)}
+                  className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white font-medium text-slate-700 shadow-sm"
+                >
+                  <option value={DeepSeekModel.V3_NON_THINKING}>DeepSeek-v4-flash (Fast)</option>
+                  <option value={DeepSeekModel.V3_THINKING}>DeepSeek-v4-pro (High Accuracy)</option>
+                </select>
+                <div className="absolute right-3 top-3 pointer-events-none text-slate-400">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
+            </div>
+            )}
+
             <button
               onClick={handleAnalyze}
               className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 flex items-center gap-2 mx-auto transition-colors"

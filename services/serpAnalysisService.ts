@@ -4,6 +4,8 @@
  * Uses DeepSeek/Gemini for structured JSON analysis
  */
 
+import { GoogleGenAI, Type } from "@google/genai";
+import { getGeminiApiKey } from "./geminiService";
 import {
   FetchedPage,
   ContentSimilarityResult,
@@ -20,6 +22,8 @@ import {
   ExpertAnalysisResult,
   OutlineRecommendation,
   SerpIntelligenceReport,
+  DeepSeekModel,
+  AIProvider,
 } from '../types';
 
 const DEEPSEEK_API_URL = "https://deepseek-proxy.ubantuplx.workers.dev";
@@ -51,22 +55,55 @@ const cleanJsonOutput = (text: string): string => {
   return clean.trim();
 };
 
+
+export async function callGeminiAnalysis(prompt: string): Promise<any> {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    throw new Error('Gemini API key is missing. Please add an API key in Settings.');
+  }
+
+  const ai = new GoogleGenAI({ apiKey });
+  
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.0-flash',
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      systemInstruction: "You are an expert SEO analyst and content strategist. Always return valid JSON only, matching the requested structure perfectly.",
+    }
+  });
+
+  const text = response.text;
+  if (!text) {
+    throw new Error('CRITICAL_API_ERROR: Gemini API returned empty response.');
+  }
+
+  return JSON.parse(cleanJsonOutput(text));
+}
+
 export async function callDeepSeek(
   prompt: string,
-  options?: { model?: 'deepseek-v4-pro' | 'deepseek-v4-flash' },
+  options?: { model?: 'deepseek-v4-pro' | 'deepseek-v4-flash', forceProvider?: AIProvider },
 ): Promise<any> {
   const deepSeekKey = getDeepSeekApiKey();
   const bynaraKey = getBynaraApiKey();
-  const activeProvider = getActiveProvider();
+  const activeProvider = options?.forceProvider || getActiveProvider();
 
   // Decide which API to use
   let useBynara = false;
-  if (activeProvider === 'Bynara' && bynaraKey) {
+  if (activeProvider === AIProvider.BYNARA && bynaraKey) {
     useBynara = true;
-  } else if (!deepSeekKey && bynaraKey) {
+  } else if (activeProvider === 'Bynara' && bynaraKey) {
     useBynara = true;
-  } else if (!deepSeekKey && !bynaraKey) {
-    throw new Error('DeepSeek or Bynara API key is missing. Please add an API key in Settings.');
+  } else if (!deepSeekKey && bynaraKey && activeProvider !== AIProvider.DEEPSEEK) {
+    useBynara = true;
+  }
+
+  if (useBynara && !bynaraKey) {
+    throw new Error('Bynara API key is missing. Please add an API key in Settings.');
+  }
+  if (!useBynara && !deepSeekKey) {
+    throw new Error('DeepSeek API key is missing. Please add an API key in Settings.');
   }
 
   const url = useBynara ? BYNARA_API_URL : DEEPSEEK_API_URL;
@@ -362,16 +399,29 @@ export const generateSerpIntelligenceReportMega = async (
   pages: FetchedPage[],
   topic: string,
   onProgress?: (stage: string, progress: number) => void,
+  deepSeekModel?: DeepSeekModel,
+  aiProvider?: AIProvider,
 ): Promise<SerpIntelligenceReport> => {
   const successfulPages = pages.filter(p => p.fetchStatus === 'success');
   if (successfulPages.length === 0) {
     throw new Error('No successfully fetched pages to analyze');
   }
 
-  const deepSeekKey = localStorage.getItem('user_deepseek_api_key');
-  const bynaraKey = localStorage.getItem('user_bynara_api_key');
-  if (!deepSeekKey && !bynaraKey) {
-    throw new Error('DeepSeek or Bynara API key is missing. Please add an API key in Settings → API Provider Settings.');
+  const providerToUse = aiProvider || getActiveProvider();
+  
+  if (providerToUse === AIProvider.GEMINI) {
+    if (!getGeminiApiKey()) {
+      throw new Error('Gemini API key is missing. Please add an API key in Settings.');
+    }
+  } else if (providerToUse === AIProvider.BYNARA) {
+    if (!localStorage.getItem('user_bynara_api_key')) {
+      throw new Error('Bynara API key is missing. Please add an API key in Settings.');
+    }
+  } else {
+    // Default to DeepSeek logic
+    if (!localStorage.getItem('user_deepseek_api_key') && !localStorage.getItem('user_bynara_api_key')) {
+      throw new Error('DeepSeek or Bynara API key is missing. Please add an API key in Settings.');
+    }
   }
 
   const cacheKey = getCacheKey(successfulPages);
@@ -384,7 +434,17 @@ export const generateSerpIntelligenceReportMega = async (
   onProgress?.('Analyzing competitor content...', 10);
 
   const prompt = buildMegaPrompt(successfulPages, topic);
-  const raw = await callDeepSeek(prompt, { model: 'deepseek-v4-flash' });
+  
+  let raw: any;
+  if (providerToUse === AIProvider.GEMINI) {
+    raw = await callGeminiAnalysis(prompt);
+  } else {
+    let apiModel = 'deepseek-v4-flash';
+    if (deepSeekModel === DeepSeekModel.V3_THINKING || deepSeekModel === DeepSeekModel.V3_SPECIALE) {
+      apiModel = 'deepseek-v4-pro';
+    }
+    raw = await callDeepSeek(prompt, { model: apiModel as any, forceProvider: providerToUse as AIProvider });
+  }
 
   onProgress?.('Report complete!', 100);
 
@@ -395,7 +455,7 @@ export const generateSerpIntelligenceReportMega = async (
 
 // ---- Individual Analysis Functions ----
 
-export const analyzeContentSimilarity = async (pages: FetchedPage[]): Promise<ContentSimilarityResult> => {
+export const analyzeContentSimilarity = async (pages: FetchedPage[], aiProvider?: AIProvider): Promise<ContentSimilarityResult> => {
   if (pages.filter(p => p.fetchStatus === 'success').length < 2) {
     return {
       commonTopics: [], commonQuestions: [], repeatedAdvice: [],
@@ -435,7 +495,7 @@ Return JSON:
   }
 };
 
-export const analyzeContentGaps = async (pages: FetchedPage[]): Promise<ContentGapResult> => {
+export const analyzeContentGaps = async (pages: FetchedPage[], aiProvider?: AIProvider): Promise<ContentGapResult> => {
   if (pages.filter(p => p.fetchStatus === 'success').length < 2) {
     return {
       missingTopics: [], missingSubtopics: [], missingFAQs: [],
@@ -483,7 +543,7 @@ Return JSON:
   }
 };
 
-export const analyzeSeoStructure = async (pages: FetchedPage[]): Promise<SeoStructureResult> => {
+export const analyzeSeoStructure = async (pages: FetchedPage[], aiProvider?: AIProvider): Promise<SeoStructureResult> => {
   const content = buildContentSummary(pages);
   const prompt = `Analyze the SEO structure of these ${pages.length} competitor pages.
 
@@ -517,7 +577,7 @@ Return JSON:
   }
 };
 
-export const analyzeHooks = async (pages: FetchedPage[]): Promise<HookAnalysisResult> => {
+export const analyzeHooks = async (pages: FetchedPage[], aiProvider?: AIProvider): Promise<HookAnalysisResult> => {
   const topPages = pages.filter(p => p.fetchStatus === 'success').slice(0, 5);
   if (topPages.length === 0) {
     return {
@@ -552,7 +612,7 @@ Return JSON:
   }
 };
 
-export const analyzeWritingStyle = async (pages: FetchedPage[]): Promise<WritingStyleResult> => {
+export const analyzeWritingStyle = async (pages: FetchedPage[], aiProvider?: AIProvider): Promise<WritingStyleResult> => {
   const content = buildContentSummary(pages);
   const prompt = `Analyze the writing style of these ${pages.length} competitor pages.
 
@@ -587,7 +647,7 @@ Return JSON:
   }
 };
 
-export const analyzeReadability = async (pages: FetchedPage[]): Promise<ReadabilityResult> => {
+export const analyzeReadability = async (pages: FetchedPage[], aiProvider?: AIProvider): Promise<ReadabilityResult> => {
   const content = buildContentSummary(pages);
   const prompt = `Analyze the readability of these ${pages.length} competitor pages.
 
@@ -619,7 +679,7 @@ Return JSON:
   }
 };
 
-export const analyzeContentPatterns = async (pages: FetchedPage[]): Promise<ContentPatternResult> => {
+export const analyzeContentPatterns = async (pages: FetchedPage[], aiProvider?: AIProvider): Promise<ContentPatternResult> => {
   const content = buildContentSummary(pages);
   const prompt = `Analyze content patterns across these ${pages.length} competitor pages.
 
@@ -650,7 +710,7 @@ Return JSON:
   }
 };
 
-export const analyzeSearchIntent = async (pages: FetchedPage[], topic: string): Promise<SearchIntentResult> => {
+export const analyzeSearchIntent = async (pages: FetchedPage[], topic: string, aiProvider?: AIProvider): Promise<SearchIntentResult> => {
   const content = buildTop5Summary(pages);
   const prompt = `Analyze the search intent for the topic: "${topic}" based on these ${pages.length} top-ranking pages.
 
@@ -696,7 +756,7 @@ Return JSON:
   }
 };
 
-export const analyzeFaqs = async (pages: FetchedPage[]): Promise<FaqAnalysisResult> => {
+export const analyzeFaqs = async (pages: FetchedPage[], aiProvider?: AIProvider): Promise<FaqAnalysisResult> => {
   const content = buildContentSummary(pages);
   const prompt = `Extract and merge FAQs from these ${pages.length} competitor pages.
 
@@ -726,7 +786,7 @@ Return JSON:
   }
 };
 
-export const analyzeStatistics = async (pages: FetchedPage[]): Promise<StatisticsAnalysisResult> => {
+export const analyzeStatistics = async (pages: FetchedPage[], aiProvider?: AIProvider): Promise<StatisticsAnalysisResult> => {
   const content = buildContentSummary(pages);
   const prompt = `Extract all statistics, numbers, and data points from these ${pages.length} competitor pages.
 
@@ -808,6 +868,8 @@ export const generateSerpIntelligenceReport = async (
   pages: FetchedPage[],
   topic: string,
   onProgress?: (stage: string, progress: number) => void,
+  deepSeekModel?: DeepSeekModel,
+  aiProvider?: AIProvider,
 ): Promise<SerpIntelligenceReport> => {
   const updateProgress = (stage: string, progress: number) => {
     if (onProgress) onProgress(stage, progress);
@@ -827,37 +889,37 @@ export const generateSerpIntelligenceReport = async (
   }
 
   updateProgress('Analyzing content similarity...', 5);
-  const similarity = await analyzeContentSimilarity(successfulPages);
+  const similarity = await analyzeContentSimilarity(successfulPages, aiProvider);
 
   updateProgress('Identifying content gaps...', 15);
-  const gaps = await analyzeContentGaps(successfulPages);
+  const gaps = await analyzeContentGaps(successfulPages, aiProvider);
 
   updateProgress('Analyzing SEO structure...', 25);
-  const seoStructure = await analyzeSeoStructure(successfulPages);
+  const seoStructure = await analyzeSeoStructure(successfulPages, aiProvider);
 
   updateProgress('Analyzing hooks...', 35);
-  const hook = await analyzeHooks(successfulPages);
+  const hook = await analyzeHooks(successfulPages, aiProvider);
 
   updateProgress('Analyzing writing style...', 45);
-  const writingStyle = await analyzeWritingStyle(successfulPages);
+  const writingStyle = await analyzeWritingStyle(successfulPages, aiProvider);
 
   updateProgress('Analyzing readability...', 55);
-  const readability = await analyzeReadability(successfulPages);
+  const readability = await analyzeReadability(successfulPages, aiProvider);
 
   updateProgress('Analyzing content patterns...', 65);
-  const contentPatterns = await analyzeContentPatterns(successfulPages);
+  const contentPatterns = await analyzeContentPatterns(successfulPages, aiProvider);
 
   updateProgress('Analyzing search intent...', 70);
-  const searchIntent = await analyzeSearchIntent(successfulPages, topic);
+  const searchIntent = await analyzeSearchIntent(successfulPages, topic, aiProvider);
 
   updateProgress('Mapping topic coverage...', 75);
   const topicCoverage = await analyzeTopicCoverage(successfulPages);
 
   updateProgress('Extracting FAQs...', 80);
-  const faqs = await analyzeFaqs(successfulPages);
+  const faqs = await analyzeFaqs(successfulPages, aiProvider);
 
   updateProgress('Extracting statistics...', 85);
-  const statistics = await analyzeStatistics(successfulPages);
+  const statistics = await analyzeStatistics(successfulPages, aiProvider);
 
   updateProgress('Extracting expert analysis...', 90);
   const experts = await analyzeExperts(successfulPages);
