@@ -181,7 +181,7 @@ const App: React.FC = () => {
         providerName = "DeepSeek-V3";
       }
     } else if (config.provider === AIProvider.BYNARA) {
-      providerName = "Bynara (DeepSeek)";
+      providerName = "Bynara";
     }
     setActiveProviderName(providerName);
 

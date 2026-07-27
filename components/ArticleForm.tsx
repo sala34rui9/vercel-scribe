@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ArticleConfig, ArticleType, ToneVoice, InternalLink, ExternalLink, OpeningStyle, ReadabilityLevel, ContentOpportunity, TargetCountry, AIProvider, DeepSeekModel, SearchProvider } from '../types';
+import { ArticleConfig, ArticleType, ToneVoice, InternalLink, ExternalLink, OpeningStyle, ReadabilityLevel, ContentOpportunity, TargetCountry, AIProvider, DeepSeekModel, BynaraModel, SearchProvider } from '../types';
 import { generateNLPKeywords, generatePrimaryKeywords, scanForInternalLinks, scanForExternalLinks, generateFullSEOStrategy, selectBestInternalLinks } from '../services/geminiService';
 import { generateNLPKeywordsDeepSeek, generatePrimaryKeywordsDeepSeek } from '../services/deepseekService';
 import { scanForInternalLinksTavily, scanForExternalLinksTavily } from '../services/tavilyService';
@@ -63,6 +63,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
 
   const [deepSeekModel, setDeepSeekModel] = useState<DeepSeekModel>(() => {
     return (localStorage.getItem('seo_scribe_deepseek_model') as DeepSeekModel) || DeepSeekModel.V3_NON_THINKING;
+  });
+
+  const [bynaraModel, setBynaraModel] = useState<BynaraModel>(() => {
+    return (localStorage.getItem('seo_scribe_bynara_model') as BynaraModel) || BynaraModel.MISTRAL_LARGE;
   });
 
   const [topic, setTopic] = useState('');
@@ -160,6 +164,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   useEffect(() => {
     localStorage.setItem('seo_scribe_deepseek_model', deepSeekModel);
   }, [deepSeekModel]);
+
+  useEffect(() => {
+    localStorage.setItem('seo_scribe_bynara_model', bynaraModel);
+  }, [bynaraModel]);
 
   useEffect(() => {
     localStorage.setItem('seo_scribe_research_provider', researchProvider);
@@ -690,6 +698,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       enableExternalLinks: includeExternalLinks, // Pass preference for auto-scan
       provider,
       deepSeekModel,
+      bynaraModel,
       researchProvider, // Pass the selected research provider
       keywordAnalysisProvider, // Pass the keyword analysis provider
       includeBulletPoints,
@@ -776,6 +785,34 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
                 {deepSeekModel.includes('Thinking') ? 'Reasoning Engine Active (Slower, Higher Quality)' : 'Standard Chat Mode (Faster)'}
               </p>
               <p className="text-xs text-slate-500 mt-2 border-l-2 border-indigo-200 pl-2">
+                Note: Web scanning/research options below depend on your "Research Provider" setting.
+              </p>
+            </div>
+          )}
+
+          {/* Bynara Specific Model Selection */}
+          {(provider === AIProvider.BYNARA) && (
+            <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Bynara Model</label>
+              <div className="relative">
+                <div className="absolute left-3 top-3 w-4 h-4 text-purple-500">
+                  <Globe className="w-4 h-4" />
+                </div>
+                <select
+                  value={bynaraModel}
+                  onChange={(e) => setBynaraModel(e.target.value as BynaraModel)}
+                  className="w-full pl-10 pr-3 py-2.5 border border-purple-200 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none text-sm bg-purple-50/20 font-medium text-slate-700"
+                >
+                  {Object.values(BynaraModel).map(m => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+              <p className="text-xs text-purple-600 mt-1 flex items-center">
+                <Target className="w-3 h-3 mr-1" />
+                Select from ByNara's global model network
+              </p>
+              <p className="text-xs text-slate-500 mt-2 border-l-2 border-purple-200 pl-2">
                 Note: Web scanning/research options below depend on your "Research Provider" setting.
               </p>
 
