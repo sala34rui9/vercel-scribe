@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Wayback Machine Service - Main Facade
  * Provides a unified API for all Wayback Machine operations.
  *
@@ -276,7 +276,7 @@ export const analyzeHistoricalSeo = async (
       historicalWordCount: [],
       headingEvolution: [],
       keywordEvolution: [],
-      publishingTrend: 'unknown',
+      publishingTrend: 'irregular',
       missingTopics: [],
       recommendations: ['No archived snapshots found for analysis'],
     };
@@ -509,3 +509,4 @@ export const getBacklinkRecoveryRecommendation = async (
     topic,
   };
 };
+

@@ -1,10 +1,11 @@
-import React, { useState, useCallback, useRef, Suspense, useEffect } from 'react';
+﻿import React, { useState, useCallback, useRef, Suspense, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { ArticleForm } from './components/ArticleForm';
 import { Dashboard } from './components/Dashboard';
 import { SeoSettings } from './components/SeoSettings';
 import { AdminPanel } from './components/AdminPanel';
 const SerpIntelligence = React.lazy(() => import('./components/SerpIntelligence').then(m => ({ default: m.SerpIntelligence })));
+const WaybackExplorer = React.lazy(() => import('./components/WaybackExplorer'));
 const ArticlePreview = React.lazy(() => import('./components/ArticlePreview').then(m => ({ default: m.ArticlePreview })));
 import { ArticleConfig, GeneratedArticle, AIProvider, DeepSeekModel, SearchProvider, SEORankingData, BynaraModel } from './types';
 import { generateArticle, generatePrimaryKeywords, generateNLPKeywords, scanForInternalLinks, scanForExternalLinks } from './services/geminiService';
@@ -21,7 +22,7 @@ const buildImagePrompt = (topic: string, sectionHeading: string | null, imageInd
   const baseSubject = topic.replace(/['"]/g, '');
 
   if (imageIndex === 0) {
-    // Featured / hero image — wide establishing shot
+    // Featured / hero image â€” wide establishing shot
     return `Professional hero banner for a blog article about "${baseSubject}". Wide-angle editorial photograph, clean modern composition, vibrant colors, professional lighting, no text or watermarks, editorial magazine quality, wide shot`;
   }
 
@@ -98,7 +99,7 @@ const App: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [formKey, setFormKey] = useState(0);
-  const [activePage, setActivePage] = useState<'home' | 'editor' | 'articles' | 'seo' | 'serp' | 'admin'>(() => {
+  const [activePage, setActivePage] = useState<'home' | 'editor' | 'articles' | 'seo' | 'serp' | 'wayback' | 'admin'>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -218,7 +219,7 @@ const App: React.FC = () => {
               if (totalKeywords > 0) {
                 setTerminalLogs(prev => [...prev, `> Discovered ${seoData.lostKeywords.length} Lost Keywords, ${seoData.competitorGaps.length} Gaps, ${seoData.aiOverviewKeywords.length} AI Overview targets.`]);
                 setTerminalLogs(prev => [...prev, `> Injecting SEO intelligence into AI instructions...`]);
-                setProcessingStatus(`Found ${totalKeywords} SEO keywords — Writing content...`);
+                setProcessingStatus(`Found ${totalKeywords} SEO keywords â€” Writing content...`);
               } else {
                 setTerminalLogs(prev => [...prev, `> No specific gaps found. Proceeding with standard optimization.`]);
                 setProcessingStatus('Writing content...');
@@ -584,14 +585,14 @@ const App: React.FC = () => {
   // Show dashboard on home page
   if (activePage === 'home') {
     return (
-      <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} onShowSeo={showSeo} onShowSerp={showSerp} onShowAdmin={() => setActivePage('admin')} savedCount={generatedArticles.length}>
+      <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} onShowSeo={showSeo} onShowSerp={showSerp} onShowAdmin={() => setActivePage('admin')} onShowWayback={() => setActivePage('wayback')} savedCount={generatedArticles.length}>
         <Dashboard onNavigate={setActivePage} />
       </Layout>
     );
   }
 
   return (
-    <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} onShowSeo={showSeo} onShowSerp={showSerp} onShowAdmin={() => setActivePage('admin')} savedCount={generatedArticles.length}>
+    <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} onShowSeo={showSeo} onShowSerp={showSerp} onShowAdmin={() => setActivePage('admin')} onShowWayback={() => setActivePage('wayback')} savedCount={generatedArticles.length}>
       <div className="h-[calc(100vh-8rem)] w-full overflow-y-auto pb-8">
         {activePage === 'editor' && (
           <div className="max-w-5xl mx-auto">
@@ -732,6 +733,13 @@ const App: React.FC = () => {
           </Suspense>
         )}
 
+        
+        {activePage === 'wayback' && (
+          <Suspense fallback={<div className="flex-1 flex items-center justify-center p-12"><Loader2 className="w-8 h-8 animate-spin text-cyan-600" /></div>}>
+            <WaybackExplorer />
+          </Suspense>
+        )}
+
         {activePage === 'admin' && (
           <div className="animate-in fade-in duration-300 min-h-0 h-full w-full">
             <AdminPanel />
@@ -743,3 +751,10 @@ const App: React.FC = () => {
 };
 
 export default App;
+
+
+
+
+
+
+

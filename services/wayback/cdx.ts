@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Wayback Machine CDX API Service
  * Retrieves historical capture records for URLs.
  *
@@ -249,7 +249,7 @@ export const countCaptures = async (
 
   try {
     // Use collapse=digest to count unique captures
-    const apiUrl = `${WAYBACK_CDX_API}?url=${encodeURIComponent(normalUrl)}&output=json&collapse=digest&limit=${MAX_LIMIT}`;
+    const apiUrl = `${WAYBACK_CDX_API}?url=${encodeURIComponent(normalizedUrl)}&output=json&collapse=digest&limit=${MAX_LIMIT}`;
 
     const response = await fetch(apiUrl, {
       method: 'GET',
@@ -282,3 +282,4 @@ export const countCaptures = async (
     throw error;
   }
 };
+

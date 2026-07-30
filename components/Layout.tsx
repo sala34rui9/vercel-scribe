@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { PenTool, Layers, Home, FileText, Grid, Mic, Newspaper, MapPin, HelpCircle, ChevronLeft, ChevronRight, TrendingUp, Settings, Target } from 'lucide-react';
+﻿import React, { useState } from 'react';
+import { PenTool, Layers, Home, FileText, Grid, Mic, Newspaper, MapPin, HelpCircle, ChevronLeft, ChevronRight, TrendingUp, Settings, Target, Archive } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -9,10 +9,11 @@ interface LayoutProps {
   onShowSeo?: () => void;
   onShowSerp?: () => void;
   onShowAdmin?: () => void;
+  onShowWayback?: () => void;
   savedCount?: number;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArticles, onShowEditor, onShowSeo, onShowSerp, onShowAdmin, savedCount = 0 }) => {
+export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArticles, onShowEditor, onShowSeo, onShowSerp, onShowAdmin, onShowWayback, savedCount = 0 }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
@@ -85,7 +86,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
               <span className={`${sidebarCollapsed ? 'hidden' : 'text-sm'}`}>SEO</span>
             </button>
 
-            <button onClick={onShowSerp} title="SERP Intel" className="flex items-center gap-3 w-full text-slate-600 hover:text-blue-600 transition-colors rounded-md px-2 py-2">
+            <button onClick={onShowWayback} title="Wayback" className="flex items-center gap-3 w-full text-slate-600 hover:text-blue-600 transition-colors rounded-md px-2 py-2">\n              <Archive className="w-5 h-5" />\n              <span className="">Wayback</span>\n            </button>\n\n            <button onClick={onShowSerp} title="SERP Intel" className="flex items-center gap-3 w-full text-slate-600 hover:text-blue-600 transition-colors rounded-md px-2 py-2">
               <TrendingUp className="w-5 h-5" />
               <span className={`${sidebarCollapsed ? 'hidden' : 'text-sm'}`}>SERP Intel</span>
             </button>
@@ -147,3 +148,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
     </div>
   );
 };
+
+
+
+
