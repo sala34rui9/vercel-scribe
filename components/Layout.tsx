@@ -85,8 +85,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, onShowHome, onShowArti
               <Target className="w-5 h-5" />
               <span className={`${sidebarCollapsed ? 'hidden' : 'text-sm'}`}>SEO</span>
             </button>
+            <button onClick={onShowWayback} title="Wayback" className="flex items-center gap-3 w-full text-slate-600 hover:text-blue-600 transition-colors rounded-md px-2 py-2">
+              <Archive className="w-5 h-5" />
+              <span className={`${sidebarCollapsed ? 'hidden' : 'text-sm'}`}>Wayback</span>
+            </button>
 
-            <button onClick={onShowWayback} title="Wayback" className="flex items-center gap-3 w-full text-slate-600 hover:text-blue-600 transition-colors rounded-md px-2 py-2">\n              <Archive className="w-5 h-5" />\n              <span className="">Wayback</span>\n            </button>\n\n            <button onClick={onShowSerp} title="SERP Intel" className="flex items-center gap-3 w-full text-slate-600 hover:text-blue-600 transition-colors rounded-md px-2 py-2">
+            <button onClick={onShowSerp} title="SERP Intel" className="flex items-center gap-3 w-full text-slate-600 hover:text-blue-600 transition-colors rounded-md px-2 py-2">
               <TrendingUp className="w-5 h-5" />
               <span className={`${sidebarCollapsed ? 'hidden' : 'text-sm'}`}>SERP Intel</span>
             </button>

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Wayback Machine Content Extractor
  * Fetches and extracts content from archived snapshots.
  *
@@ -7,6 +7,8 @@
  * - Extract text content from HTML
  * - Parse page titles and metadata
  * - Handle extraction errors gracefully
+ *
+ * Uses CORS proxy fallback chain for browser compatibility.
  */
 
 import type {
@@ -24,6 +26,33 @@ import {
 
 const DEFAULT_TIMEOUT = 30000;
 const DEFAULT_MAX_CONTENT_LENGTH = 50000; // 50KB limit for extracted content
+
+// CORS proxy options for browser compatibility
+const CORS_PROXIES = [
+  "https://corsproxy.io/?url={url}",
+  "https://api.allorigins.win/raw?url={url}",
+];
+
+/**
+ * Gets the CORS proxy URL for the given proxy index.
+ */
+const getProxyUrl = (proxyIndex: number, targetUrl: string): string => {
+  const customProxy = localStorage.getItem('wayback_cors_proxy');
+
+  if (customProxy === 'disabled') {
+    return targetUrl;
+  }
+
+  if (customProxy && customProxy !== 'disabled') {
+    return customProxy.replace('{url}', encodeURIComponent(targetUrl));
+  }
+
+  if (proxyIndex < CORS_PROXIES.length) {
+    return CORS_PROXIES[proxyIndex].replace('{url}', encodeURIComponent(targetUrl));
+  }
+
+  return targetUrl;
+};
 
 /**
  * Strips HTML tags and returns plain text.
@@ -99,17 +128,27 @@ const extractMetaDescription = (html: string): string => {
 
 /**
  * Fetches raw HTML content from a Wayback Machine snapshot URL.
- * Uses the raw/direct URL to get unmodified content.
+ * Tries direct request first, then falls back to CORS proxies.
  */
 const fetchRawContent = async (
   snapshotUrl: string,
-  timeout: number
+  timeout: number,
+  proxyIndex: number = 0
 ): Promise<{ html: string; statusCode: number; mimeType: string }> => {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
-    const response = await fetch(snapshotUrl, {
+    const fetchUrl = getProxyUrl(proxyIndex, snapshotUrl);
+    const isUsingProxy = fetchUrl !== snapshotUrl;
+
+    if (isUsingProxy) {
+      console.log(`[Wayback] Using CORS proxy ${proxyIndex} for content extraction`);
+    } else {
+      console.log(`[Wayback] Extracting content from: ${snapshotUrl}`);
+    }
+
+    const response = await fetch(fetchUrl, {
       method: 'GET',
       headers: {
         'Accept': 'text/html,application/xhtml+xml',
@@ -120,6 +159,13 @@ const fetchRawContent = async (
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      // If we get a CORS error (status 0) or network error, try next proxy
+      if (response.status === 0 || proxyIndex < CORS_PROXIES.length) {
+        if (proxyIndex < CORS_PROXIES.length) {
+          console.warn(`[Wayback] Proxy ${proxyIndex} failed (status ${response.status}), trying next...`);
+          return fetchRawContent(snapshotUrl, timeout, proxyIndex + 1);
+        }
+      }
       throw new Error(`Failed to fetch snapshot content (${response.status})`);
     }
 
@@ -133,6 +179,13 @@ const fetchRawContent = async (
     if (error.name === 'AbortError') {
       throw new Error(`Content fetch timed out after ${timeout}ms`);
     }
+
+    // Network error - try next CORS proxy
+    if (error instanceof TypeError && proxyIndex < CORS_PROXIES.length) {
+      console.warn(`[Wayback] Network error with proxy ${proxyIndex}, trying CORS proxy...`);
+      return fetchRawContent(snapshotUrl, timeout, proxyIndex + 1);
+    }
+
     throw error;
   }
 };
@@ -165,8 +218,6 @@ export const extractContent = async (
       snapshot.url,
       snapshot.timestamp.replace(/[-T:Z]/g, '').substring(0, 14)
     );
-
-    console.log(`[Wayback] Extracting content from: ${rawUrl}`);
 
     const { html, statusCode, mimeType } = await fetchRawContent(rawUrl, timeout);
     const latencyMs = Date.now() - startTime;

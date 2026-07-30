@@ -7,6 +7,8 @@
  *
  * The CDX API returns all captures (snapshots) of a URL over time.
  * Each row represents one archived capture with metadata.
+ *
+ * Uses CORS proxy fallback chain for browser compatibility.
  */
 
 import type {
@@ -30,6 +32,33 @@ const DEFAULT_TIMEOUT = 30000;
 const DEFAULT_LIMIT = 1000;
 const MAX_LIMIT = 150000;
 
+// CORS proxy options for browser compatibility
+const CORS_PROXIES = [
+  "https://corsproxy.io/?url={url}",
+  "https://api.allorigins.win/raw?url={url}",
+];
+
+/**
+ * Gets the CORS proxy URL for the given proxy index.
+ */
+const getProxyUrl = (proxyIndex: number, targetUrl: string): string => {
+  const customProxy = localStorage.getItem('wayback_cors_proxy');
+
+  if (customProxy === 'disabled') {
+    return targetUrl;
+  }
+
+  if (customProxy && customProxy !== 'disabled') {
+    return customProxy.replace('{url}', encodeURIComponent(targetUrl));
+  }
+
+  if (proxyIndex < CORS_PROXIES.length) {
+    return CORS_PROXIES[proxyIndex].replace('{url}', encodeURIComponent(targetUrl));
+  }
+
+  return targetUrl;
+};
+
 /**
  * Builds the CDX API URL with query parameters.
  */
@@ -52,17 +81,20 @@ const buildCdxUrl = (url: string, options: WaybackCdxOptions = {}): string => {
 
 /**
  * Fetches raw CDX records from the Wayback Machine.
+ * Tries direct request first, then falls back to CORS proxies.
  * Returns unparsed CDX records for custom processing.
  *
  * @param url - The URL pattern to search (supports wildcards like *.example.com)
  * @param options - Query options for filtering results
  * @param timeout - Request timeout in milliseconds
+ * @param proxyIndex - Current CORS proxy index (for internal retry)
  * @returns Array of CDX records
  */
 export const fetchCdxRecords = async (
   url: string,
   options: WaybackCdxOptions = {},
-  timeout: number = DEFAULT_TIMEOUT
+  timeout: number = DEFAULT_TIMEOUT,
+  proxyIndex: number = 0
 ): Promise<WaybackCdxRecord[]> => {
   const normalizedUrl = normalizeUrl(url);
   if (!normalizedUrl) {
@@ -73,10 +105,17 @@ export const fetchCdxRecords = async (
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
-    const apiUrl = buildCdxUrl(normalizedUrl, options);
-    console.log(`[Wayback CDX] Fetching captures for: ${normalizedUrl}`);
+    const directUrl = buildCdxUrl(normalizedUrl, options);
+    const fetchUrl = getProxyUrl(proxyIndex, directUrl);
+    const isUsingProxy = fetchUrl !== directUrl;
 
-    const response = await fetch(apiUrl, {
+    if (isUsingProxy) {
+      console.log(`[Wayback CDX] Using CORS proxy ${proxyIndex}`);
+    } else {
+      console.log(`[Wayback CDX] Fetching captures for: ${normalizedUrl}`);
+    }
+
+    const response = await fetch(fetchUrl, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       signal: controller.signal,
@@ -85,6 +124,13 @@ export const fetchCdxRecords = async (
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      // If we get a CORS error (status 0) or network error, try next proxy
+      if (response.status === 0 || proxyIndex < CORS_PROXIES.length) {
+        if (proxyIndex < CORS_PROXIES.length) {
+          console.warn(`[Wayback CDX] Proxy ${proxyIndex} failed (status ${response.status}), trying next...`);
+          return fetchCdxRecords(url, options, timeout, proxyIndex + 1);
+        }
+      }
       if (response.status === 429) {
         throw new Error('Wayback CDX: Rate limit exceeded. Try again later.');
       }
@@ -109,9 +155,13 @@ export const fetchCdxRecords = async (
     if (error.name === 'AbortError') {
       throw new Error(`Wayback CDX request timed out after ${timeout}ms`);
     }
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('Wayback CDX: Network error - check internet connection');
+
+    // Network error - try next CORS proxy
+    if (error instanceof TypeError && proxyIndex < CORS_PROXIES.length) {
+      console.warn(`[Wayback CDX] Network error with proxy ${proxyIndex}, trying CORS proxy...`);
+      return fetchCdxRecords(url, options, timeout, proxyIndex + 1);
     }
+
     throw error;
   }
 };
@@ -249,9 +299,10 @@ export const countCaptures = async (
 
   try {
     // Use collapse=digest to count unique captures
-    const apiUrl = `${WAYBACK_CDX_API}?url=${encodeURIComponent(normalizedUrl)}&output=json&collapse=digest&limit=${MAX_LIMIT}`;
+    const directUrl = `${WAYBACK_CDX_API}?url=${encodeURIComponent(normalizedUrl)}&output=json&collapse=digest&limit=${MAX_LIMIT}`;
+    const fetchUrl = getProxyUrl(0, directUrl);
 
-    const response = await fetch(apiUrl, {
+    const response = await fetch(fetchUrl, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       signal: controller.signal,
@@ -282,4 +333,3 @@ export const countCaptures = async (
     throw error;
   }
 };
-

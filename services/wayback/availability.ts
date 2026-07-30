@@ -1,15 +1,52 @@
-/**
+﻿/**
  * Wayback Machine Availability API Service
  * Checks whether a URL has archived snapshots available.
  *
- * API Docs: https://archive.org/help/wayback_api.php
+ * API Docs: https://archive.org/wayback_api.php
  * Endpoint: GET https://archive.org/wayback/available?url=<url>
+ *
+ * Uses CORS proxy fallback chain for browser compatibility.
  */
 
 import type { WaybackAvailabilityResponse, WaybackSnapshot } from '../../types';
 
 const WAYBACK_AVAILABILITY_API = 'https://archive.org/wayback/available';
 const DEFAULT_TIMEOUT = 15000;
+
+// CORS proxy options for browser compatibility
+const CORS_PROXIES = [
+  "https://corsproxy.io/?url={url}",
+  "https://api.allorigins.win/raw?url={url}",
+];
+
+/**
+ * Gets the CORS proxy URL for the given proxy index.
+ * Users can set localStorage 'wayback_cors_proxy' to:
+ *   - 'disabled' to call API directly (will fail in browser due to CORS)
+ *   - a custom URL pattern with {url} placeholder
+ *   - or leave unset to use the built-in fallback chain
+ */
+const getProxyUrl = (proxyIndex: number, targetUrl: string): string => {
+  const customProxy = localStorage.getItem('wayback_cors_proxy');
+
+  // User disabled proxy - return direct URL
+  if (customProxy === 'disabled') {
+    return targetUrl;
+  }
+
+  // User provided custom proxy pattern
+  if (customProxy && customProxy !== 'disabled') {
+    return customProxy.replace('{url}', encodeURIComponent(targetUrl));
+  }
+
+  // Use built-in proxy chain
+  if (proxyIndex < CORS_PROXIES.length) {
+    return CORS_PROXIES[proxyIndex].replace('{url}', encodeURIComponent(targetUrl));
+  }
+
+  // Fallback to direct URL
+  return targetUrl;
+};
 
 /**
  * Validates and normalizes a URL string.
@@ -51,11 +88,13 @@ export const buildSnapshotUrl = (originalUrl: string, timestamp: string): string
 
 /**
  * Fetches the raw availability response from the Wayback Machine.
+ * Tries direct request first, then falls back to CORS proxies.
  * Returns the unprocessed API response for custom handling.
  */
 export const fetchAvailabilityRaw = async (
   url: string,
-  timeout: number = DEFAULT_TIMEOUT
+  timeout: number = DEFAULT_TIMEOUT,
+  proxyIndex: number = 0
 ): Promise<WaybackAvailabilityResponse> => {
   const normalizedUrl = normalizeUrl(url);
   if (!normalizedUrl) {
@@ -66,10 +105,17 @@ export const fetchAvailabilityRaw = async (
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
-    const apiUrl = `${WAYBACK_AVAILABILITY_API}?url=${encodeURIComponent(normalizedUrl)}`;
-    console.log(`[Wayback] Checking availability: ${normalizedUrl}`);
+    const directUrl = `${WAYBACK_AVAILABILITY_API}?url=${encodeURIComponent(normalizedUrl)}`;
+    const fetchUrl = getProxyUrl(proxyIndex, directUrl);
+    const isUsingProxy = fetchUrl !== directUrl;
 
-    const response = await fetch(apiUrl, {
+    if (isUsingProxy) {
+      console.log(`[Wayback] Using CORS proxy ${proxyIndex} for availability check`);
+    } else {
+      console.log(`[Wayback] Checking availability: ${normalizedUrl}`);
+    }
+
+    const response = await fetch(fetchUrl, {
       method: 'GET',
       headers: { 'Accept': 'application/json' },
       signal: controller.signal,
@@ -78,6 +124,13 @@ export const fetchAvailabilityRaw = async (
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      // If we get a CORS error (status 0) or network error, try next proxy
+      if (response.status === 0 || proxyIndex < CORS_PROXIES.length) {
+        if (proxyIndex < CORS_PROXIES.length) {
+          console.warn(`[Wayback] Proxy ${proxyIndex} failed (status ${response.status}), trying next...`);
+          return fetchAvailabilityRaw(url, timeout, proxyIndex + 1);
+        }
+      }
       throw new Error(`Wayback API error (${response.status}): Service unavailable`);
     }
 
@@ -88,9 +141,13 @@ export const fetchAvailabilityRaw = async (
     if (error.name === 'AbortError') {
       throw new Error(`Wayback Availability request timed out after ${timeout}ms`);
     }
-    if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('Wayback Availability: Network error - check internet connection');
+
+    // Network error - try next CORS proxy
+    if (error instanceof TypeError && proxyIndex < CORS_PROXIES.length) {
+      console.warn(`[Wayback] Network error with proxy ${proxyIndex}, trying CORS proxy...`);
+      return fetchAvailabilityRaw(url, timeout, proxyIndex + 1);
     }
+
     throw error;
   }
 };
