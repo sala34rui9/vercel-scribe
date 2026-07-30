@@ -406,3 +406,175 @@ export interface SerpResearchPackage {
 }
 
 export type { ImageModel, ImageStyle, ImageRatio } from './services/imagePresets';
+
+// ============================================================
+// Wayback Machine Integration Types
+// ============================================================
+
+/**
+ * Response from the Wayback Availability API.
+ * Checks whether a URL has an archived snapshot.
+ */
+export interface WaybackAvailabilityResponse {
+  url: string;
+  archived_snapshots: {
+    closest?: {
+      status: string;
+      available: boolean;
+      url: string;
+      timestamp: string;
+    };
+  };
+}
+
+/**
+ * A single capture record from the CDX API.
+ * Each row represents one archived snapshot of a URL.
+ */
+export interface WaybackCdxRecord {
+  urlKey: string;
+  timestamp: string;       // YYYYMMDDHHMMSS format
+  original: string;        // Original URL
+  mimeType: string;        // Content type
+  statusCode: number;      // HTTP status code
+  digest: string;          // Content hash (deduplication)
+  length: number;          // Response body size in bytes
+  redirectUrl?: string;    // Redirect target if 3xx
+  robotFlags?: string;     // Robot flags
+  offset?: number;         // WARC file offset
+  filename?: string;       // WARC filename
+}
+
+/**
+ * Parsed and normalized snapshot information.
+ * Used throughout the application for timeline display and content retrieval.
+ */
+export interface WaybackSnapshot {
+  url: string;             // Original URL that was archived
+  snapshotUrl: string;     // Direct link to view the archived version
+  timestamp: string;       // ISO 8601 formatted date
+  date: Date;              // Parsed Date object
+  statusCode: number;      // HTTP status code
+  mimeType: string;        // Content type
+  length: number;          // Content size in bytes
+  isAvailable: boolean;    // Whether the snapshot is accessible
+}
+
+/**
+ * Timeline entry grouping snapshots by year.
+ * Used for the Snapshot Timeline UI component.
+ */
+export interface WaybackTimelineEntry {
+  year: number;
+  snapshots: WaybackSnapshot[];
+  count: number;
+}
+
+/**
+ * Complete timeline result for a URL.
+ */
+export interface WaybackTimeline {
+  url: string;
+  totalCaptures: number;
+  firstCapture: Date | null;
+  lastCapture: Date | null;
+  timeline: WaybackTimelineEntry[];
+}
+
+/**
+ * Result of content extraction from an archived page.
+ */
+export interface WaybackExtractedContent {
+  url: string;
+  snapshotUrl: string;
+  timestamp: string;
+  title: string;
+  content: string;         // Extracted text/markdown content
+  mimeType: string;
+  statusCode: number;
+  fetchStatus: 'success' | 'failed';
+  errorMessage?: string;
+  latencyMs?: number;
+}
+
+/**
+ * Comparison result between two snapshots.
+ * Used for AI-powered content diff analysis.
+ */
+export interface WaybackComparisonResult {
+  older: WaybackSnapshot;
+  newer: WaybackSnapshot;
+  olderContent?: WaybackExtractedContent;
+  newerContent?: WaybackExtractedContent;
+  addedSections: string[];
+  removedSections: string[];
+  changedHeadings: string[];
+  keywordChanges: string[];
+  contentGrowth: number;   // Percentage change in content length
+}
+
+/**
+ * SEO analysis derived from historical snapshots.
+ */
+export interface WaybackSeoAnalysis {
+  url: string;
+  contentFreshnessScore: number;  // 0-100
+  historicalWordCount: number[];
+  headingEvolution: string[][];
+  keywordEvolution: string[][];
+  publishingTrend: 'increasing' | 'decreasing' | 'stable' | 'irregular';
+  missingTopics: string[];
+  recommendations: string[];
+}
+
+/**
+ * Backlink recovery recommendation.
+ */
+export interface WaybackBacklinkRecovery {
+  url: string;
+  hasBacklinks: boolean;
+  backlinkCount: number;
+  recommendation: 'restore' | 'redirect' | 'merge' | 'rewrite';
+  reason: string;
+  suggestedTarget?: string;
+  topic: string;
+}
+
+/**
+ * Expired domain analysis result.
+ */
+export interface WaybackDomainAnalysis {
+  domain: string;
+  originalNiche: string;
+  contentQuality: 'high' | 'medium' | 'low' | 'unknown';
+  spamIndicators: string[];
+  historicalHomepage: WaybackSnapshot | null;
+  businessCategory: string;
+  publishingFrequency: 'daily' | 'weekly' | 'monthly' | 'irregular' | 'unknown';
+  totalCaptures: number;
+  firstCapture: Date | null;
+  lastCapture: Date | null;
+}
+
+/**
+ * Options for CDX API queries.
+ */
+export interface WaybackCdxOptions {
+  from?: string;           // Start timestamp (YYYYMMDDHHMMSS)
+  to?: string;             // End timestamp (YYYYMMDDHHMMSS)
+  limit?: number;          // Max results to return
+  offset?: number;         // Skip first N results
+  filterStatus?: number;   // Filter by HTTP status code
+  filterMimeType?: string; // Filter by MIME type
+  collapse?: string;       // Collapse duplicates (e.g., 'digest')
+  fl?: string;             // Fields to return (comma-separated)
+}
+
+/**
+ * Options for content extraction.
+ */
+export interface WaybackExtractOptions {
+  timeout?: number;        // Request timeout in ms
+  maxContentLength?: number; // Max content size to extract
+  includeMetadata?: boolean; // Include page metadata
+}
