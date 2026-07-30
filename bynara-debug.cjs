@@ -146,7 +146,7 @@ async function main() {
   } else {
     console.log(`  ❌ Failed: ${modelsResult.status} ${modelsResult.error || ''}`);
     if (modelsResult.status === 403) {
-      console.log('  → API key is invalid or expired. Get a new key at https://platform.bynara.com/api/keys');
+      console.log('  → API key is invalid or expired. Get a new key at https://bynara.id/api/keys');
     } else if (modelsResult.status === 401) {
       console.log('  → Unauthorized. Check your API key.');
     }
@@ -193,7 +193,7 @@ async function main() {
     if (all403) {
       console.log('  → All models returning 403 Forbidden.');
       console.log('  → Your API key is likely invalid, expired, or IP-restricted.');
-      console.log('  → Action: Get a new key at https://platform.bynara.com/api/keys');
+      console.log('  → Action: Get a new key at https://bynara.id/api/keys');
     } else if (all401) {
       console.log('  → All models returning 401 Unauthorized.');
       console.log('  → Action: Verify your API key is correct.');
@@ -207,7 +207,7 @@ async function main() {
       const statusCodes = [...new Set(failed.map(r => r.status))];
       console.log(`  → Mixed errors: ${statusCodes.join(', ')}`);
       console.log('  → Some models may not be available on your plan.');
-      console.log('  → Check your plan at https://platform.bynara.com');
+      console.log('  → Check your plan at https://bynara.id');
     }
   }
 

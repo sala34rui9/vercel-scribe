@@ -10,18 +10,10 @@ const RETRY_DELAY_MS = 3000; // 3 seconds between retries
 
 // Connection method - set localStorage 'bynara_connection' to:
 //   - 'edge_function' (default): Routes through Supabase Edge Function (no CORS, most reliable)
-//   - 'cors_proxy': Uses public CORS proxies (fallback)
 //   - 'direct': Calls API directly (will fail in browser due to CORS)
 const getConnectionMethod = (): string => {
   return localStorage.getItem('bynara_connection') || 'edge_function';
 };
-
-// CORS proxy options (used when connection method is 'cors_proxy')
-const CORS_PROXIES = [
-  "https://corsproxy.io/?url={url}",
-  "https://api.allorigins.win/raw?url={url}",
-  "https://cors-anywhere.herokuapp.com/{url}"
-];
 
 const getApiKey = (): string => {
   const customKey = localStorage.getItem(LOCAL_STORAGE_KEY_KEY);
@@ -29,42 +21,6 @@ const getApiKey = (): string => {
     return customKey.trim();
   }
   return '';
-};
-
-/**
- * Gets the CORS proxy URL for the given proxy index.
- * Users can set localStorage 'bynara_cors_proxy' to:
- *   - 'disabled' to call API directly (will fail in browser due to CORS)
- *   - a custom URL pattern with {url} placeholder
- *   - or leave unset to use the built-in fallback chain
- */
-const getProxyUrl = (proxyIndex: number): string => {
-  const customProxy = localStorage.getItem('bynara_cors_proxy');
-
-  // User disabled proxy - return direct URL
-  if (customProxy === 'disabled') {
-    return BYNARA_API_URL;
-  }
-
-  // User provided custom proxy pattern
-  if (customProxy && customProxy !== 'disabled') {
-    return customProxy.replace('{url}', encodeURIComponent(BYNARA_API_URL));
-  }
-
-  // Use built-in proxy chain
-  if (proxyIndex < CORS_PROXIES.length) {
-    return CORS_PROXIES[proxyIndex].replace('{url}', encodeURIComponent(BYNARA_API_URL));
-  }
-
-  // Fallback to direct URL
-  return BYNARA_API_URL;
-};
-
-/**
- * Checks if CORS proxy is enabled.
- */
-const isCorsProxyEnabled = (): boolean => {
-  return localStorage.getItem('bynara_cors_proxy') !== 'disabled';
 };
 
 /**
@@ -80,8 +36,9 @@ const callBynaraEdgeFunction = async (
   const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   // Merge external signal with timeout controller
+  const abortHandler = () => controller.abort();
   if (signal) {
-    signal.addEventListener('abort', () => controller.abort());
+    signal.addEventListener('abort', abortHandler);
   }
 
   try {
@@ -92,26 +49,37 @@ const callBynaraEdgeFunction = async (
       body: {
         apiKey: apiKey,
         payload: payload
-      }
+      },
+      signal: controller.signal
     });
 
     clearTimeout(timeoutId);
+    if (signal) signal.removeEventListener('abort', abortHandler);
 
     if (error) {
-      // Create a Response-like object from the error
+      if (error.context instanceof Response) {
+        return error.context;
+      } else if (error.context && typeof error.context.text === 'function') {
+        const body = await error.context.text();
+        return new Response(body, {
+          status: error.context.status || 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
       return new Response(
         JSON.stringify({ error: { message: error.message || 'Edge function error' } }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // Create a Response object from the edge function result
     return new Response(
       JSON.stringify(data),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error: any) {
     clearTimeout(timeoutId);
+    if (signal) signal.removeEventListener('abort', abortHandler);
 
     if (error.name === 'AbortError') {
       throw error;
@@ -122,61 +90,7 @@ const callBynaraEdgeFunction = async (
 };
 
 /**
- * Executes a fetch request with timeout, retry logic, and CORS proxy fallback.
- * Tries each CORS proxy in the chain before giving up.
- */
-const fetchWithRetry = async (
-  options: RequestInit,
-  retries: number = MAX_RETRIES,
-  proxyIndex: number = 0
-): Promise<Response> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-  // Merge external signal with timeout controller
-  const originalSignal = options.signal;
-  if (originalSignal) {
-    originalSignal.addEventListener('abort', () => controller.abort());
-  }
-
-  const url = getProxyUrl(proxyIndex);
-
-  try {
-    console.log(`[Bynara] Trying proxy ${proxyIndex}: ${url.substring(0, 80)}...`);
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-
-    // Don't retry on abort
-    if (error.name === 'AbortError') {
-      throw error;
-    }
-
-    // Try next CORS proxy
-    const customProxy = localStorage.getItem('bynara_cors_proxy');
-    if (!customProxy && proxyIndex < CORS_PROXIES.length - 1) {
-      console.warn(`[Bynara] Proxy ${proxyIndex} failed, trying next proxy...`);
-      return fetchWithRetry(options, retries, proxyIndex + 1);
-    }
-
-    // Retry on network errors
-    if (retries > 0) {
-      console.warn(`[Bynara] Request failed, retrying... (${retries} attempts left)`);
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-      return fetchWithRetry(options, retries - 1, proxyIndex);
-    }
-
-    throw error;
-  }
-};
-
-/**
- * Unified ByNara API call - tries edge function first, then CORS proxy fallback.
+ * Unified ByNara API call - tries edge function first, then falls back to direct call (if specified).
  * This is the main entry point for all ByNara API calls.
  */
 export const callBynaraApi = async (
@@ -186,77 +100,46 @@ export const callBynaraApi = async (
 ): Promise<Response> => {
   const connectionMethod = getConnectionMethod();
 
-  // Method 1: Supabase Edge Function (most reliable, no CORS)
-  if (connectionMethod === 'edge_function') {
-    try {
-      const response = await callBynaraEdgeFunction(apiKey, payload, signal);
-      if (response.ok) {
-        return response;
-      }
-      // If edge function returned an error, log and try fallback
-      console.warn('[Bynara] Edge function returned error, trying fallback...');
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        throw error; // Don't retry on abort
-      }
-      console.warn('[Bynara] Edge function failed:', error.message);
+  // Direct call (will fail in browser due to CORS, but works in Node.js)
+  if (connectionMethod === 'direct') {
+    console.log('[Bynara] Trying direct API call...');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+    const abortHandler = () => controller.abort();
+    if (signal) {
+      signal.addEventListener('abort', abortHandler);
     }
 
-    // Check if Supabase is configured
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    if (!supabaseUrl) {
-      throw new Error(
-        'Supabase not configured. Please set VITE_SUPABASE_URL in your environment.\n' +
-        'Alternatively, set localStorage.setItem("bynara_connection", "cors_proxy") to use CORS proxy instead.'
-      );
-    }
-  }
-
-  // Method 2: CORS Proxy (fallback)
-  if (connectionMethod !== 'direct') {
     try {
-      return await fetchWithRetry({
+      const response = await fetch(BYNARA_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${apiKey}`
         },
         body: JSON.stringify(payload),
-        signal: signal
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
+      if (signal) signal.removeEventListener('abort', abortHandler);
+      return response;
     } catch (error: any) {
-      if (error.name === 'AbortError') {
-        throw error;
-      }
-      console.warn('[Bynara] CORS proxy failed:', error.message);
+      clearTimeout(timeoutId);
+      if (signal) signal.removeEventListener('abort', abortHandler);
+      throw error;
     }
   }
 
-  // Method 3: Direct call (will fail in browser due to CORS, but works in Node.js)
-  console.log('[Bynara] Trying direct API call...');
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-  if (signal) {
-    signal.addEventListener('abort', () => controller.abort());
+  // Method 1: Supabase Edge Function (most reliable, no CORS)
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  if (!supabaseUrl) {
+    throw new Error(
+      'Supabase not configured. Please set VITE_SUPABASE_URL in your environment.'
+    );
   }
 
-  try {
-    const response = await fetch(BYNARA_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (error: any) {
-    clearTimeout(timeoutId);
-    throw error;
-  }
+  return await callBynaraEdgeFunction(apiKey, payload, signal);
 };
 
 /**
@@ -514,8 +397,6 @@ export const generateArticleBynara = async (config: ArticleConfig, signal?: Abor
   // --- PURE DEEPSEEK EXECUTION ---
   // We do NOT call Gemini for research here to avoid mixed-provider errors.
   // Instead, we instruct Bynara to use its internal knowledge.
-
-  const sources: string[] = []; // Bynara does not provide external source citations natively
 
   // --- PROMPT CONSTRUCTION ---
 
@@ -1041,7 +922,7 @@ export const generateArticleBynara = async (config: ArticleConfig, signal?: Abor
       }
 
       if (response.status === 401 || errorMessage.includes("unauthorized") || errorMessage.includes("invalid")) {
-        throw new Error(`Bynara API Authentication Failed: Your API key may be invalid. Visit https://platform.bynara.com/api/keys to verify.`);
+        throw new Error(`Bynara API Authentication Failed: Your API key may be invalid. Visit https://bynara.id/api/keys to verify.`);
       }
 
       if (response.status === 404 || errorMessage.includes("model")) {
@@ -1067,11 +948,8 @@ export const generateArticleBynara = async (config: ArticleConfig, signal?: Abor
         `This is likely a CORS (Cross-Origin Resource Sharing) issue.\n` +
         `The browser is blocking the request to router.bynara.id.\n\n` +
         `Solutions:\n` +
-        `1. Set up a CORS proxy (recommended):\n` +
-        `   - Deploy a Cloudflare Worker as a proxy\n` +
-        `   - Set localStorage: localStorage.setItem('bynara_cors_proxy', 'https://YOUR_WORKER.workers.dev/?url={url}')\n` +
-        `2. Use the Supabase Edge Function instead (routes server-side, no CORS)\n` +
-        `3. Check internet connection and API key at https://platform.bynara.com/api/keys\n` +
+        `1. Deploy the Supabase Edge Function: `npx supabase functions deploy bynara-proxy --no-verify-jwt`\n` +
+        `3. Check internet connection and API key at https://bynara.id/api/keys\n` +
         `4. Verify your plan includes the selected model (${apiModel})\n` +
         `5. Try again in a few seconds`
       );
