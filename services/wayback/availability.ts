@@ -5,7 +5,8 @@
  * API Docs: https://archive.org/wayback_api.php
  * Endpoint: GET https://archive.org/wayback/available?url=<url>
  *
- * Uses CORS proxy fallback chain for browser compatibility.
+ * Uses Supabase Edge Function as primary method (no CORS),
+ * with CORS proxy fallback for browser compatibility.
  */
 
 import type { WaybackAvailabilityResponse, WaybackSnapshot } from '../../types';
@@ -13,7 +14,7 @@ import type { WaybackAvailabilityResponse, WaybackSnapshot } from '../../types';
 const WAYBACK_AVAILABILITY_API = 'https://archive.org/wayback/available';
 const DEFAULT_TIMEOUT = 15000;
 
-// CORS proxy options for browser compatibility
+// CORS proxy options for browser compatibility (fallback only)
 const CORS_PROXIES = [
   "https://corsproxy.io/?url={url}",
   "https://api.allorigins.win/raw?url={url}",
@@ -21,30 +22,22 @@ const CORS_PROXIES = [
 
 /**
  * Gets the CORS proxy URL for the given proxy index.
- * Users can set localStorage 'wayback_cors_proxy' to:
- *   - 'disabled' to call API directly (will fail in browser due to CORS)
- *   - a custom URL pattern with {url} placeholder
- *   - or leave unset to use the built-in fallback chain
  */
 const getProxyUrl = (proxyIndex: number, targetUrl: string): string => {
   const customProxy = localStorage.getItem('wayback_cors_proxy');
 
-  // User disabled proxy - return direct URL
   if (customProxy === 'disabled') {
     return targetUrl;
   }
 
-  // User provided custom proxy pattern
   if (customProxy && customProxy !== 'disabled') {
     return customProxy.replace('{url}', encodeURIComponent(targetUrl));
   }
 
-  // Use built-in proxy chain
   if (proxyIndex < CORS_PROXIES.length) {
     return CORS_PROXIES[proxyIndex].replace('{url}', encodeURIComponent(targetUrl));
   }
 
-  // Fallback to direct URL
   return targetUrl;
 };
 
@@ -87,9 +80,31 @@ export const buildSnapshotUrl = (originalUrl: string, timestamp: string): string
 };
 
 /**
+ * Fetches availability data via Supabase Edge Function (primary method).
+ * No CORS issues, runs on server.
+ */
+const fetchViaEdgeFunction = async (url: string): Promise<WaybackAvailabilityResponse | null> => {
+  try {
+    const { supabase } = await import('../../services/supabaseClient');
+    const { data, error } = await supabase.functions.invoke('wayback-proxy', {
+      body: { endpoint: 'availability', url },
+    });
+
+    if (error) {
+      console.warn('[Wayback] Edge function error:', error.message);
+      return null;
+    }
+
+    return data as WaybackAvailabilityResponse;
+  } catch (error: any) {
+    console.warn('[Wayback] Edge function failed:', error.message);
+    return null;
+  }
+};
+
+/**
  * Fetches the raw availability response from the Wayback Machine.
- * Tries direct request first, then falls back to CORS proxies.
- * Returns the unprocessed API response for custom handling.
+ * Tries edge function first, then direct, then CORS proxies.
  */
 export const fetchAvailabilityRaw = async (
   url: string,
@@ -101,6 +116,14 @@ export const fetchAvailabilityRaw = async (
     throw new Error('Wayback Availability: Invalid URL provided');
   }
 
+  // Method 1: Try Supabase Edge Function (most reliable, no CORS)
+  console.log(`[Wayback] Trying edge function for: ${normalizedUrl}`);
+  const edgeResult = await fetchViaEdgeFunction(normalizedUrl);
+  if (edgeResult) {
+    return edgeResult;
+  }
+
+  // Method 2: Try direct request or CORS proxy
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -112,7 +135,7 @@ export const fetchAvailabilityRaw = async (
     if (isUsingProxy) {
       console.log(`[Wayback] Using CORS proxy ${proxyIndex} for availability check`);
     } else {
-      console.log(`[Wayback] Checking availability: ${normalizedUrl}`);
+      console.log(`[Wayback] Trying direct request: ${normalizedUrl}`);
     }
 
     const response = await fetch(fetchUrl, {
@@ -124,7 +147,6 @@ export const fetchAvailabilityRaw = async (
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      // If we get a CORS error (status 0) or network error, try next proxy
       if (response.status === 0 || proxyIndex < CORS_PROXIES.length) {
         if (proxyIndex < CORS_PROXIES.length) {
           console.warn(`[Wayback] Proxy ${proxyIndex} failed (status ${response.status}), trying next...`);
@@ -154,17 +176,6 @@ export const fetchAvailabilityRaw = async (
 
 /**
  * Checks whether a URL has an archived snapshot available.
- * Returns a simplified result with the closest snapshot if available.
- *
- * @param url - The URL to check
- * @param timeout - Request timeout in milliseconds
- * @returns Object with availability status and snapshot info
- *
- * @example
- * const result = await checkAvailability('https://example.com');
- * if (result.isAvailable) {
- *   console.log(`Snapshot available at: ${result.snapshot?.snapshotUrl}`);
- * }
  */
 export const checkAvailability = async (
   url: string,
@@ -203,10 +214,6 @@ export const checkAvailability = async (
 
 /**
  * Quick availability check that returns only a boolean.
- * Useful for conditional logic without handling full snapshot data.
- *
- * @param url - The URL to check
- * @returns True if an archived snapshot exists
  */
 export const isAvailable = async (url: string): Promise<boolean> => {
   try {

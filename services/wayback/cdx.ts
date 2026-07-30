@@ -5,10 +5,8 @@
  * API Docs: https://github.com/internetarchive/wayback/tree/master/wayback-cdx-server
  * Endpoint: GET https://web.archive.org/cdx/search/cdx?url=<url>&output=json
  *
- * The CDX API returns all captures (snapshots) of a URL over time.
- * Each row represents one archived capture with metadata.
- *
- * Uses CORS proxy fallback chain for browser compatibility.
+ * Uses Supabase Edge Function as primary method (no CORS),
+ * with CORS proxy fallback for browser compatibility.
  */
 
 import type {
@@ -32,7 +30,7 @@ const DEFAULT_TIMEOUT = 30000;
 const DEFAULT_LIMIT = 1000;
 const MAX_LIMIT = 150000;
 
-// CORS proxy options for browser compatibility
+// CORS proxy options for browser compatibility (fallback only)
 const CORS_PROXIES = [
   "https://corsproxy.io/?url={url}",
   "https://api.allorigins.win/raw?url={url}",
@@ -80,15 +78,40 @@ const buildCdxUrl = (url: string, options: WaybackCdxOptions = {}): string => {
 };
 
 /**
+ * Fetches CDX records via Supabase Edge Function (primary method).
+ */
+const fetchViaEdgeFunction = async (url: string, options: WaybackCdxOptions = {}): Promise<WaybackCdxRecord[] | null> => {
+  try {
+    const { supabase } = await import('../../services/supabaseClient');
+    const { data, error } = await supabase.functions.invoke('wayback-proxy', {
+      body: { endpoint: 'cdx', url, options },
+    });
+
+    if (error) {
+      console.warn('[Wayback CDX] Edge function error:', error.message);
+      return null;
+    }
+
+    // Edge function returns parsed JSON array
+    if (Array.isArray(data)) {
+      return parseCdxJsonResponse(data);
+    }
+
+    // Handle raw text response
+    if (data && data.raw) {
+      return parseCdxTextResponse(data.raw);
+    }
+
+    return null;
+  } catch (error: any) {
+    console.warn('[Wayback CDX] Edge function failed:', error.message);
+    return null;
+  }
+};
+
+/**
  * Fetches raw CDX records from the Wayback Machine.
- * Tries direct request first, then falls back to CORS proxies.
- * Returns unparsed CDX records for custom processing.
- *
- * @param url - The URL pattern to search (supports wildcards like *.example.com)
- * @param options - Query options for filtering results
- * @param timeout - Request timeout in milliseconds
- * @param proxyIndex - Current CORS proxy index (for internal retry)
- * @returns Array of CDX records
+ * Tries edge function first, then direct, then CORS proxies.
  */
 export const fetchCdxRecords = async (
   url: string,
@@ -101,6 +124,15 @@ export const fetchCdxRecords = async (
     throw new Error('Wayback CDX: Invalid URL provided');
   }
 
+  // Method 1: Try Supabase Edge Function (most reliable, no CORS)
+  console.log(`[Wayback CDX] Trying edge function for: ${normalizedUrl}`);
+  const edgeResult = await fetchViaEdgeFunction(normalizedUrl, options);
+  if (edgeResult && edgeResult.length > 0) {
+    console.log(`[Wayback CDX] Edge function returned ${edgeResult.length} records`);
+    return edgeResult;
+  }
+
+  // Method 2: Try direct request or CORS proxy
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
@@ -112,7 +144,7 @@ export const fetchCdxRecords = async (
     if (isUsingProxy) {
       console.log(`[Wayback CDX] Using CORS proxy ${proxyIndex}`);
     } else {
-      console.log(`[Wayback CDX] Fetching captures for: ${normalizedUrl}`);
+      console.log(`[Wayback CDX] Trying direct request for: ${normalizedUrl}`);
     }
 
     const response = await fetch(fetchUrl, {
@@ -124,7 +156,6 @@ export const fetchCdxRecords = async (
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      // If we get a CORS error (status 0) or network error, try next proxy
       if (response.status === 0 || proxyIndex < CORS_PROXIES.length) {
         if (proxyIndex < CORS_PROXIES.length) {
           console.warn(`[Wayback CDX] Proxy ${proxyIndex} failed (status ${response.status}), trying next...`);
@@ -168,16 +199,6 @@ export const fetchCdxRecords = async (
 
 /**
  * Fetches all captures for a URL and returns them as WaybackSnapshot objects.
- * This is the primary function for getting historical snapshots.
- *
- * @param url - The URL to retrieve captures for
- * @param options - Query options (limit, date range, etc.)
- * @param timeout - Request timeout in milliseconds
- * @returns Array of WaybackSnapshot objects
- *
- * @example
- * const snapshots = await fetchSnapshots('https://example.com', { limit: 100 });
- * snapshots.forEach(s => console.log(s.timestamp, s.snapshotUrl));
  */
 export const fetchSnapshots = async (
   url: string,
@@ -190,7 +211,6 @@ export const fetchSnapshots = async (
     to: options.to,
   }, timeout);
 
-  // Filter to successful HTML captures only
   const successfulRecords = filterSuccessfulRecords(records);
   const snapshots = cdxRecordsToSnapshots(successfulRecords);
   return filterHtmlSnapshots(snapshots);
@@ -198,12 +218,6 @@ export const fetchSnapshots = async (
 
 /**
  * Fetches captures deduplicated by content hash.
- * Useful for getting unique versions of a page (ignoring identical captures).
- *
- * @param url - The URL to retrieve unique captures for
- * @param options - Query options
- * @param timeout - Request timeout in milliseconds
- * @returns Array of unique WaybackSnapshot objects
  */
 export const fetchUniqueSnapshots = async (
   url: string,
@@ -223,11 +237,6 @@ export const fetchUniqueSnapshots = async (
 
 /**
  * Fetches the most recent N snapshots for a URL.
- *
- * @param url - The URL to retrieve snapshots for
- * @param count - Number of recent snapshots to return (default: 10)
- * @param timeout - Request timeout in milliseconds
- * @returns Array of the most recent WaybackSnapshot objects
  */
 export const fetchRecentSnapshots = async (
   url: string,
@@ -235,7 +244,6 @@ export const fetchRecentSnapshots = async (
   timeout: number = DEFAULT_TIMEOUT
 ): Promise<WaybackSnapshot[]> => {
   const snapshots = await fetchSnapshots(url, { limit: count * 2 }, timeout);
-  // Sort by date descending and take the first N
   return snapshots
     .sort((a, b) => b.date.getTime() - a.date.getTime())
     .slice(0, count);
@@ -243,10 +251,6 @@ export const fetchRecentSnapshots = async (
 
 /**
  * Fetches the first (oldest) snapshot for a URL.
- *
- * @param url - The URL to find the oldest capture for
- * @param timeout - Request timeout in milliseconds
- * @returns The oldest WaybackSnapshot or null if none found
  */
 export const fetchFirstSnapshot = async (
   url: string,
@@ -262,10 +266,6 @@ export const fetchFirstSnapshot = async (
 
 /**
  * Fetches the latest (most recent) snapshot for a URL.
- *
- * @param url - The URL to find the latest capture for
- * @param timeout - Request timeout in milliseconds
- * @returns The latest WaybackSnapshot or null if none found
  */
 export const fetchLatestSnapshot = async (
   url: string,
@@ -278,12 +278,7 @@ export const fetchLatestSnapshot = async (
 };
 
 /**
- * Fetches the total number of captures for a URL without retrieving all records.
- * Uses a small limit to check availability and get count from headers if available.
- *
- * @param url - The URL to count captures for
- * @param timeout - Request timeout in milliseconds
- * @returns Total number of captures (approximate)
+ * Fetches the total number of captures for a URL.
  */
 export const countCaptures = async (
   url: string,
@@ -294,11 +289,17 @@ export const countCaptures = async (
     throw new Error('Wayback CDX: Invalid URL provided');
   }
 
+  // Try edge function first
+  const edgeResult = await fetchViaEdgeFunction(normalizedUrl, { collapse: 'digest', limit: MAX_LIMIT });
+  if (edgeResult !== null) {
+    return edgeResult.length;
+  }
+
+  // Fallback to direct request
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   try {
-    // Use collapse=digest to count unique captures
     const directUrl = `${WAYBACK_CDX_API}?url=${encodeURIComponent(normalizedUrl)}&output=json&collapse=digest&limit=${MAX_LIMIT}`;
     const fetchUrl = getProxyUrl(0, directUrl);
 
