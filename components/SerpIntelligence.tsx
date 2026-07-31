@@ -117,10 +117,6 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
     if (next) {
       if (next.id === 'fetch' && selectedUrls.size > 0) {
         handleFetch();
-      } else if (next.id === 'analyze' && fetchedPages.length > 0) {
-        handleAnalyze();
-      } else if (next.id === 'competitive' && fetchedPages.length > 0) {
-        handleCompetitiveStrategy();
       }
       setCurrentStep(next.id);
     }
