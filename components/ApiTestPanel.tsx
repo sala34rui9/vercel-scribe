@@ -250,10 +250,9 @@ export const ApiTestPanel: React.FC = () => {
         test: async () => {
           const apiKey = getTinyFishApiKey();
           if (!apiKey) throw Object.assign(new Error('No API key configured'), { statusCode: null });
-          const res = await fetch('https://api.search.tinyfish.ai/v1/search', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-            body: JSON.stringify({ query: 'test', limit: 1 }),
+          const res = await fetch('https://api.search.tinyfish.ai/v1/search?query=test&limit=1', {
+            method: 'GET',
+            headers: { 'X-API-Key': apiKey, 'Accept': 'application/json' },
             signal: AbortSignal.timeout(TIMEOUT_MS),
           });
           if (!res.ok) {
@@ -273,7 +272,7 @@ export const ApiTestPanel: React.FC = () => {
           if (!apiKey) throw Object.assign(new Error('No API key configured'), { statusCode: null });
           const res = await fetch('https://api.fetch.tinyfish.ai/v1/fetch', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            headers: { 'Content-Type': 'application/json', 'X-API-Key': apiKey },
             body: JSON.stringify({ urls: ['https://example.com'], format: 'markdown' }),
             signal: AbortSignal.timeout(TIMEOUT_MS),
           });
@@ -482,10 +481,10 @@ export const ApiTestPanel: React.FC = () => {
       let requestMethod = 'POST';
       let requestBody = '';
 
-      if (def.id === 'gemini') requestUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+      if (def.id === 'gemini') { requestUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'; }
       else if (def.id === 'deepseek') requestUrl = 'https://deepseek-proxy.ubantuplx.workers.dev/v1/chat/completions';
       else if (def.id === 'tavily') requestUrl = 'https://api.tavily.com/search';
-      else if (def.id === 'tinyfish-search') requestUrl = 'https://api.search.tinyfish.ai/v1/search';
+      else if (def.id === 'tinyfish-search') { requestUrl = 'https://api.search.tinyfish.ai/v1/search?query=test&limit=1'; requestMethod = 'GET'; }
       else if (def.id === 'tinyfish-fetch') requestUrl = 'https://api.fetch.tinyfish.ai/v1/fetch';
       else requestUrl = `supabase.functions.invoke('${def.id}')`;
 

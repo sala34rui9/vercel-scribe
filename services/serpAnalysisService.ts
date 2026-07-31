@@ -107,16 +107,31 @@ export async function callDeepSeek(
     throw new Error('DeepSeek API key is missing. Please add an API key in Settings.');
   }
 
-  const url = useBynara ? BYNARA_API_URL : DEEPSEEK_API_URL;
-  const key = useBynara ? bynaraKey : deepSeekKey;
-  
-  let model: any = options?.model ?? 'deepseek-v4-pro';
   if (useBynara) {
-    model = options?.bynaraModel || 'deepseek-3.2'; // Standard Bynara model, or an explicitly chosen one
+    const payload = {
+      model: options?.bynaraModel || 'deepseek-3.2',
+      messages: [
+        { role: "system", content: "You are an expert SEO analyst and content strategist. Always return valid JSON only, no markdown formatting." },
+        { role: "user", content: prompt }
+      ],
+      response_format: { type: "json_object" },
+      temperature: 0.3,
+    };
+
+    const response = await callBynaraApi(bynaraKey, payload);
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(`CRITICAL_API_ERROR: Bynara API Error (${response.status}): ${errorBody}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '{}';
+    return JSON.parse(cleanJsonOutput(content));
   }
 
+  const url = DEEPSEEK_API_URL;
   const payload = {
-    model: model,
+    model: options?.model ?? 'deepseek-v4-pro',
     messages: [
       { role: "system", content: "You are an expert SEO analyst and content strategist. Always return valid JSON only, no markdown formatting." },
       { role: "user", content: prompt }
@@ -127,13 +142,13 @@ export async function callDeepSeek(
 
   const response = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${key}` },
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${deepSeekKey}` },
     body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => '');
-    throw new Error(`CRITICAL_API_ERROR: ${useBynara ? 'Bynara' : 'DeepSeek'} API Error (${response.status}): ${errorBody}`);
+    throw new Error(`CRITICAL_API_ERROR: DeepSeek API Error (${response.status}): ${errorBody}`);
   }
 
   const data = await response.json();
