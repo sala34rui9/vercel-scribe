@@ -13,6 +13,16 @@ const getApiKey = (): string => {
 };
 
 /**
+ * Maps a DeepSeekModel enum value to the API model string.
+ */
+export const resolveDeepSeekApiModel = (model: DeepSeekModel): string => {
+  if (model === DeepSeekModel.V3_THINKING || model === DeepSeekModel.V3_SPECIALE) {
+    return "deepseek-v4-pro";
+  }
+  return "deepseek-v4-flash";
+};
+
+/**
  * Helper to log and diagnose API request issues
  */
 const logApiDiagnostics = (label: string, apiKey: string, error?: Error) => {
@@ -45,7 +55,7 @@ const cleanJsonOutput = (text: string): string => {
   return clean.trim();
 };
 
-export const generatePrimaryKeywordsDeepSeek = async (topic: string): Promise<string[]> => {
+export const generatePrimaryKeywordsDeepSeek = async (topic: string, model: DeepSeekModel = DeepSeekModel.V3_NON_THINKING): Promise<string[]> => {
   const apiKey = getApiKey();
   if (!apiKey) {
     console.warn('[DeepSeek] No API key found for generatePrimaryKeywords');
@@ -53,7 +63,7 @@ export const generatePrimaryKeywordsDeepSeek = async (topic: string): Promise<st
   }
 
   const payload = {
-    model: "deepseek-v4-pro",
+    model: resolveDeepSeekApiModel(model),
     messages: [
       {
         role: "system",
@@ -106,7 +116,7 @@ export const generatePrimaryKeywordsDeepSeek = async (topic: string): Promise<st
   }
 };
 
-export const generateNLPKeywordsDeepSeek = async (topic: string): Promise<string[]> => {
+export const generateNLPKeywordsDeepSeek = async (topic: string, model: DeepSeekModel = DeepSeekModel.V3_NON_THINKING): Promise<string[]> => {
   const apiKey = getApiKey();
   if (!apiKey) {
     console.warn('[DeepSeek] No API key found for generateNLPKeywords');
@@ -114,7 +124,7 @@ export const generateNLPKeywordsDeepSeek = async (topic: string): Promise<string
   }
 
   const payload = {
-    model: "deepseek-v4-pro",
+    model: resolveDeepSeekApiModel(model),
     messages: [
       {
         role: "system",
@@ -167,7 +177,7 @@ export const generateNLPKeywordsDeepSeek = async (topic: string): Promise<string
   }
 };
 
-export const generateFullSEOStrategyDeepSeek = async (topic: string): Promise<{ primaryKeywords: string[], nlpKeywords: string[] }> => {
+export const generateFullSEOStrategyDeepSeek = async (topic: string, model: DeepSeekModel = DeepSeekModel.V3_NON_THINKING): Promise<{ primaryKeywords: string[], nlpKeywords: string[] }> => {
   const apiKey = getApiKey();
   if (!apiKey) {
     console.warn('[DeepSeek] No API key found for generateFullSEOStrategy');
@@ -175,7 +185,7 @@ export const generateFullSEOStrategyDeepSeek = async (topic: string): Promise<{ 
   }
 
   const payload = {
-    model: "deepseek-v4-pro",
+    model: resolveDeepSeekApiModel(model),
     messages: [
       {
         role: "system",

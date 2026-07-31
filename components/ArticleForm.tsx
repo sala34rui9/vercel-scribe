@@ -109,6 +109,11 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
     return (stored as SearchProvider) || SearchProvider.GEMINI;
   });
 
+  const [keywordAnalysisModel, setKeywordAnalysisModel] = useState<DeepSeekModel>(() => {
+    const stored = localStorage.getItem('seo_scribe_keyword_analysis_model');
+    return (stored as DeepSeekModel) || DeepSeekModel.V3_NON_THINKING;
+  });
+
   const [wordCount, setWordCount] = useState(1000);
   const [type, setType] = useState<ArticleType>(ArticleType.BLOG_POST);
   const [tone, setTone] = useState<ToneVoice>(ToneVoice.PROFESSIONAL);
@@ -164,6 +169,10 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
   useEffect(() => {
     localStorage.setItem('seo_scribe_deepseek_model', deepSeekModel);
   }, [deepSeekModel]);
+
+  useEffect(() => {
+    localStorage.setItem('seo_scribe_keyword_analysis_model', keywordAnalysisModel);
+  }, [keywordAnalysisModel]);
 
   useEffect(() => {
     localStorage.setItem('seo_scribe_bynara_model', bynaraModel);
@@ -225,7 +234,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       // Use keywordAnalysisProvider or DeepSeek if selected
       if (keywordAnalysisProvider === SearchProvider.TAVILY || (provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA)) {
         const { generateFullSEOStrategyDeepSeek } = await import('../services/deepseekService');
-        result = await generateFullSEOStrategyDeepSeek(topicToAnalyze);
+        result = await generateFullSEOStrategyDeepSeek(topicToAnalyze, keywordAnalysisModel);
       } else {
         const { generateFullSEOStrategy } = await import('../services/geminiService');
         result = await generateFullSEOStrategy(topicToAnalyze);
@@ -257,7 +266,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       // Use keywordAnalysisProvider instead of main provider
       if (keywordAnalysisProvider === SearchProvider.TAVILY || (provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA)) {
         try {
-          keywords = await generatePrimaryKeywordsDeepSeek(topicToAnalyze);
+          keywords = await generatePrimaryKeywordsDeepSeek(topicToAnalyze, keywordAnalysisModel);
         } catch (e: any) {
           alert(`DeepSeek Error: ${e.message || "Failed to generate keywords"}`);
           setIsGeneratingPrimary(false);
@@ -292,7 +301,7 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
       // Use keywordAnalysisProvider instead of main provider
       if (keywordAnalysisProvider === SearchProvider.TAVILY || (provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA)) {
         try {
-          keywords = await generateNLPKeywordsDeepSeek(topicToAnalyze);
+          keywords = await generateNLPKeywordsDeepSeek(topicToAnalyze, keywordAnalysisModel);
         } catch (e: any) {
           alert(`DeepSeek Error: ${e.message || "Failed to generate keywords"}`);
           setIsGeneratingKeywords(false);
@@ -1929,6 +1938,41 @@ export const ArticleForm: React.FC<ArticleFormProps> = ({ onGenerate, isGenerati
               Tavily (DeepSeek)
             </button>
           </div>
+
+          {/* DeepSeek Model selection — only relevant for the Tavily (DeepSeek) provider */}
+          {keywordAnalysisProvider === SearchProvider.TAVILY && (
+            <div className="mt-3">
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1.5">Keyword Analysis Model</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setKeywordAnalysisModel(DeepSeekModel.V3_NON_THINKING)}
+                  className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${keywordAnalysisModel === DeepSeekModel.V3_NON_THINKING
+                    ? 'bg-cyan-50 border-cyan-300 text-cyan-700 font-bold'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                >
+                  <Zap className="w-3 h-3 mr-1.5" />
+                  v4-flash (Fast)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setKeywordAnalysisModel(DeepSeekModel.V3_THINKING)}
+                  className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${keywordAnalysisModel === DeepSeekModel.V3_THINKING
+                    ? 'bg-orange-50 border-orange-300 text-orange-700 font-bold'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                >
+                  <Cpu className="w-3 h-3 mr-1.5" />
+                  v4-pro (Accurate)
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400 mt-1">
+                v4-flash is faster & cheaper; v4-pro gives higher-quality keyword analysis
+              </p>
+            </div>
+          )}
+
           <p className="text-[10px] text-slate-400 mt-1">
             Choose provider for keyword analysis (independent of main writer)
           </p>

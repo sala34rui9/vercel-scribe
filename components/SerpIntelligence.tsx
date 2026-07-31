@@ -974,22 +974,51 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
             
             <div className="max-w-xs mx-auto mb-4 text-left animate-in fade-in slide-in-from-top-2 duration-300">
               <label className="block text-sm font-medium text-slate-700 mb-1">AI Provider</label>
-              <div className="relative">
-                <div className="absolute left-3 top-3 w-4 h-4 text-indigo-500">
-                  <Cpu className="w-4 h-4" />
-                </div>
-                <select
-                  value={selectedAIProvider}
-                  onChange={(e) => setSelectedAIProvider(e.target.value as AIProvider)}
-                  className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white font-medium text-slate-700 shadow-sm"
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedAIProvider(AIProvider.GEMINI)}
+                  className={`text-xs py-2 px-2 rounded-lg border flex items-center justify-center ${selectedAIProvider === AIProvider.GEMINI
+                    ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
                 >
-                  <option value={AIProvider.GEMINI}>Google Gemini</option>
-                  <option value={AIProvider.DEEPSEEK}>DeepSeek</option>
-                  <option value={AIProvider.BYNARA}>Bynara</option>
-                </select>
-                <div className="absolute right-3 top-3 pointer-events-none text-slate-400">
-                  <ChevronDown className="w-4 h-4" />
-                </div>
+                  <Cpu className="w-3 h-3 mr-1.5" />
+                  Google Gemini
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAIProvider(AIProvider.DEEPSEEK)}
+                  className={`text-xs py-2 px-2 rounded-lg border flex items-center justify-center ${selectedAIProvider === AIProvider.DEEPSEEK
+                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700 font-bold'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                >
+                  <Cpu className="w-3 h-3 mr-1.5" />
+                  DeepSeek
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedAIProvider(AIProvider.BYNARA)}
+                  className={`text-xs py-2 px-2 rounded-lg border flex items-center justify-center ${selectedAIProvider === AIProvider.BYNARA && selectedBynaraModel !== BynaraModel.MISTRAL_LARGE
+                    ? 'bg-fuchsia-50 border-fuchsia-300 text-fuchsia-700 font-bold'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                >
+                  <Cpu className="w-3 h-3 mr-1.5" />
+                  Bynara
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setSelectedAIProvider(AIProvider.BYNARA); setSelectedBynaraModel(BynaraModel.MISTRAL_LARGE); }}
+                  className={`text-xs py-2 px-2 rounded-lg border flex items-center justify-center ${selectedAIProvider === AIProvider.BYNARA && selectedBynaraModel === BynaraModel.MISTRAL_LARGE
+                    ? 'bg-amber-50 border-amber-300 text-amber-700 font-bold'
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                >
+                  <Cpu className="w-3 h-3 mr-1.5" />
+                  Mistral Large
+                </button>
               </div>
             </div>
 
