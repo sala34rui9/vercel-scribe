@@ -948,7 +948,7 @@ export const generateArticleBynara = async (config: ArticleConfig, signal?: Abor
         `This is likely a CORS (Cross-Origin Resource Sharing) issue.\n` +
         `The browser is blocking the request to router.bynara.id.\n\n` +
         `Solutions:\n` +
-        `1. Deploy the Supabase Edge Function: `npx supabase functions deploy bynara-proxy --no-verify-jwt`\n` +
+        `1. Deploy the Supabase Edge Function: 'npx supabase functions deploy bynara-proxy --no-verify-jwt'\n` +
         `3. Check internet connection and API key at https://bynara.id/api/keys\n` +
         `4. Verify your plan includes the selected model (${apiModel})\n` +
         `5. Try again in a few seconds`

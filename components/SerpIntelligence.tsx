@@ -10,7 +10,7 @@ import {
   Eye, BookOpen, PenTool, RefreshCw, Check, X, ExternalLink,
   Layers, MessageSquare, TrendingUp, Hash, Bug, MapPin, ChevronDown, ChevronUp, Cpu
 } from 'lucide-react';
-import { SearchProvider, AIProvider, SerpSearchResult, FetchedPage, SerpIntelligenceReport, UserSelections, DeepSeekModel } from '../types';
+import { SearchProvider, AIProvider, SerpSearchResult, FetchedPage, SerpIntelligenceReport, UserSelections, DeepSeekModel, BynaraModel } from '../types';
 import { searchWeb, getTinyFishApiKey } from '../services/tinyfishService';
 import { getTinyFishFetchApiKey, fetchWebPages, testFetchConnection, debugFetchRaw } from '../services/tinyfishFetchService';
 import { getTavilyApiKey, tavilySearch } from '../services/tavilyService';
@@ -30,6 +30,7 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
   const [topic, setTopic] = useState('');
   const [searchProvider, setSearchProvider] = useState<SearchProvider>(SearchProvider.TINYFISH);
   const [selectedDeepSeekModel, setSelectedDeepSeekModel] = useState<DeepSeekModel>(DeepSeekModel.V3_NON_THINKING);
+  const [selectedBynaraModel, setSelectedBynaraModel] = useState<BynaraModel>(BynaraModel.DEEPSEEK_V4_FLASH);
 
   const [selectedAIProvider, setSelectedAIProvider] = useState<AIProvider>(() => {
     const p = localStorage.getItem('seo_scribe_provider');
@@ -265,7 +266,8 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
         topic,
         (stage, progress) => setAnalysisProgress({ stage, progress }),
         selectedDeepSeekModel,
-        selectedAIProvider
+        selectedAIProvider,
+        selectedAIProvider === AIProvider.BYNARA ? selectedBynaraModel : undefined
       );
       setReport(result);
     } catch (err: any) {
@@ -276,7 +278,8 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
           topic,
           (stage, progress) => setAnalysisProgress({ stage, progress }),
           selectedDeepSeekModel,
-          selectedAIProvider
+          selectedAIProvider,
+          selectedAIProvider === AIProvider.BYNARA ? selectedBynaraModel : undefined
         );
         setReport(result);
       } catch (fallbackErr: any) {
@@ -1009,6 +1012,43 @@ export const SerpIntelligence: React.FC<SerpIntelligenceProps> = ({ onGenerateWi
                   <ChevronDown className="w-4 h-4" />
                 </div>
               </div>
+            </div>
+            )}
+
+            {selectedAIProvider === AIProvider.BYNARA && (
+            <div className="max-w-xs mx-auto mb-6 text-left animate-in fade-in slide-in-from-top-2 duration-300">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Bynara Model</label>
+              <div className="relative">
+                <div className="absolute left-3 top-3 w-4 h-4 text-fuchsia-500">
+                  <Cpu className="w-4 h-4" />
+                </div>
+                <select
+                  value={selectedBynaraModel}
+                  onChange={(e) => setSelectedBynaraModel(e.target.value as BynaraModel)}
+                  className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 appearance-none bg-white font-medium text-slate-700 shadow-sm"
+                >
+                  <option value={BynaraModel.DEEPSEEK_V4_FLASH}>DeepSeek v4 Flash</option>
+                  <option value={BynaraModel.DEEPSEEK_V4_PRO}>DeepSeek v4 Pro</option>
+                  <option value={BynaraModel.DEEPSEEK_V4_FLASH_ALIBABA}>DeepSeek v4 Flash (Alibaba)</option>
+                  <option value={BynaraModel.DEEPSEEK_V4_PRO_ALIBABA}>DeepSeek v4 Pro (Alibaba)</option>
+                  <option value={BynaraModel.MISTRAL_LARGE}>Mistral Large</option>
+                  <option value={BynaraModel.CLAUDE_SONNET_5}>Claude Sonnet 5</option>
+                  <option value={BynaraModel.CLAUDE_OPUS_4_7}>Claude Opus 4.7</option>
+                  <option value={BynaraModel.GPT_5_4}>GPT-5.4</option>
+                  <option value={BynaraModel.GPT_5_5}>GPT-5.5</option>
+                  <option value={BynaraModel.GROK_4_5}>Grok 4.5</option>
+                  <option value={BynaraModel.KIMI_K3}>Kimi K3</option>
+                  <option value={BynaraModel.GLM_5_2}>GLM 5.2</option>
+                  <option value={BynaraModel.QWEN3_7_MAX}>Qwen3 7 Max</option>
+                  <option value={BynaraModel.MIXTRAL_MEDIUM_3_5}>Mistral Medium 3.5</option>
+                  <option value={BynaraModel.MIMAX_M3}>MIMAX M3</option>
+                  <option value={BynaraModel.AGNES_2_5_FLASH}>Agnes 2.5 Flash</option>
+                </select>
+                <div className="absolute right-3 top-3 pointer-events-none text-slate-400">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">Choose which Bynara model powers the analysis</p>
             </div>
             )}
 

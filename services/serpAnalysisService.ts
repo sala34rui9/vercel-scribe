@@ -84,7 +84,7 @@ export async function callGeminiAnalysis(prompt: string): Promise<any> {
 
 export async function callDeepSeek(
   prompt: string,
-  options?: { model?: 'deepseek-v4-pro' | 'deepseek-v4-flash', forceProvider?: AIProvider },
+  options?: { model?: 'deepseek-v4-pro' | 'deepseek-v4-flash', forceProvider?: AIProvider, bynaraModel?: string },
 ): Promise<any> {
   const deepSeekKey = getDeepSeekApiKey();
   const bynaraKey = getBynaraApiKey();
@@ -112,7 +112,7 @@ export async function callDeepSeek(
   
   let model: any = options?.model ?? 'deepseek-v4-pro';
   if (useBynara) {
-    model = 'deepseek-3.2'; // Standard Bynara model
+    model = options?.bynaraModel || 'deepseek-3.2'; // Standard Bynara model, or an explicitly chosen one
   }
 
   const payload = {
@@ -402,6 +402,7 @@ export const generateSerpIntelligenceReportMega = async (
   onProgress?: (stage: string, progress: number) => void,
   deepSeekModel?: DeepSeekModel,
   aiProvider?: AIProvider,
+  bynaraModel?: string,
 ): Promise<SerpIntelligenceReport> => {
   const successfulPages = pages.filter(p => p.fetchStatus === 'success');
   if (successfulPages.length === 0) {
@@ -444,7 +445,7 @@ export const generateSerpIntelligenceReportMega = async (
     if (deepSeekModel === DeepSeekModel.V3_THINKING || deepSeekModel === DeepSeekModel.V3_SPECIALE) {
       apiModel = 'deepseek-v4-pro';
     }
-    raw = await callDeepSeek(prompt, { model: apiModel as any, forceProvider: providerToUse as AIProvider });
+     raw = await callDeepSeek(prompt, { model: apiModel as any, forceProvider: providerToUse as AIProvider, bynaraModel });
   }
 
   onProgress?.('Report complete!', 100);
@@ -871,6 +872,7 @@ export const generateSerpIntelligenceReport = async (
   onProgress?: (stage: string, progress: number) => void,
   deepSeekModel?: DeepSeekModel,
   aiProvider?: AIProvider,
+  bynaraModel?: string,
 ): Promise<SerpIntelligenceReport> => {
   const updateProgress = (stage: string, progress: number) => {
     if (onProgress) onProgress(stage, progress);
