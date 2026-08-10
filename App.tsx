@@ -1,6 +1,7 @@
-﻿import React, { useState, useCallback, useRef, Suspense, useEffect } from 'react';
+import React, { useState, useCallback, useRef, Suspense, useEffect } from 'react';
 import { Layout } from './components/Layout';
-import { ArticleForm } from './components/ArticleForm';
+import { SingleArticleForm } from './components/article/SingleArticleForm';
+import { BulkArticleForm } from './components/article/BulkArticleForm';
 import { Dashboard } from './components/Dashboard';
 import { SeoSettings } from './components/SeoSettings';
 import { AdminPanel } from './components/AdminPanel';
@@ -16,7 +17,7 @@ import { scanForInternalLinksTinyFish, scanForExternalLinksTinyFish } from './se
 import { resolveAutoProvider } from './services/researchProviderUtils';
 import { generateCloudflareImage } from './services/cloudflareImageService';
 import { fetchSEORankingData } from './services/supabaseClient';
-import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, BrainCircuit, Activity, GripVertical, Home, BarChart3 } from 'lucide-react';
+import { FileText, Loader2, AlertCircle, XCircle, Search, Link as LinkIcon, BrainCircuit, Activity, GripVertical, Home, BarChart3, ListOrdered } from 'lucide-react';
 
 const buildImagePrompt = (topic: string, sectionHeading: string | null, imageIndex: number, totalImages: number): string => {
   const baseSubject = topic.replace(/['"]/g, '');
@@ -99,6 +100,7 @@ const App: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [formKey, setFormKey] = useState(0);
+  const [formMode, setFormMode] = useState<'single' | 'bulk'>('single');
   const [activePage, setActivePage] = useState<'home' | 'editor' | 'articles' | 'seo' | 'serp' | 'wayback' | 'admin'>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -595,8 +597,36 @@ const App: React.FC = () => {
     <Layout onShowHome={showHome} onShowArticles={showArticles} onShowEditor={showEditor} onShowSeo={showSeo} onShowSerp={showSerp} onShowAdmin={() => setActivePage('admin')} onShowWayback={() => setActivePage('wayback')} savedCount={generatedArticles.length}>
       <div className="h-[calc(100vh-8rem)] w-full overflow-y-auto pb-8">
         {activePage === 'editor' && (
-          <div className="max-w-5xl mx-auto">
-            <ArticleForm key={formKey} onGenerate={handleGenerate} isGenerating={isGenerating} />
+          <div className="max-w-5xl mx-auto space-y-6">
+            <div className="flex space-x-1 bg-slate-100 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => setFormMode('single')}
+                className={`flex-1 flex items-center justify-center py-2.5 text-sm font-semibold rounded-lg transition-all ${formMode === 'single'
+                  ? 'bg-white text-blue-600 shadow-sm ring-1 ring-black/5'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                  }`}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                1-Click Blog Post
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormMode('bulk')}
+                className={`flex-1 flex items-center justify-center py-2.5 text-sm font-semibold rounded-lg transition-all ${formMode === 'bulk'
+                  ? 'bg-white text-blue-600 shadow-sm ring-1 ring-black/5'
+                  : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                  }`}
+              >
+                <ListOrdered className="w-4 h-4 mr-2" />
+                Bulk Generation
+              </button>
+            </div>
+            {formMode === 'single' ? (
+              <SingleArticleForm key={`single-${formKey}`} onGenerate={handleGenerate} isGenerating={isGenerating} />
+            ) : (
+              <BulkArticleForm key={`bulk-${formKey}`} onGenerate={handleGenerate} isGenerating={isGenerating} />
+            )}
           </div>
         )}
 

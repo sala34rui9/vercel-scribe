@@ -1,0 +1,923 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  ArticleConfig, ArticleType, ToneVoice, InternalLink, ExternalLink, 
+  OpeningStyle, ReadabilityLevel, ContentOpportunity, TargetCountry, 
+  AIProvider, DeepSeekModel, BynaraModel, SearchProvider 
+} from '../../types';
+import { 
+  generateNLPKeywords, generatePrimaryKeywords, scanForInternalLinks, 
+  scanForExternalLinks, generateFullSEOStrategy, selectBestInternalLinks 
+} from '../../services/geminiService';
+import { generateNLPKeywordsDeepSeek, generatePrimaryKeywordsDeepSeek } from '../../services/deepseekService';
+import { scanForInternalLinksTavily, scanForExternalLinksTavily } from '../../services/tavilyService';
+import { scanForInternalLinksTinyFish, scanForExternalLinksTinyFish } from '../../services/tinyfishService';
+import { isWebScanProvider, resolveAutoProvider } from '../../services/researchProviderUtils';
+import type { ImageModel, ImageStyle, ImageRatio } from '../../services/imagePresets';
+
+// Shared Components
+import { AiProviderSection } from './Shared/AiProviderSection';
+import { ImageSettingsSection } from './Shared/ImageSettingsSection';
+import { BrandWebsiteSection } from './Shared/BrandWebsiteSection';
+import { ResearchTogglesSection } from './Shared/ResearchTogglesSection';
+import { FormattingSection } from './Shared/FormattingSection';
+import { ContentSettingsSection } from './Shared/ContentSettingsSection';
+import { StyleSection } from './Shared/StyleSection';
+import { ResourcesSection } from './Shared/ResourcesSection';
+
+import {
+  Wand2, Settings2, Target, Plus, X, Globe, Search, Link as LinkIcon, 
+  ExternalLink as ExternalLinkIcon, CheckSquare, Square, RefreshCw,
+  AlertTriangle, FilePlus, Upload, ClipboardList, Zap, Check, Cpu, Sparkles
+} from 'lucide-react';
+
+interface SingleArticleFormProps {
+  onGenerate: (config: ArticleConfig) => void;
+  isGenerating: boolean;
+}
+
+export const SingleArticleForm: React.FC<SingleArticleFormProps> = ({ onGenerate, isGenerating }) => {
+  // Provider State
+  const [provider, setProvider] = useState<AIProvider>(() => {
+    return (localStorage.getItem('seo_scribe_provider') as AIProvider) || AIProvider.GEMINI;
+  });
+  const [deepSeekModel, setDeepSeekModel] = useState<DeepSeekModel>(() => {
+    return (localStorage.getItem('seo_scribe_deepseek_model') as DeepSeekModel) || DeepSeekModel.V3_NON_THINKING;
+  });
+  const [bynaraModel, setBynaraModel] = useState<BynaraModel>(() => {
+    return (localStorage.getItem('seo_scribe_bynara_model') as BynaraModel) || BynaraModel.MISTRAL_LARGE;
+  });
+  const [researchProvider, setResearchProvider] = useState<SearchProvider>(() => {
+    return (localStorage.getItem('seo_scribe_research_provider') as SearchProvider) || SearchProvider.TAVILY;
+  });
+  const [keywordAnalysisProvider, setKeywordAnalysisProvider] = useState<SearchProvider>(() => {
+    const stored = localStorage.getItem('seo_scribe_keyword_analysis_provider');
+    return (stored as SearchProvider) || SearchProvider.GEMINI;
+  });
+  const [keywordAnalysisModel, setKeywordAnalysisModel] = useState<DeepSeekModel>(() => {
+    const stored = localStorage.getItem('seo_scribe_keyword_analysis_model');
+    return (stored as DeepSeekModel) || DeepSeekModel.V3_NON_THINKING;
+  });
+
+  // Image State
+  const [imageCount, setImageCount] = useState<number>(() => {
+    return parseInt(localStorage.getItem('seo_scribe_image_count') || '0', 10);
+  });
+  const [imageModel, setImageModel] = useState<ImageModel>(() => {
+    return (localStorage.getItem('seo_scribe_image_model') as ImageModel) || 'sdxl';
+  });
+  const [imageStyle, setImageStyle] = useState<ImageStyle>(() => {
+    return (localStorage.getItem('seo_scribe_image_style') as ImageStyle) || 'photorealistic';
+  });
+  const [imageRatio, setImageRatio] = useState<ImageRatio>(() => {
+    return (localStorage.getItem('seo_scribe_image_ratio') as ImageRatio) || '16:9';
+  });
+
+  // Website State
+  const [websiteUrl, setWebsiteUrl] = useState(() => {
+    return localStorage.getItem('brandWebsiteUrl') || '';
+  });
+  const [urlSavedSuccess, setUrlSavedSuccess] = useState(false);
+
+  // Research State
+  const [deepResearch, setDeepResearch] = useState(false);
+  const [realTimeData, setRealTimeData] = useState(false);
+  const [realTimeSearchProvider, setRealTimeSearchProvider] = useState<SearchProvider>(() => {
+    const stored = localStorage.getItem('seo_scribe_realtime_search_provider');
+    return (stored as SearchProvider) || SearchProvider.GEMINI;
+  });
+
+  // Content Settings State
+  const [wordCount, setWordCount] = useState(1000);
+  const [type, setType] = useState<ArticleType>(ArticleType.BLOG_POST);
+  const [tone, setTone] = useState<ToneVoice>(ToneVoice.PROFESSIONAL);
+  const [targetCountry, setTargetCountry] = useState<TargetCountry>(TargetCountry.US);
+
+  // Formatting State
+  const [includeBulletPoints, setIncludeBulletPoints] = useState(true);
+  const [includeTables, setIncludeTables] = useState(true);
+  const [includeItalics, setIncludeItalics] = useState(true);
+  const [includeBold, setIncludeBold] = useState(true);
+
+  // Style State
+  const [useCustomOpening, setUseCustomOpening] = useState(false);
+  const [openingStyle, setOpeningStyle] = useState<OpeningStyle>(OpeningStyle.FACT_STATISTIC);
+  const [readability, setReadability] = useState<ReadabilityLevel>(ReadabilityLevel.NONE);
+  const [humanizeContent, setHumanizeContent] = useState(false);
+  const [includeFaq, setIncludeFaq] = useState(false);
+  const [includeConclusion, setIncludeConclusion] = useState(true);
+
+  // Resources State
+  const [personalResources, setPersonalResources] = useState('');
+  const [personalFileName, setPersonalFileName] = useState('');
+
+  // SINGLE MODE SPECIFIC STATE
+  const [topic, setTopic] = useState('');
+  const [primaryKeywordInput, setPrimaryKeywordInput] = useState('');
+  const [primaryKeywords, setPrimaryKeywords] = useState<string[]>([]);
+  const [isGeneratingPrimary, setIsGeneratingPrimary] = useState(false);
+  const [nlpKeywords, setNlpKeywords] = useState<string[]>([]);
+  const [isGeneratingKeywords, setIsGeneratingKeywords] = useState(false);
+  const [isGeneratingFullStrategy, setIsGeneratingFullStrategy] = useState(false);
+
+  // Internal Linking State
+  const [foundLinks, setFoundLinks] = useState<InternalLink[]>([]);
+  const [contentOpportunities, setContentOpportunities] = useState<ContentOpportunity[]>([]);
+  const [selectedLinkUrls, setSelectedLinkUrls] = useState<Set<string>>(new Set());
+  const [isScanningLinks, setIsScanningLinks] = useState(false);
+  const [isAutoSelecting, setIsAutoSelecting] = useState(false);
+  const [isManualLinkInputOpen, setIsManualLinkInputOpen] = useState(false);
+  const [manualLinkInput, setManualLinkInput] = useState('');
+
+  // External Linking State
+  const [includeExternalLinks, setIncludeExternalLinks] = useState(false);
+  const [foundExternalLinks, setFoundExternalLinks] = useState<ExternalLink[]>([]);
+  const [selectedExternalLinkUrls, setSelectedExternalLinkUrls] = useState<Set<string>>(new Set());
+  const [isScanningExternal, setIsScanningExternal] = useState(false);
+
+  // Persistence Effects
+  useEffect(() => { localStorage.setItem('seo_scribe_provider', provider); }, [provider]);
+  useEffect(() => { localStorage.setItem('seo_scribe_deepseek_model', deepSeekModel); }, [deepSeekModel]);
+  useEffect(() => { localStorage.setItem('seo_scribe_keyword_analysis_model', keywordAnalysisModel); }, [keywordAnalysisModel]);
+  useEffect(() => { localStorage.setItem('seo_scribe_bynara_model', bynaraModel); }, [bynaraModel]);
+  useEffect(() => { localStorage.setItem('seo_scribe_research_provider', researchProvider); }, [researchProvider]);
+  useEffect(() => { localStorage.setItem('seo_scribe_keyword_analysis_provider', keywordAnalysisProvider); }, [keywordAnalysisProvider]);
+  useEffect(() => { localStorage.setItem('seo_scribe_image_count', imageCount.toString()); }, [imageCount]);
+  useEffect(() => { localStorage.setItem('seo_scribe_image_model', imageModel); }, [imageModel]);
+  useEffect(() => { localStorage.setItem('seo_scribe_image_style', imageStyle); }, [imageStyle]);
+  useEffect(() => { localStorage.setItem('seo_scribe_image_ratio', imageRatio); }, [imageRatio]);
+
+  // Force a web-scan-capable provider when DeepSeek is selected
+  useEffect(() => {
+    if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && !isWebScanProvider(researchProvider)) {
+      setResearchProvider(SearchProvider.TAVILY);
+    }
+  }, [provider, researchProvider]);
+
+  // Handlers for Keywords
+  const addPrimaryKeyword = () => {
+    if (primaryKeywordInput.trim() && !primaryKeywords.includes(primaryKeywordInput.trim())) {
+      setPrimaryKeywords([...primaryKeywords, primaryKeywordInput.trim()]);
+      setPrimaryKeywordInput('');
+    }
+  };
+
+  const removePrimaryKeyword = (kw: string) => {
+    setPrimaryKeywords(primaryKeywords.filter(k => k !== kw));
+  };
+
+  const removeNlpKeyword = (kw: string) => {
+    setNlpKeywords(nlpKeywords.filter(k => k !== kw));
+  };
+
+  const handleGenerateFullStrategy = async () => {
+    if (!topic) return;
+    setIsGeneratingFullStrategy(true);
+    try {
+      let result = { primaryKeywords: [] as string[], nlpKeywords: [] as string[] };
+      if (keywordAnalysisProvider === SearchProvider.TAVILY || (provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA)) {
+        const { generateFullSEOStrategyDeepSeek } = await import('../../services/deepseekService');
+        result = await generateFullSEOStrategyDeepSeek(topic, keywordAnalysisModel);
+      } else {
+        const { generateFullSEOStrategy } = await import('../../services/geminiService');
+        result = await generateFullSEOStrategy(topic);
+      }
+      if (result.primaryKeywords.length > 0) {
+        setPrimaryKeywords(prev => [...new Set([...prev, ...result.primaryKeywords])]);
+      }
+      if (result.nlpKeywords.length > 0) {
+        setNlpKeywords(prev => [...new Set([...prev, ...result.nlpKeywords])]);
+      }
+    } catch (e) {
+      console.error("Failed to generate full strategy", e);
+      alert("Failed to generate strategy. Please try again.");
+    } finally {
+      setIsGeneratingFullStrategy(false);
+    }
+  };
+
+  const handleGeneratePrimary = async () => {
+    if (!topic) return;
+    setIsGeneratingPrimary(true);
+    let keywords: string[] = [];
+    try {
+      if (keywordAnalysisProvider === SearchProvider.TAVILY || (provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA)) {
+        try {
+          keywords = await generatePrimaryKeywordsDeepSeek(topic, keywordAnalysisModel);
+        } catch (e: any) {
+          alert(`DeepSeek Error: ${e.message || "Failed to generate keywords"}`);
+          setIsGeneratingPrimary(false);
+          return;
+        }
+      } else {
+        try {
+          keywords = await generatePrimaryKeywords(topic);
+        } catch (e) {
+          console.warn("Gemini Primary Keyword generation failed", e);
+        }
+      }
+      if (keywords.length > 0) {
+        const uniqueNew = keywords.filter(k => !primaryKeywords.includes(k));
+        setPrimaryKeywords([...primaryKeywords, ...uniqueNew]);
+      }
+    } catch (e) {
+      console.error("Failed to generate primary keywords", e);
+    } finally {
+      setIsGeneratingPrimary(false);
+    }
+  };
+
+  const handleGenerateNLP = async () => {
+    if (!topic) return;
+    setIsGeneratingKeywords(true);
+    let keywords: string[] = [];
+    try {
+      if (keywordAnalysisProvider === SearchProvider.TAVILY || (provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA)) {
+        try {
+          keywords = await generateNLPKeywordsDeepSeek(topic, keywordAnalysisModel);
+        } catch (e: any) {
+          alert(`DeepSeek Error: ${e.message || "Failed to generate keywords"}`);
+          setIsGeneratingKeywords(false);
+          return;
+        }
+      } else {
+        try {
+          keywords = await generateNLPKeywords(topic);
+        } catch (e) {
+          console.warn("Gemini NLP Keyword generation failed", e);
+        }
+      }
+      if (keywords.length > 0) {
+        const uniqueNew = keywords.filter(k => !nlpKeywords.includes(k));
+        setNlpKeywords([...nlpKeywords, ...uniqueNew]);
+      }
+    } catch (e) {
+      console.error("Failed to generate NLP keywords", e);
+    } finally {
+      setIsGeneratingKeywords(false);
+    }
+  };
+
+  // Website Save/Clear handlers
+  const handleSaveUrl = () => {
+    if (websiteUrl) {
+      localStorage.setItem('brandWebsiteUrl', websiteUrl);
+      setUrlSavedSuccess(true);
+      setTimeout(() => setUrlSavedSuccess(false), 2000);
+    }
+  };
+
+  const handleClearUrl = () => {
+    setWebsiteUrl('');
+    localStorage.removeItem('brandWebsiteUrl');
+    setFoundLinks([]);
+    setContentOpportunities([]);
+    setSelectedLinkUrls(new Set());
+  };
+
+  // Internal Links Handlers
+  const handleScanLinks = async (forceRefresh = false) => {
+    if (!websiteUrl || !topic) return;
+
+    if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && !isWebScanProvider(researchProvider)) {
+      alert("⚠️ Web Scan Disabled\n\nDeepSeek requires a web scanning provider. Please select Tavily, TinyFish, or Auto as the Research Provider.");
+      return;
+    }
+
+    const cacheKey = `seo_scribe_link_cache_v3_${websiteUrl.trim().toLowerCase()}_${topic.trim().toLowerCase()}_${deepResearch}`;
+
+    if (!forceRefresh) {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed && (Array.isArray(parsed.links) || Array.isArray(parsed.opportunities))) {
+            setFoundLinks(parsed.links || []);
+            setContentOpportunities(parsed.opportunities || []);
+            setSelectedLinkUrls(new Set());
+            return;
+          }
+        } catch (e) {
+          localStorage.removeItem(cacheKey);
+        }
+      }
+    }
+
+    setIsScanningLinks(true);
+    setFoundLinks([]);
+    setContentOpportunities([]);
+    setSelectedLinkUrls(new Set());
+
+    try {
+      const resolvedProvider = resolveAutoProvider(researchProvider);
+      if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && resolvedProvider === SearchProvider.TINYFISH) {
+        const result = await scanForInternalLinksTinyFish(websiteUrl, topic);
+        setFoundLinks(result.links);
+        setContentOpportunities(result.opportunities);
+        try { localStorage.setItem(cacheKey, JSON.stringify(result)); } catch (e) {}
+      } else if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && resolvedProvider === SearchProvider.TAVILY) {
+        const result = await scanForInternalLinksTavily(websiteUrl, topic);
+        setFoundLinks(result.links);
+        setContentOpportunities(result.opportunities);
+        try { localStorage.setItem(cacheKey, JSON.stringify(result)); } catch (e) {}
+      } else {
+        const result = await scanForInternalLinks(websiteUrl, topic, primaryKeywords, deepResearch);
+        setFoundLinks(result.links);
+        setContentOpportunities(result.opportunities);
+        try { localStorage.setItem(cacheKey, JSON.stringify(result)); } catch (e) {}
+      }
+    } catch (e) {
+      console.error("Failed to scan links", e);
+    } finally {
+      setIsScanningLinks(false);
+    }
+  };
+
+  const parseLinksFromText = (text: string): InternalLink[] => {
+    const lines = text.split(/\r?\n/);
+    const parsedLinks: InternalLink[] = [];
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+
+      if (trimmed.includes(',')) {
+        const parts = trimmed.split(',');
+        const urlCandidate = parts[parts.length - 1].trim();
+        if (urlCandidate.startsWith('http')) {
+          const titleCandidate = parts.slice(0, parts.length - 1).join(',').trim();
+          parsedLinks.push({ title: titleCandidate || urlCandidate, url: urlCandidate });
+          return;
+        }
+      }
+
+      if (trimmed.includes(' - ')) {
+        const parts = trimmed.split(' - ');
+        const urlCandidate = parts[parts.length - 1].trim();
+        if (urlCandidate.startsWith('http')) {
+          const titleCandidate = parts.slice(0, parts.length - 1).join(' - ').trim();
+          parsedLinks.push({ title: titleCandidate || urlCandidate, url: urlCandidate });
+          return;
+        }
+      }
+
+      if (trimmed.startsWith('http')) {
+        parsedLinks.push({ title: trimmed, url: trimmed });
+        return;
+      }
+    });
+    return parsedLinks;
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) {
+        const links = parseLinksFromText(text);
+        if (links.length > 0) {
+          setFoundLinks(prev => {
+            const existingUrls = new Set(prev.map(l => l.url));
+            const newLinks = links.filter(l => !existingUrls.has(l.url));
+            return [...newLinks, ...prev];
+          });
+          setSelectedLinkUrls(prev => {
+            const newSet = new Set(prev);
+            links.forEach(l => newSet.add(l.url));
+            return newSet;
+          });
+          alert(`Successfully loaded ${links.length} links.`);
+        } else {
+          alert("No valid links found in file. Please ensure they start with http:// or https://");
+        }
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const handleManualLinksSubmit = () => {
+    if (!manualLinkInput.trim()) return;
+
+    const links = parseLinksFromText(manualLinkInput);
+    if (links.length > 0) {
+      setFoundLinks(prev => {
+        const existingUrls = new Set(prev.map(l => l.url));
+        const newLinks = links.filter(l => !existingUrls.has(l.url));
+        return [...newLinks, ...prev];
+      });
+      setSelectedLinkUrls(prev => {
+        const newSet = new Set(prev);
+        links.forEach(l => newSet.add(l.url));
+        return newSet;
+      });
+      setManualLinkInput('');
+      setIsManualLinkInputOpen(false);
+    }
+  };
+
+  const handleAutoLinkSelection = async () => {
+    if (!topic || foundLinks.length === 0) return;
+    setIsAutoSelecting(true);
+    try {
+      let selectedUrls: string[] = [];
+      if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA)) {
+        const { selectBestInternalLinksDeepSeek } = await import('../../services/deepseekService');
+        selectedUrls = await selectBestInternalLinksDeepSeek(topic, foundLinks);
+      } else {
+        const { selectBestInternalLinks } = await import('../../services/geminiService');
+        selectedUrls = await selectBestInternalLinks(topic, foundLinks);
+      }
+      if (selectedUrls.length > 0) {
+        setSelectedLinkUrls(new Set(selectedUrls));
+        const providerName = (provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) ? 'DeepSeek' : 'Gemini';
+        alert(`✨ ${providerName} selected ${selectedUrls.length} relevant links for you!`);
+      } else {
+        alert("AI couldn't find strongly relevant links. Default selection kept.");
+      }
+    } catch (e) {
+      console.error("Auto-select failed", e);
+      alert("Failed to auto-select links. Please try again.");
+    } finally {
+      setIsAutoSelecting(false);
+    }
+  };
+
+  const toggleLinkSelection = (url: string) => {
+    const newSelection = new Set(selectedLinkUrls);
+    if (newSelection.has(url)) newSelection.delete(url);
+    else newSelection.add(url);
+    setSelectedLinkUrls(newSelection);
+  };
+  const selectMostComplimenting = () => {
+    const newSelection = new Set<string>();
+    foundLinks.slice(0, 3).forEach(link => newSelection.add(link.url));
+    setSelectedLinkUrls(newSelection);
+  };
+  const selectAllLinks = () => {
+    const newSelection = new Set<string>();
+    foundLinks.forEach(link => newSelection.add(link.url));
+    setSelectedLinkUrls(newSelection);
+  };
+  const clearLinkSelection = () => setSelectedLinkUrls(new Set());
+
+  // External Links Handlers
+  const handleScanExternalLinks = async () => {
+    if (!topic) return;
+
+    if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && !isWebScanProvider(researchProvider)) {
+      alert("⚠️ Web Scan Disabled\n\nDeepSeek requires a web scanning provider. Please select Tavily, TinyFish, or Auto as the Research Provider.");
+      return;
+    }
+    setIsScanningExternal(true);
+    setFoundExternalLinks([]);
+    setSelectedExternalLinkUrls(new Set());
+    try {
+      let domainToExclude = '';
+      try { if (websiteUrl) domainToExclude = new URL(websiteUrl).hostname; } catch (e) { }
+
+      let links: any[] = [];
+      const resolvedProvider = resolveAutoProvider(researchProvider);
+      if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && resolvedProvider === SearchProvider.TINYFISH) {
+        links = await scanForExternalLinksTinyFish(topic, domainToExclude);
+      } else if ((provider === AIProvider.DEEPSEEK || provider === AIProvider.BYNARA) && resolvedProvider === SearchProvider.TAVILY) {
+        links = await scanForExternalLinksTavily(topic, domainToExclude);
+      } else {
+        links = await scanForExternalLinks(topic, domainToExclude);
+      }
+      setFoundExternalLinks(links);
+    } catch (e) {
+      console.error("Failed to scan external links", e);
+    } finally {
+      setIsScanningExternal(false);
+    }
+  };
+
+  const toggleExternalLinkSelection = (url: string) => {
+    const newSelection = new Set(selectedExternalLinkUrls);
+    if (newSelection.has(url)) newSelection.delete(url);
+    else {
+      if (newSelection.size >= 10) return;
+      newSelection.add(url);
+    }
+    setSelectedExternalLinkUrls(newSelection);
+  };
+
+  // Resource Upload
+  const handlePersonalResourcesUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== 'text/plain' && !file.name.endsWith('.txt')) {
+      alert("Please upload a .txt file only.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      if (text) {
+        setPersonalResources(text);
+        setPersonalFileName(file.name);
+        alert(`Successfully loaded context from ${file.name}`);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+  const clearPersonalResources = () => {
+    setPersonalResources('');
+    setPersonalFileName('');
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const internalLinks = foundLinks.filter(link => selectedLinkUrls.has(link.url));
+    const externalLinks = includeExternalLinks
+      ? foundExternalLinks.filter(link => selectedExternalLinkUrls.has(link.url))
+      : [];
+
+    onGenerate({
+      mode: 'single',
+      topic,
+      queueTopics: [],
+      autoOptimize: false,
+      imageCount,
+      imageModel,
+      imageStyle,
+      imageRatio,
+      wordCount,
+      type,
+      tone,
+      openingStyle: useCustomOpening ? openingStyle : OpeningStyle.NONE,
+      readability,
+      targetCountry,
+      humanizeContent,
+      primaryKeywords,
+      nlpKeywords,
+      includeFaq,
+      includeConclusion,
+      websiteUrl,
+      deepResearch,
+      realTimeData,
+      searchProvider: realTimeData ? realTimeSearchProvider : undefined,
+      internalLinks,
+      externalLinks,
+      enableExternalLinks: includeExternalLinks,
+      provider,
+      deepSeekModel,
+      bynaraModel,
+      researchProvider,
+      keywordAnalysisProvider,
+      includeBulletPoints,
+      includeTables,
+      includeItalics,
+      includeBold,
+      personalResources: personalResources || undefined
+    });
+  };
+
+  const isFormValid = !!topic;
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <AiProviderSection
+        provider={provider} onProviderChange={setProvider}
+        deepSeekModel={deepSeekModel} onDeepSeekModelChange={setDeepSeekModel}
+        bynaraModel={bynaraModel} onBynaraModelChange={setBynaraModel}
+        researchProvider={researchProvider} onResearchProviderChange={setResearchProvider}
+      />
+      <ImageSettingsSection
+        imageCount={imageCount} onImageCountChange={setImageCount}
+        imageModel={imageModel} onImageModelChange={setImageModel}
+        imageStyle={imageStyle} onImageStyleChange={setImageStyle}
+        imageRatio={imageRatio} onImageRatioChange={setImageRatio}
+      />
+
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h2 className="text-lg font-semibold text-slate-800 flex items-center mb-4">
+          <Settings2 className="w-5 h-5 mr-2 text-blue-600" />
+          Core Settings
+        </h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Article Topic</label>
+            <input
+              type="text"
+              required
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              placeholder="e.g. The Future of Sustainable Farming"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-sm"
+            />
+          </div>
+          
+          <BrandWebsiteSection
+            websiteUrl={websiteUrl}
+            onWebsiteUrlChange={setWebsiteUrl}
+            urlSavedSuccess={urlSavedSuccess}
+            onSave={handleSaveUrl}
+            onClear={handleClearUrl}
+          />
+
+          <ResearchTogglesSection
+            deepResearch={deepResearch}
+            onDeepResearchChange={setDeepResearch}
+            realTimeData={realTimeData}
+            onRealTimeDataChange={setRealTimeData}
+            realTimeSearchProvider={realTimeSearchProvider}
+            onRealTimeSearchProviderChange={setRealTimeSearchProvider}
+            provider={provider}
+          />
+          <FormattingSection
+            includeBulletPoints={includeBulletPoints}
+            onBulletPointsChange={setIncludeBulletPoints}
+            includeTables={includeTables}
+            onTablesChange={setIncludeTables}
+            includeBold={includeBold}
+            onBoldChange={setIncludeBold}
+            includeItalics={includeItalics}
+            onItalicsChange={setIncludeItalics}
+          />
+          
+          <ContentSettingsSection
+            type={type}
+            onTypeChange={setType}
+            tone={tone}
+            onToneChange={setTone}
+            targetCountry={targetCountry}
+            onTargetCountryChange={setTargetCountry}
+            wordCount={wordCount}
+            onWordCountChange={setWordCount}
+          />
+        </div>
+      </div>
+
+      <StyleSection
+        readability={readability}
+        onReadabilityChange={setReadability}
+        humanizeContent={humanizeContent}
+        onHumanizeChange={setHumanizeContent}
+        useCustomOpening={useCustomOpening}
+        onUseCustomOpeningChange={setUseCustomOpening}
+        openingStyle={openingStyle}
+        onOpeningStyleChange={setOpeningStyle}
+        includeFaq={includeFaq}
+        onIncludeFaqChange={setIncludeFaq}
+        includeConclusion={includeConclusion}
+        onIncludeConclusionChange={setIncludeConclusion}
+      />
+
+      <ResourcesSection
+        personalFileName={personalFileName}
+        onFileUpload={handlePersonalResourcesUpload}
+        onClear={clearPersonalResources}
+        personalResources={personalResources}
+      />
+
+      {/* SEO Strategy Section */}
+      <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold text-slate-800 flex items-center">
+            <Target className="w-5 h-5 mr-2 text-blue-600" />
+            SEO Strategy
+          </h2>
+          <button
+            type="button"
+            onClick={handleGenerateFullStrategy}
+            disabled={isGeneratingFullStrategy || !topic}
+            className="text-xs flex items-center bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-3 py-1.5 rounded-full hover:shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isGeneratingFullStrategy ? (
+              <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+            ) : (
+              <Zap className="w-3.5 h-3.5 mr-1.5 fill-white" />
+            )}
+            {isGeneratingFullStrategy ? 'Generating Strategy...' : 'Generate Full Strategy'}
+          </button>
+        </div>
+
+        <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+          <label className="block text-xs font-semibold text-slate-700 uppercase mb-2">Keyword Analysis Provider</label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setKeywordAnalysisProvider(SearchProvider.GEMINI)}
+              className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${keywordAnalysisProvider === SearchProvider.GEMINI ? 'bg-blue-50 border-blue-300 text-blue-700 font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            >
+              <Zap className="w-3 h-3 mr-1.5" /> Google Gemini
+            </button>
+            <button
+              type="button"
+              onClick={() => setKeywordAnalysisProvider(SearchProvider.TAVILY)}
+              className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${keywordAnalysisProvider === SearchProvider.TAVILY ? 'bg-emerald-50 border-emerald-300 text-emerald-700 font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+            >
+              <Search className="w-3 h-3 mr-1.5" /> Tavily (DeepSeek)
+            </button>
+          </div>
+          {keywordAnalysisProvider === SearchProvider.TAVILY && (
+            <div className="mt-3">
+              <label className="block text-xs font-semibold text-slate-700 uppercase mb-1.5">Keyword Analysis Model</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button type="button" onClick={() => setKeywordAnalysisModel(DeepSeekModel.V3_NON_THINKING)} className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${keywordAnalysisModel === DeepSeekModel.V3_NON_THINKING ? 'bg-cyan-50 border-cyan-300 text-cyan-700 font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Zap className="w-3 h-3 mr-1.5" />v4-flash (Fast)</button>
+                <button type="button" onClick={() => setKeywordAnalysisModel(DeepSeekModel.V3_THINKING)} className={`text-xs py-2 px-2 rounded border flex items-center justify-center ${keywordAnalysisModel === DeepSeekModel.V3_THINKING ? 'bg-orange-50 border-orange-300 text-orange-700 font-bold' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}><Cpu className="w-3 h-3 mr-1.5" />v4-pro (Accurate)</button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium text-slate-700">Primary Keywords</label>
+              <button type="button" onClick={handleGeneratePrimary} disabled={!isFormValid || isGeneratingPrimary} className="text-xs flex items-center text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50 transition-colors">
+                {isGeneratingPrimary ? <span className="animate-pulse">Analyzing...</span> : <><Search className="w-3 h-3 mr-1" />{keywordAnalysisProvider === SearchProvider.TAVILY ? "Analyze via DeepSeek" : "Analyze via Gemini"}</>}
+              </button>
+            </div>
+            <div className="flex space-x-2 mb-2">
+              <input type="text" value={primaryKeywordInput} onChange={(e) => setPrimaryKeywordInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addPrimaryKeyword())} placeholder="Type and press Enter" className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm" />
+              <button type="button" onClick={addPrimaryKeyword} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"><Plus className="w-5 h-5" /></button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {primaryKeywords.map((kw, idx) => (
+                <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                  {kw} <button type="button" onClick={() => removePrimaryKeyword(kw)} className="ml-1.5 hover:text-blue-900"><X className="w-3 h-3" /></button>
+                </span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <label className="block text-sm font-medium text-slate-700">NLP & LSI Keywords</label>
+              <button type="button" onClick={handleGenerateNLP} disabled={!isFormValid || isGeneratingKeywords} className="text-xs flex items-center text-purple-600 hover:text-purple-700 font-medium disabled:opacity-50 transition-colors">
+                {isGeneratingKeywords ? <span className="animate-pulse">Analyzing...</span> : <><Wand2 className="w-3 h-3 mr-1" />{keywordAnalysisProvider === SearchProvider.TAVILY ? "Generate via DeepSeek" : "Generate via Gemini"}</>}
+              </button>
+            </div>
+            <div className="min-h-[80px] p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              {nlpKeywords.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-2">{!isFormValid ? "Enter a topic to generate NLP keywords" : "Click Auto-Generate to fetch semantic keywords"}</p>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {nlpKeywords.map((kw, idx) => (
+                    <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-purple-50 text-purple-700 border border-purple-100">
+                      {kw} <button type="button" onClick={() => removeNlpKeyword(kw)} className="ml-1.5 hover:text-purple-900"><X className="w-3 h-3" /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Internal Linking Section */}
+      <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+        <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+          <h3 className="text-sm font-semibold text-slate-800 flex items-center">
+            <LinkIcon className="w-4 h-4 mr-2 text-blue-600" /> Internal Linking Strategy
+          </h3>
+        </div>
+        <div className="p-4 bg-white">
+          <div className="mb-4 flex flex-wrap gap-2 justify-end">
+            <label className="cursor-pointer inline-flex items-center px-3 py-1.5 border border-slate-300 shadow-sm text-xs font-medium rounded text-slate-700 bg-white hover:bg-slate-50">
+              <Upload className="w-3.5 h-3.5 mr-2 text-slate-500" /> Upload .txt
+              <input type="file" accept=".txt,.csv" className="hidden" onChange={handleFileUpload} />
+            </label>
+            <button type="button" onClick={() => setIsManualLinkInputOpen(!isManualLinkInputOpen)} className={`inline-flex items-center px-3 py-1.5 border shadow-sm text-xs font-medium rounded ${isManualLinkInputOpen ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'border-slate-300 text-slate-700 bg-white hover:bg-slate-50'}`}>
+              <ClipboardList className={`w-3.5 h-3.5 mr-2 ${isManualLinkInputOpen ? 'text-indigo-500' : 'text-slate-500'}`} /> Paste Links
+            </button>
+          </div>
+          {isManualLinkInputOpen && (
+            <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <label className="block text-xs font-medium text-slate-700 mb-1">Paste Links (One per line)</label>
+              <textarea value={manualLinkInput} onChange={(e) => setManualLinkInput(e.target.value)} placeholder="https://example.com/page-1&#10;Page Title, https://example.com/page-2" rows={4} className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none text-xs mb-2" />
+              <div className="flex justify-end space-x-2">
+                <button type="button" onClick={() => setIsManualLinkInputOpen(false)} className="px-3 py-1.5 text-xs text-slate-600 font-medium">Cancel</button>
+                <button type="button" onClick={handleManualLinksSubmit} disabled={!manualLinkInput.trim()} className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded hover:bg-indigo-700 disabled:opacity-50">Add Links</button>
+              </div>
+            </div>
+          )}
+          {!websiteUrl && foundLinks.length === 0 ? (
+            <div className="text-center py-4"><p className="text-slate-400 text-sm mb-3">Enter a Brand Website above OR upload links manually.</p></div>
+          ) : (
+            <div className="space-y-4">
+              {websiteUrl && foundLinks.length === 0 && contentOpportunities.length === 0 ? (
+                <button type="button" onClick={() => handleScanLinks(false)} disabled={isScanningLinks || !topic} className="w-full py-2 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium flex items-center justify-center disabled:opacity-50">
+                  {isScanningLinks ? <><div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-2" /> Scanning...</> : <><Search className="w-4 h-4 mr-2" /> Scan for Internal Links{deepResearch && <span className="ml-1 text-xs text-indigo-600 font-bold">(Deep)</span>}</>}
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex space-x-2">
+                    <button type="button" onClick={handleAutoLinkSelection} disabled={isAutoSelecting} className="flex-1 py-1.5 px-3 rounded text-xs font-medium bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100">
+                      {isAutoSelecting ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5 mr-1.5" />} Auto-Select
+                    </button>
+                    <button type="button" onClick={selectMostComplimenting} disabled={foundLinks.length === 0} className="py-1.5 px-3 bg-blue-50 text-blue-700 text-xs font-medium rounded hover:bg-blue-100 disabled:opacity-50">Top 3</button>
+                    <button type="button" onClick={selectAllLinks} disabled={foundLinks.length === 0} className="py-1.5 px-3 bg-slate-100 text-slate-700 text-xs font-medium rounded hover:bg-slate-200 disabled:opacity-50">All</button>
+                    <button type="button" onClick={() => handleScanLinks(true)} disabled={isScanningLinks} className="py-1.5 px-3 bg-slate-100 text-slate-600 text-xs font-medium rounded hover:bg-slate-200"><RefreshCw className={`w-3.5 h-3.5 ${isScanningLinks ? 'animate-spin' : ''}`} /></button>
+                  </div>
+                  {foundLinks.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center text-xs font-semibold text-green-700"><Check className="w-3.5 h-3.5 mr-1" /> Verified Existing Pages ({foundLinks.length})</div>
+                      <div className="max-h-48 overflow-y-auto border border-green-100 bg-green-50/20 rounded-lg divide-y divide-green-50">
+                        {foundLinks.map((link, idx) => (
+                          <div key={idx} onClick={() => toggleLinkSelection(link.url)} className={`p-3 flex items-start space-x-3 cursor-pointer ${selectedLinkUrls.has(link.url) ? 'bg-blue-50/50' : 'hover:bg-slate-50'}`}>
+                            <div className="mt-0.5">{selectedLinkUrls.has(link.url) ? <CheckSquare className="w-4 h-4 text-blue-600" /> : <Square className="w-4 h-4 text-slate-300" />}</div>
+                            <div className="flex-1 min-w-0">
+                              <p className={`text-sm font-medium truncate ${selectedLinkUrls.has(link.url) ? 'text-blue-700' : 'text-slate-700'}`}>{link.title}</p>
+                              <a href={link.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-slate-400 hover:text-blue-500 flex items-center mt-0.5 truncate">{link.url} <ExternalLinkIcon className="w-3 h-3 ml-1 inline" /></a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-xs text-slate-500 text-right">{selectedLinkUrls.size} links selected</p>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-slate-50 border border-slate-100 rounded text-xs text-slate-500 text-center">No direct existing links found for this topic.</div>
+                  )}
+                  {contentOpportunities.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-slate-100 space-y-2">
+                      <div className="flex items-center text-xs font-semibold text-amber-700"><AlertTriangle className="w-3.5 h-3.5 mr-1" /> Content Gap Analysis ({contentOpportunities.length})</div>
+                      <div className="max-h-40 overflow-y-auto border border-amber-100 bg-amber-50/30 rounded-lg">
+                        {contentOpportunities.map((op, idx) => (
+                          <div key={idx} className="p-3 border-b border-amber-50 last:border-0 hover:bg-amber-50/50">
+                            <div className="flex items-start">
+                              <FilePlus className="w-4 h-4 text-amber-400 mt-0.5 mr-2 shrink-0" />
+                              <div><p className="text-sm font-medium text-slate-800">{op.topic}</p><p className="text-xs text-slate-500 mt-0.5">{op.reason}</p></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* External Linking Section */}
+      <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
+        <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+          <div className="flex items-center"><ExternalLinkIcon className="w-4 h-4 mr-2 text-indigo-600" /><h3 className="text-sm font-semibold text-slate-800">External Linking Strategy</h3></div>
+          <label className="flex items-center cursor-pointer">
+            <input type="checkbox" checked={includeExternalLinks} onChange={(e) => setIncludeExternalLinks(e.target.checked)} className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500" />
+            <span className="ml-2 text-xs font-medium text-slate-600">Enable</span>
+          </label>
+        </div>
+        {includeExternalLinks && (
+          <div className="p-4 bg-white">
+            <div className="space-y-3">
+              <p className="text-xs text-slate-500">Find authoritative external sources to boost credibility. Select up to 10 links.</p>
+              {foundExternalLinks.length === 0 ? (
+                <button type="button" onClick={handleScanExternalLinks} disabled={isScanningExternal || !topic} className="w-full py-2 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg text-sm font-medium flex items-center justify-center disabled:opacity-50">
+                  {isScanningExternal ? <><div className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin mr-2" /> Finding...</> : <><Globe className="w-4 h-4 mr-2" /> Find External Sources</>}
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500 text-xs">{selectedExternalLinkUrls.size} selected</span>
+                    <div className="flex space-x-2">
+                      <button type="button" onClick={handleAutoLinkSelection} disabled={isAutoSelecting} className="text-xs px-2 py-1 rounded bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center">
+                        {isAutoSelecting ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />} Auto-Select (AI)
+                      </button>
+                      <button type="button" onClick={selectMostComplimenting} className="text-xs text-blue-600 hover:underline">Top 3</button>
+                      <button type="button" onClick={selectAllLinks} className="text-xs text-blue-600 hover:underline">All</button>
+                      <button type="button" onClick={clearLinkSelection} className="text-xs text-slate-400 hover:underline">None</button>
+                    </div>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto border border-slate-100 rounded-lg divide-y divide-slate-100">
+                    {foundExternalLinks.map((link, idx) => (
+                      <div key={idx} onClick={() => toggleExternalLinkSelection(link.url)} className={`p-3 flex items-start space-x-3 cursor-pointer ${selectedExternalLinkUrls.has(link.url) ? 'bg-indigo-50/50' : 'hover:bg-slate-50'}`}>
+                        <div className="mt-0.5">{selectedExternalLinkUrls.has(link.url) ? <CheckSquare className="w-4 h-4 text-indigo-600" /> : <Square className="w-4 h-4 text-slate-300" />}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate ${selectedExternalLinkUrls.has(link.url) ? 'text-indigo-700' : 'text-slate-700'}`}>{link.title}</p>
+                          <a href={link.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-slate-400 hover:text-indigo-500 flex items-center mt-0.5 truncate">{link.url} <ExternalLinkIcon className="w-3 h-3 ml-1 inline" /></a>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <button
+        type="submit"
+        disabled={isGenerating || !isFormValid}
+        className={`w-full py-4 px-6 rounded-xl text-white font-medium text-lg flex items-center justify-center transition-all ${isGenerating || !isFormValid
+          ? 'bg-slate-400 cursor-not-allowed'
+          : 'bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-blue-500/25'
+        }`}
+      >
+        {isGenerating ? (
+          <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3" /> Generating Content...</>
+        ) : (
+          <>Generate SEO Article <Wand2 className="w-5 h-5 ml-2" /></>
+        )}
+      </button>
+    </form>
+  );
+};
