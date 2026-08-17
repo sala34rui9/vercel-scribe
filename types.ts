@@ -61,22 +61,17 @@ export enum DeepSeekModel {
 }
 
 export enum BynaraModel {
+  AGNES_2_0_FLASH = "agnes-2.0-flash",
+  AGNES_2_5_FLASH = "agnes-2.5-flash",
+  DEEPSEEK_V4_FLASH_FREE = "deepseek-v4-flash-free",
+  LAGUNA_S_2_1 = "laguna-s-2.1",
+  LING_3_0_FLASH_FREE = "ling-3.0-flash-free",
+  MIMO_V2_5_FREE = "mimo-v2.5-free",
   MISTRAL_LARGE = "mistral-large",
-  DEEPSEEK_V4_FLASH = "deepseek-v4-flash",
-  DEEPSEEK_V4_PRO = "deepseek-v4-pro",
-  DEEPSEEK_V4_FLASH_ALIBABA = "deepseek-v4-flash-alibaba",
-  DEEPSEEK_V4_PRO_ALIBABA = "deepseek-v4-pro-alibaba",
-  CLAUDE_SONNET_5 = "claude-sonnet-5",
-  CLAUDE_OPUS_4_7 = "claude-opus-4.7",
-  GPT_5_4 = "gpt-5.4",
-  GPT_5_5 = "gpt-5.5",
-  GROK_4_5 = "grok-4.5",
-  KIMI_K3 = "kimi-k3",
-  GLM_5_2 = "glm-5.2",
-  QWEN3_7_MAX = "qwen3.7-max",
-  MIXTRAL_MEDIUM_3_5 = "mistral-medium-3-5",
-  MIMAX_M3 = "minimax-m3",
-  AGNES_2_5_FLASH = "agnes-2.5-flash"
+  MISTRAL_MEDIUM_3_5 = "mistral-medium-3-5",
+  QWEN_3_8_MAX_FREE = "qwen-3.8-max-free",
+  STEPFUN_3_7_FLASH = "stepfun-3.7-flash",
+  TENCENT_HY3_FREE = "tencent-hy3-free"
 }
 
 export enum SearchProvider {
