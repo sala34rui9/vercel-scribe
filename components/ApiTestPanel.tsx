@@ -216,7 +216,8 @@ export const ApiTestPanel: React.FC = () => {
             throw Object.assign(new Error(error.message || 'Cloudflare image generation failed'), { statusCode: 500 });
           }
           if (data && (data as any).error) {
-            throw Object.assign(new Error((data as any).error.message || 'Cloudflare returned error'), { statusCode: 500 });
+            const errStr = typeof (data as any).error === 'string' ? (data as any).error : (data as any).error.message;
+            throw Object.assign(new Error(errStr || 'Cloudflare returned error'), { statusCode: 500, responseBody: JSON.stringify(data) });
           }
         },
       },
