@@ -200,24 +200,35 @@ export const ApiTestPanel: React.FC = () => {
         id: 'cloudflare',
         name: 'Cloudflare Images',
         category: 'AI Providers',
-        requiredKeys: ['user_cloudflare_api_url', 'user_cloudflare_api_token'],
+        requiredKeys: [], // No longer requires keys by default!
         runInBatch: true,
         test: async () => {
-          const accountId = getKeyValue('user_cloudflare_api_url');
+          const customUrl = getKeyValue('user_cloudflare_api_url');
           const token = getKeyValue('user_cloudflare_api_token');
-          if (!accountId || !token) throw Object.assign(new Error('Cloudflare Account ID or API Token missing'), { statusCode: null });
-          let cleanAccountId = accountId;
-          const match = accountId.match(/\/accounts\/([^/]+)/);
-          if (match) cleanAccountId = match[1];
-          const { data, error } = await supabase.functions.invoke('generate-image', {
-            body: { accountId: cleanAccountId, apiToken: token, modelId: '@cf/black-forest-labs/flux-1-schnell', requestBody: { prompt: 'A simple test image', num_steps: 4 } },
+          const url = (customUrl && customUrl.startsWith('http')) 
+            ? customUrl 
+            : 'https://free-image-generation.salaxaert.workers.dev';
+
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json'
+          };
+          if (token) headers['Authorization'] = token;
+
+          const res = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ prompt: 'A simple test image', size: '1024x1024' }),
+            signal: AbortSignal.timeout(TIMEOUT_MS),
           });
-          if (error) {
-            throw Object.assign(new Error(error.message || 'Cloudflare image generation failed'), { statusCode: 500 });
+
+          if (!res.ok) {
+            const body = await res.text();
+            throw Object.assign(new Error(`Cloudflare Worker returned ${res.status}: ${body.slice(0, 200)}`), { statusCode: res.status, responseBody: body });
           }
-          if (data && (data as any).error) {
-            const errStr = typeof (data as any).error === 'string' ? (data as any).error : (data as any).error.message;
-            throw Object.assign(new Error(errStr || 'Cloudflare returned error'), { statusCode: 500, responseBody: JSON.stringify(data) });
+          
+          const data = await res.json();
+          if (data.error) {
+             throw Object.assign(new Error(`Cloudflare API Error: ${data.error}`), { statusCode: 500, responseBody: JSON.stringify(data) });
           }
         },
       },
@@ -487,6 +498,12 @@ export const ApiTestPanel: React.FC = () => {
       else if (def.id === 'tavily') requestUrl = 'https://api.tavily.com/search';
       else if (def.id === 'tinyfish-search') { requestUrl = 'https://api.search.tinyfish.ai/v1/search?query=test&limit=1'; requestMethod = 'GET'; }
       else if (def.id === 'tinyfish-fetch') requestUrl = 'https://api.fetch.tinyfish.ai/v1/fetch';
+      else if (def.id === 'cloudflare') {
+        const customUrl = getKeyValue('user_cloudflare_api_url');
+        requestUrl = (customUrl && customUrl.startsWith('http')) 
+          ? customUrl 
+          : 'https://free-image-generation.salaxaert.workers.dev';
+      }
       else requestUrl = `supabase.functions.invoke('${def.id}')`;
 
       try {

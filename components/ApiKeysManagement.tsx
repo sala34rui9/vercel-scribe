@@ -17,8 +17,8 @@ const API_KEYS: ApiKeyEntry[] = [
   { key: 'user_tinyfish_api_key', label: 'TinyFish', icon: <Fish className="w-4 h-4 text-cyan-500" />, placeholder: 'tfk-...', description: 'TinyFish web research provider' },
   { key: 'user_tinyfish_fetch_api_key', label: 'TinyFish Fetch', icon: <Fish className="w-4 h-4 text-cyan-600" />, placeholder: 'tff-...', description: 'Advanced RAG integration' },
   { key: 'user_se_ranking_api_key', label: 'SE Ranking', icon: <BarChart3 className="w-4 h-4 text-amber-500" />, placeholder: 'Your API key...', description: 'Keyword gap analysis & lost keyword recovery' },
-  { key: 'user_cloudflare_api_url', label: 'Cloudflare Account ID', icon: <Globe className="w-4 h-4 text-orange-500" />, placeholder: 'e.g. 9a78...', description: 'Cloudflare Workers AI account ID' },
-  { key: 'user_cloudflare_api_token', label: 'Cloudflare API Token', icon: <Globe className="w-4 h-4 text-orange-600" />, placeholder: 'Your secret API token...', description: 'Bearer token for Cloudflare Workers AI' },
+  { key: 'user_cloudflare_api_url', label: 'Cloudflare Worker URL (Optional)', icon: <Globe className="w-4 h-4 text-orange-500" />, placeholder: 'https://free-image-generation...', description: 'Custom Image Worker URL (Leave blank to use default)' },
+  { key: 'user_cloudflare_api_token', label: 'Cloudflare API Token (Optional)', icon: <Globe className="w-4 h-4 text-orange-600" />, placeholder: 'Your secret API token...', description: 'Only needed if your custom worker requires a Bearer token' },
 ];
 
 const maskKey = (value: string): string => {
